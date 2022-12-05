@@ -8,11 +8,16 @@ The main goal is to have more time to **Pwn** and less time to **Doc** by mutual
 PwnDoc was originaly manage by its creator. After months of absence, an increase of issues and pending pull requests, we decided to open this maintained fork.
 
 This fork includes pending PR such as:
+- Fix build error due to Node version
+- Fix LFI/RCE vulnerability
 - New filters code from @WhiteWinterWolf
+- Reviewer variable
 - Remediation complexity color by @Syzik
-- 
+- Mongo-data volume from @noraj
+- Minor bumps
 
 ## Documentation
+
 - [Installation](https://pwndoc.github.io/pwndoc/#/installation)
 - [Data](https://pwndoc.github.io/pwndoc/#/data)
 - [Vulnerabilities](https://pwndoc.github.io/pwndoc/#/vulnerabilities)
