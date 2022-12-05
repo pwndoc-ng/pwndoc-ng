@@ -1,0 +1,42 @@
+version: '3'
+services:
+
+  mongodb:
+    image: mongo:4.2.15
+    container_name: mongo-pwndoc-dev
+    volumes:
+      - ./mongo-data-dev:/data/db
+    restart: always
+    ports:
+      - 127.0.0.1:27017:27017
+    environment:
+      - MONGO_DB:pwndoc
+    networks:
+      - backend
+
+  pwndoc-backend:
+    build: 
+      context: .
+      dockerfile:  Dockerfile.dev
+    image: yeln4ts/pwndoc:backend-dev
+    container_name: pwndoc-backend-dev
+    volumes:
+      - ./src:/app/src
+      - ./ssl:/app/ssl
+      - ./report-templates:/app/report-templates
+    depends_on:
+      - mongodb
+    restart: always
+    ports:
+      - 5252:5252
+    links:
+      - mongodb
+    networks: 
+      - backend
+
+volumes:
+  mongo-data-dev:
+
+networks:
+  backend:
+    driver: bridge
