@@ -109,6 +109,20 @@ exports.generateDoc = generateDoc;
 
 // *** Angular parser filters ***
 
+// Keep only first finding with a given title
+expressions.filters.uniqFindings = function (findings) {
+    if (!findings) return findings;
+    titles = [];
+    filtered_findings = [];
+    findings.forEach(function (f) {
+        if (!(titles.includes(f.title))){
+            titles.push(f.title);
+            filtered_findings.push(f);
+        }
+    });
+    return filtered_findings;
+};
+
 // Creates a text block or simple location bookmark:
 // - Text block: {@name | bookmarkCreate: identifier | p}
 // - Location: {@identifier | bookmarkCreate | p}
