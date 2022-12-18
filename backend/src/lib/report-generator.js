@@ -112,10 +112,12 @@ exports.generateDoc = generateDoc;
 // Creates a text block or simple location bookmark:
 // - Text block: {@name | bookmarkCreate: identifier | p}
 // - Location: {@identifier | bookmarkCreate | p}
-// Invalid identifier characters are replaced by underscores.
+// Identifiers are sanitized as follow:
+// - Invalid characters replaced by underscores.
+// - Identifiers longer than 40 chars are truncated (MS-Word limitation).
 expressions.filters.bookmarkCreate = function(input, refid = null) {
     let rand_id = Math.floor(Math.random() * 1000000 + 1000);
-    let parsed_id = (refid ? refid : input).replace(/[^a-zA-Z0-9_]/g, '_');
+    let parsed_id = (refid ? refid : input).replace(/[^a-zA-Z0-9_]/g, '_').substring(0,40);
 
     // Accept both text and OO-XML as input.
     if (input.indexOf('<w:r') !== 0) {
@@ -124,13 +126,17 @@ expressions.filters.bookmarkCreate = function(input, refid = null) {
 
     return '<w:bookmarkStart w:id="' + rand_id + '" '
         + 'w:name="' + parsed_id + '"/>'
-        + input
+        + (refid ? input : '')
         + '<w:bookmarkEnd w:id="' + rand_id + '"/>';
 }
 
 // Creates a hyperlink to a text block or location bookmark:
 // {@input | bookmarkLink: identifier | p}
+// Identifiers are sanitized as follow:
+// - Invalid characters replaced by underscores.
+// - Identifiers longer than 40 chars are truncated (MS-Word limitation).
 expressions.filters.bookmarkLink = function(input, identifier) {
+    identifier = identifier.replace(/[^a-zA-Z0-9_]/g, '_').substring(0,40);
     return '<w:hyperlink w:anchor="' + identifier + '">'
         + '<w:r><w:rPr><w:rStyle w:val="Hyperlink"/></w:rPr>'
         + '<w:t>' + input + '</w:t>'
@@ -138,10 +144,12 @@ expressions.filters.bookmarkLink = function(input, identifier) {
 }
 
 // Creates a clickable dynamic field referencing a text block bookmark:
-// {@identifier | bookmarkRef | p}
+// Identifiers are sanitized as follow:
+// - Invalid characters replaced by underscores.
+// - Identifiers longer than 40 chars are truncated (MS-Word limitation).
 expressions.filters.bookmarkRef = function(input) {
     return '<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve">'
-        + ' REF ' + input.replaceAll('-', '_') + ' \\h </w:instrText></w:r>'
+        + ' REF ' + input.replace(/[^a-zA-Z0-9_]/g, '_').substring(0,40) + ' \\h </w:instrText></w:r>'
         + '<w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>'
         + input + '</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>';
 }
@@ -244,7 +252,7 @@ expressions.filters.initials = function(input) {
     return input.replace(/(\w)\w+/gi,"$1.");
 }
 
-// Returns a string which is a concatenation of input elements using an optional separator string: {scope | join: ', '}
+// Returns a string which is a concatenation of input elements using an optional separator string: {references | join: ', '}
 // Can also be used to build raw OOXML strings.
 expressions.filters.join = function(input, sep = '') {
     if (!input || input == "undefined") return input;
