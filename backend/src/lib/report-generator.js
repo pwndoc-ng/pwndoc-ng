@@ -254,10 +254,12 @@ expressions.filters.fromTo = function(start, end, locale) {
 // Group input elements by an attribute: {#findings | groupBy: 'severity'}{title}{/findings | groupBy: 'severity'}
 // Source: https://stackoverflow.com/a/34890276
 expressions.filters.groupBy = function(input, key) {
-    return input.reduce(function(rv, x) {
-        (rv[x[key]] = rv[x[key]] || []).push(x);
-        return rv;
-    }, {});
+    return expressions.filters.loopObject(
+        input.reduce(function(rv, x) {
+            (rv[x[key]] = rv[x[key]] || []).push(x);
+            return rv;
+        }, {})
+    );
 }
 
 // Returns the initials from an input string (typically a firstname): {creator.firstname | initials}
@@ -300,7 +302,7 @@ expressions.filters.linkTo = function(input, url) {
         + '</w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>';
 }
 
-// Loop over the input object, providing acccess to its keys and values: {#findings | loopObject}{key}{value.name}{/findings | loopObject}
+// Loop over the input object, providing acccess to its keys and values: {#findings | loopObject}{key}{value.title}{/findings | loopObject}
 // Source: https://stackoverflow.com/a/60887987
 expressions.filters.loopObject = function(input) {
     return Object.keys(input).map(function(key) {
@@ -321,7 +323,7 @@ expressions.filters.mailto = function(input, address = null) {
     return expressions.filters.linkTo(input, 'mailto:' + (address ? address : input));
 }
 
-// Applies a filter on a sequence of objects: {scope | select: 'name' | map: lower | join: ', '}
+// Applies a filter on a sequence of objects: {scope | select: 'name' | map: 'lower' | join: ', '}
 expressions.filters.map = function(input, filter) {
     let args = Array.prototype.slice.call(arguments, 2);
     return input.map(x => expressions.filters[filter](x, ...args));
@@ -362,6 +364,11 @@ expressions.filters.p = function(input, style = null) {
 // Reverses the input array: {input | reverse}
 expressions.filters.reverse = function(input) {
     return input.reverse();
+}
+
+// Add proper XML tags to embed raw string inside a docxtemplater raw expression: {@('Vulnerability: ' | s) + title | bookmarkCreate: identifier | p}
+expressions.filters.s = function(input) {
+    return '<w:r><w:t xml:space="preserve">' + input + '</w:t></w:r>';
 }
 
 // Looks up an attribute from a sequence of objects, doted notation is supported: {findings | select: 'cvss.environmentalSeverity'}

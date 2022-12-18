@@ -407,34 +407,39 @@ Default value: returns input if it is truthy, otherwise its parameter.
 
 Display *"From ... to ..."* dates nicely, removing redundant information when the start and end dates occur during the same month or year.
 
+The resulting text can be typically used in a table summarizing the audit, audit perimeters or audits campaign properties, or inside a text paragraph such as a management summary.
+
 To internationalize or customize the resulting string, associate the desired output to the strings `"from {0} to {1}"` and `"on {0}"` in your Pwndoc translate file.
 Date formating relies on the locale name provided as second parameter.
 
 
 > Use in template document
 >```
-{date_start | fromTo: date_end:'en' | capfirst}
+{date_start | fromTo: date_end:'en-UK' | capfirst}
+// Output varies automatically depending on the start and end dates:
+// - Same day        -> On 28/11/2022
+// - Same month      -> From 28 to 30/11/2022
+// - Same year       -> From 28/11 to 02/12/2022
+// - Different years -> From 28/11/2022 to 06/01/2023
 >```
 
 ### groupBy
 
 Group input elements by an attribute.
 
-The returned values is a dictionary where:
+The elements are returned as an objects set where:
 
-- The key is the common attribute value,
-- The value is the set of items from the input structure sharing this same value for this attribute.
-
-Pipe this into `loopObject` to iterate through a key/value sets.
+- The 'key' property is the common attribute value,
+- The 'value' property is the set of items from the input structure sharing this same value for this attribute.
 
 > Use in template document
 >```
-{#findings | groupBy: 'severity' | loopObject}
+{#findings | groupBy: 'severity'}
 Severity: {key}
 {#value}
 Title: {title}
 {/value}
-{/findings | groupBy: 'severity' | loopObject}
+{/findings | groupBy: 'severity'}
 >```
 
 ### initials
@@ -496,12 +501,9 @@ Loop over the input object, providing access to its keys and values.
 
 > Use in template document
 >```
-{#findings | groupBy: 'severity' | loopObject}
-Severity: {key}
-{#value}
-Title: {title}
-{/value}
-{/findings | groupBy: 'severity' | loopObject}
+{#findings | loopObject}
+{key}: {value.title}
+{/findings | loopObject}
 >```
 
 ### lower
@@ -552,6 +554,16 @@ Reverses the input array order.
 > Use in template document
 >```
 {input | reverse}
+>```
+
+### s
+
+Add proper XML tags to embed raw string inside a docxtemplater raw expression.
+
+> Use in template document
+>```
+// Example creating a text block bookmark containing the vulnerability title prefixed by the static string "Vulnerability: ":
+{@('Vulnerability: ' | s) + title | bookmarkCreate: identifier | p}
 >```
 
 ### select
