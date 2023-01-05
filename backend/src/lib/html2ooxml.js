@@ -12,7 +12,10 @@ function html2ooxml(html, style = "") {
   var cParagraphProperties = {};
   var list_state = [];
   var inCodeBlock = false;
-  var table = false;
+  var inTable = false;
+  var inTableRow = false;
+  var tmpTable = [];
+  var tmpCells = [];
   var parser = new htmlparser.Parser(
     {
       onopentag(tag, attribs) {
@@ -29,46 +32,13 @@ function html2ooxml(html, style = "") {
         } else if (tag === "h6") {
           cParagraph = new docx.Paragraph({ heading: "Heading6" });
         } else if (tag === "div" || tag === "p") {
-          if (style && typeof style === "string")
-            cParagraphProperties.style = style;
-          else if (table) {
-            cParagraphProperties.border = {
-              top: {
-                color: "auto",
-                space: 1,
-                style: "single",
-                size: 6,
-              },
-              bottom: {
-                color: "auto",
-                space: 1,
-                style: "single",
-                size: 6,
-              },
-              left: {
-                color: "auto",
-                space: 1,
-                style: "single",
-                size: 6,
-              },
-              right: {
-                color: "auto",
-                space: 1,
-                style: "single",
-                size: 6,
-              },
-            };
-            cParagraphProperties.shading = {
-              type: docx.ShadingType.CLEAR,
-              fill: "C2C2C2",
-            };
-            cParagraphProperties.alignment = docx.AlignmentType.BOTH;
-            cParagraphProperties.style = "Normal";
-            cParagraphProperties.widowControl = false;
-            cRunProperties.size = 17;
-            cRunProperties.font = "Liberation Mono";
-          }
+          cParagraphProperties.style = style;
           cParagraph = new docx.Paragraph(cParagraphProperties);
+        } else if (tag === "table") {
+          inTable = true;
+        } else if (tag === "td") {
+        } else if (tag === "tr") {
+          inTableRow = true;
         } else if (tag === "pre") {
           inCodeBlock = true;
           cParagraph = new docx.Paragraph({ style: "Code" });
@@ -98,8 +68,6 @@ function html2ooxml(html, style = "") {
               break;
           }
           cRunProperties.highlight = color;
-        } else if (tag === "table") {
-          table = true;
         } else if (tag === "br") {
           if (inCodeBlock) {
             paragraphs.push(cParagraph);
@@ -131,7 +99,9 @@ function html2ooxml(html, style = "") {
       },
 
       ontext(text) {
-        if (text && cParagraph) {
+        if (text && inTableRow) {
+          tmpCells.push(text);
+        } else if (text && cParagraph && !inTable) {
           cRunProperties.text = text;
           cParagraph.addChildElement(new docx.TextRun(cRunProperties));
         }
@@ -155,17 +125,11 @@ function html2ooxml(html, style = "") {
             /* "tr",
             "th", */
           ].includes(tag)
-        ) {
+        && !inTable) {
           paragraphs.push(cParagraph);
           cParagraph = null;
           cParagraphProperties = {};
           if (tag === "pre") inCodeBlock = false;
-        } else if (tag === "table") {
-          table = false;
-          //paragraphs.push(cParagraph);
-          cParagraph = null;
-          cParagraphProperties = {};
-          cRunProperties = {};
         } else if (tag === "b" || tag === "strong") {
           delete cRunProperties.bold;
         } else if (tag === "i" || tag === "em") {
@@ -181,6 +145,38 @@ function html2ooxml(html, style = "") {
           if (list_state.length === 0) cParagraphProperties = {};
         } else if (tag === "code") {
           delete cRunProperties.style;
+        } else if (tag === "tr") {
+          inTableRow = false;
+          tmpTable.push(tmpCells);
+          tmpCells = [];
+        } else if (tag === "table") {
+          inTable = false;
+          var tblRows = [];
+          tmpTable.map((row, rowIndex) => {
+            var tmpCells = [];
+            row.map((cell, cellIndex) => {
+              tmpCells.push(new docx.TableCell({
+                width: {
+                  size: 3505,
+                  type: "auto",
+                },
+                children: [new docx.Paragraph(cell)],
+              }))
+            });
+            tblRows.push(new docx.TableRow({
+              children: tmpCells
+            }))
+          });
+          // build table and push to paragraphs array
+          cParagraph = new docx.Table({
+            rows: tblRows
+          });
+
+          paragraphs.push(cParagraph);
+          cParagraph = null;
+          cParagraphProperties = {};
+          tmpTable = [];
+          tmpCells = [];
         }
       },
 
@@ -200,7 +196,7 @@ function html2ooxml(html, style = "") {
 
   var prepXml = doc.documentWrapper.document.body.prepForXml({});
   var filteredXml = prepXml["w:body"].filter((e) => {
-    return Object.keys(e)[0] === "w:p";
+    return Object.keys(e)[0] === "w:p" || Object.keys(e)[0] === "w:tbl" ;
   });
   var dataXml = xml(filteredXml);
   dataXml = dataXml.replace(/w:numId w:val="{2-0}"/g, 'w:numId w:val="2"'); // Replace numbering to have correct value
