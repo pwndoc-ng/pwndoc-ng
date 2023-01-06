@@ -274,19 +274,69 @@
         />
 
         <div v-if="toolbar.indexOf('code') !== -1">
+          <q-btn flat size="sm" dense
+                 :class="{ 'is-active': editor.isActive('code') }"
+                 @click="editor.chain().focus().toggleCode().run()"
+          >
+            <q-tooltip :delay="500" content-class="text-bold">Code</q-tooltip>
+            <q-icon name="code" />
+          </q-btn>
+
+          <q-btn flat size="sm" dense
+                 :class="{ 'is-active': editor.isActive('codeBlock') }"
+                 @click="editor.chain().focus().toggleCodeBlock().run()"
+          >
+            <q-tooltip :delay="500" content-class="text-bold">Code Block</q-tooltip>
+            <q-icon name="mdi-console" />
+          </q-btn>
+        </div>
+
+        <q-separator
+            vertical
+            class="q-mx-sm"
+            v-if="toolbar.indexOf('table') !== -1"
+        />
+
+        <div v-if="toolbar.indexOf('table') !== -1">
           <!-- Add Table -->
           <q-btn
             flat
             size="sm"
             dense
             @click="
-              editor.chain().focus().insertTable({ rows: 1, cols: 1 }).run()
+              editor.chain().focus().insertTable({ rows: 3, cols: 3 }).run()
             "
           >
             <q-tooltip :delay="500" content-class="text-bold"
               >Insert table</q-tooltip
             >
-            <q-icon name="mdi-console" />
+            <q-icon name="mdi-table" />
+          </q-btn>
+          <q-btn
+              flat
+              size="sm"
+              dense
+              @click="
+              editor.chain().focus().addColumnAfter().run()
+            "
+          >
+            <q-tooltip :delay="500" content-class="text-bold"
+            >Add column</q-tooltip
+            >
+            <q-icon name="mdi-arrow-split-vertical" />
+          </q-btn>
+          <q-btn
+              flat
+              size="sm"
+              dense
+              @click="
+              editor.chain().focus().mergeCells().run()
+            "
+          >
+            <q-tooltip :delay="500" content-class="text-bold"
+            >Merge cells</q-tooltip
+            >
+            <q-icon name="mdi-call-merge" />
           </q-btn>
 
           <q-btn
@@ -297,6 +347,9 @@
             :disabled="!editor.can().deleteTable()"
           >
             <q-icon name="delete" />
+            <q-tooltip :delay="500" content-class="text-bold"
+            >Delete table</q-tooltip
+            >
           </q-btn>
           <!-- Add Table end -->
         </div>
@@ -438,7 +491,7 @@ export default {
     toolbar: {
       type: Array,
       default: function () {
-        return ["format", "marks", "list", "code", "image", "caption"];
+        return ["format", "marks", "list", "code", "table", "image", "caption"];
       },
     },
     noAffix: {
