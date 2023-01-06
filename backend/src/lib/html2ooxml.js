@@ -32,8 +32,9 @@ function html2ooxml(html, style = "") {
         } else if (tag === "h6") {
           cParagraph = new docx.Paragraph({ heading: "Heading6" });
         } else if (tag === "div" || tag === "p") {
-          cParagraphProperties.style = style;
-          cParagraph = new docx.Paragraph(cParagraphProperties);
+          if (style && typeof style === 'string')
+            cParagraphProperties.style = style
+          cParagraph = new docx.Paragraph(cParagraphProperties)
         } else if (tag === "table") {
           inTable = true;
         } else if (tag === "td") {
@@ -152,9 +153,9 @@ function html2ooxml(html, style = "") {
         } else if (tag === "table") {
           inTable = false;
           var tblRows = [];
-          tmpTable.map((row, rowIndex) => {
+          tmpTable.map((row) => {
             var tmpCells = [];
-            row.map((cell, cellIndex) => {
+            row.map((cell) => {
               tmpCells.push(new docx.TableCell({
                 width: {
                   size: 3505,
