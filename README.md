@@ -51,11 +51,6 @@ This fork includes pending PR such as:
 ### Vulnerability management workflow
 ![Create and update demo gif](https://raw.githubusercontent.com/pwndoc/pwndoc/master/demos/create_and_update_finding.gif)
 
-## Todo
-
-- Bump dependencies
-- Upgrade TipTap to latest version and implement multi-user plugin.
-
 ## Contribute
 
 Feel free to contribute :).
