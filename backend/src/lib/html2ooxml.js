@@ -44,7 +44,14 @@ function html2ooxml(html, style = "") {
           inTableRow = true;
         } else if (tag === "pre") {
           inCodeBlock = true;
-          cParagraph = new docx.Paragraph({ style: "Code" });
+          cParagraph = new docx.Paragraph({style: "Code"});
+        } else if (tag === "br") {
+            if (inCodeBlock) {
+              paragraphs.push(cParagraph)
+              cParagraph = new docx.Paragraph({style: "Code"})
+            } else {
+              cParagraph.addChildElement(new docx.Run({break: 1}))
+            }
         } else if (tag === "b" || tag === "strong") {
           cRunProperties.bold = true;
         } else if (tag === "i" || tag === "em") {
