@@ -14,6 +14,7 @@ function html2ooxml(html, style = "") {
   var inCodeBlock = false;
   var inTable = false;
   var inTableRow = false;
+  var cellHasText = false;
   var tmpTable = [];
   var tmpCells = [];
   var parser = new htmlparser.Parser(
@@ -38,11 +39,19 @@ function html2ooxml(html, style = "") {
         } else if (tag === "table") {
           inTable = true;
         } else if (tag === "td") {
+          cellHasText = false;
         } else if (tag === "tr") {
           inTableRow = true;
         } else if (tag === "pre") {
           inCodeBlock = true;
-          cParagraph = new docx.Paragraph({ style: "Code" });
+          cParagraph = new docx.Paragraph({style: "Code"});
+        } else if (tag === "br") {
+            if (inCodeBlock) {
+              paragraphs.push(cParagraph)
+              cParagraph = new docx.Paragraph({style: "Code"})
+            } else {
+              cParagraph.addChildElement(new docx.Run({break: 1}))
+            }
         } else if (tag === "b" || tag === "strong") {
           cRunProperties.bold = true;
         } else if (tag === "i" || tag === "em") {
@@ -101,6 +110,7 @@ function html2ooxml(html, style = "") {
 
       ontext(text) {
         if (text && inTableRow) {
+          cellHasText = true;
           tmpCells.push(text);
         } else if (text && cParagraph && !inTable) {
           cRunProperties.text = text;
@@ -149,7 +159,11 @@ function html2ooxml(html, style = "") {
         } else if (tag === "tr") {
           inTableRow = false;
           tmpTable.push(tmpCells);
-          tmpCells = [];
+          tmpCells = []
+        } else if (tag === "td") {
+          if(cellHasText === false) {
+            tmpCells.push("")
+          }
         } else if (tag === "table") {
           inTable = false;
           var tblRows = [];
