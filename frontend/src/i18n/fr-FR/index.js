@@ -310,7 +310,7 @@ export default {
     currentPassword: 'Mot de passe actuel *',
     reports: 'Rapports',
     reportsImagesBorder: 'Bordures d\'Images de Rapport',
-    extendCvssTemporalEnvironment: 'Etendre les rubrique Temporal / Environmental score par défaut',
+    extendCvssTemporalEnvironment: 'Etendre les rubriques cvss Temporal et Environmental par défaut',
     addBorderToImages: 'Ajouter une bordure aux images dans le rapport généré.',
     currentColor: 'Couleur actuelle',
     cvssColors: 'Couleurs du CVSS',
