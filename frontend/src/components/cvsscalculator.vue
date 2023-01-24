@@ -285,6 +285,7 @@
             </div>
         </q-card-section>
         <q-expansion-item 
+        default-opened
         :label="$t('cvss.temporalEnvironmentalTitle')"
         header-class="bg-blue-grey-5 text-white" 
         expand-icon-class="text-white">
