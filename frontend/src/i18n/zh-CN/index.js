@@ -459,6 +459,7 @@ export default {
     currentPassword: '当前密码 *',
     reports: '报告',
     reportsImagesBorder: '报告图片边框',
+    extendCvssTemporalEnvironment:'扩展 cvss 时间环境评分',
     addBorderToImages: '在生成的报告中，给图片添加边框。',
     currentColor: '当前颜色：',
     cvssColors: 'CVSS 颜色',

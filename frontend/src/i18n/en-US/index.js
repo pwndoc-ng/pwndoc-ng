@@ -460,6 +460,7 @@ export default {
     currentPassword: 'Current Password *',
     reports: 'Reports',
     reportsImagesBorder: 'Report Images border',
+    extendCvssTemporalEnvironment: 'Extend Cvss Temporal Environmental score',
     addBorderToImages: 'Add border to images in the generated report.',
     currentColor: 'Current color',
     cvssColors: 'CVSS colors',

@@ -454,6 +454,7 @@ export default {
     currentPassword: 'Aktuelles Passwort *',
     reports: 'Berichte',
     reportsImagesBorder: 'Bilderrahmen im Bericht',
+    extendCvssTemporalEnvironment:'Cvss Temporal Environmental Score erweitern',
     addBorderToImages: 'Fügt Bildern in generierten Berichten einen Rahmen hinzu.',
     currentColor: 'Aktuelle Farbe',
     cvssColors: 'CVSS-Farben',
