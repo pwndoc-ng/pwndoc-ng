@@ -13,6 +13,9 @@ var bodyParser = require('body-parser');
 var cookieParser = require('cookie-parser')
 var utils = require('./lib/utils');
 
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('./config/swagger-output.json');
+
 // Get configuration
 var env = process.env.NODE_ENV || 'dev';
 var config = require('./config/config.json')[env];
@@ -110,6 +113,8 @@ require('./routes/vulnerability')(app);
 require('./routes/data')(app);
 require('./routes/image')(app);
 require('./routes/settings')(app);
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.get("*", function(req, res) {
     res.status(404).json({"status": "error", "data": "Route undefined"});
