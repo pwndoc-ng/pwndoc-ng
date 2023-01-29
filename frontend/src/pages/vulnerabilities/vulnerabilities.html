@@ -236,7 +236,7 @@
                 </template>
             </q-field>
         </q-card-section>
-        <q-card-section>
+        <q-card-section class="tns-remediationComplexityAndPriority">
             <div class="q-col-gutter-md row">
                 <q-select
                 :label="$t('remediationComplexity')"
@@ -401,7 +401,7 @@
                 </template>
             </q-field>
         </q-card-section>
-        <q-card-section>
+        <q-card-section class="tns-remediationComplexityAndPriority">
             <div class="q-col-gutter-md row">
                 <q-select
                 :label="$t('remediationComplexity')"
@@ -545,7 +545,7 @@
                             </template>
                         </q-field>
                     </q-card-section>
-                    <q-card-section class="q-col-gutter-md row">
+                    <q-card-section class="q-col-gutter-md row tns-remediationComplexityAndPriority">
                         <q-select
                         :label="$t('remediationComplexity')"
                         stack-label
@@ -718,7 +718,7 @@
                                     </template>
                                 </q-field>
                             </q-card-section>
-                            <q-card-section class="q-col-gutter-md row">
+                            <q-card-section class="q-col-gutter-md row tns-remediationComplexityAndPriority">
                                 <q-select
                                 :bg-color="(currentVulnerability.remediationComplexity != update.remediationComplexity)?'diffbackground':''"
                                 :label="$t('remediationComplexity')"

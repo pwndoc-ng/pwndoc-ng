@@ -161,7 +161,7 @@
 											<q-item-section side v-if="!categoryFindings.sortOption.sortAuto && frontEndAuditState === AUDIT_VIEW_STATE.EDIT">
 												<q-icon name="mdi-arrow-split-horizontal" class="cursor-pointer handle" color="grey" />
 											</q-item-section>
-											<q-item-section side>
+											<q-item-section side class="tns-severity-icon">
 												<q-chip
 													class="text-white"
 													size="sm"
@@ -730,5 +730,11 @@ export default {
 .topButtonSection {
     padding-left: 0px!important;
 	padding-right: 0px!important;
+}
+</style>
+
+<style>
+.tns-severity-icon {
+	/* display: none; */
 }
 </style>

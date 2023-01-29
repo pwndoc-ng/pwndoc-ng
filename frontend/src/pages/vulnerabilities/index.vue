@@ -6,3 +6,10 @@
 .card-section-merge 
     height: calc(60vh - 173px)
 </style>
+
+<style>
+    .tns-remediationComplexityAndPriority{
+        display: none;
+    }
+    
+</style>

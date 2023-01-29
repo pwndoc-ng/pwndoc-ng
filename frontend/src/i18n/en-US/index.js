@@ -367,7 +367,7 @@ export default {
     startDate: 'Start Date',
     endDate: 'End Date',
     reportingDate: 'Reporting Date',
-    auditScope: 'Scope (One per line)',
+    auditScope: 'Open ports (One per line)',
     import: 'Import',
     export: 'Export',
     hostsAssociateScopes: 'Associate imported hosts with Scopes',
