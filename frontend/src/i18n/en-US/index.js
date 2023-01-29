@@ -325,6 +325,7 @@ export default {
     ascending: 'Ascending',
     descending: 'Descending',
     me: 'me',
+    cvssScoreAndTitle: 'CVSS Score and Title',
     cvssScore: 'CVSS Score',
     cvssTemporalScore: 'CVSS Temporal Score',
     cvssEnvironmentalScore: 'CVSS Environmental Score',

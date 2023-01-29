@@ -671,7 +671,7 @@ AuditSchema.statics.updateSortFindings = (isAdmin, auditId, userId, update) => {
                     var left = a[group.sortOption.sortValue]
 
                     // If sort value is a CVSS Score calculate it 
-                    if (cvssA.success && group.sortOption.sortValue === 'cvssScore')
+                    if (cvssA.success && ['cvssScore', 'cvssScoreAndTitle'].includes(group.sortOption.sortValue))
                         left = cvssA.baseMetricScore
                     else if (cvssA.success && group.sortOption.sortValue === 'cvssTemporalScore')
                         left = cvssA.temporalMetricScore
@@ -693,7 +693,7 @@ AuditSchema.statics.updateSortFindings = (isAdmin, auditId, userId, update) => {
                     // Same for right value to compare
                     var right = b[group.sortOption.sortValue]
 
-                    if (cvssB.success && group.sortOption.sortValue === 'cvssScore')
+                    if (cvssB.success && ['cvssScore', 'cvssScoreAndTitle'].includes(group.sortOption.sortValue))
                         right = cvssB.baseMetricScore
                     else if (cvssB.success && group.sortOption.sortValue === 'cvssTemporalScore')
                         right = cvssB.temporalMetricScore
@@ -708,6 +708,11 @@ AuditSchema.statics.updateSortFindings = (isAdmin, auditId, userId, update) => {
                     if (!right)
                         right = 0
                     right = right.toString()
+
+                    if (group.sortOption.sortValue === 'cvssScoreAndTitle' && left === right){
+                        return a['title'].localeCompare(b['title'])  // title sorting should always be ASC
+                    }
+                    
                     return left.localeCompare(right, undefined, {numeric: true}) * order
                 })
 

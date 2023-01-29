@@ -583,6 +583,7 @@ export default {
 
 			getSortOptions: function(category) {
 				var options = [
+					{label: $t('cvssScoreAndTitle'), value: 'cvssScoreAndTitle'},
 					{label: $t('cvssScore'), value: 'cvssScore'},
 					{label: $t('cvssTemporalScore'), value: 'cvssTemporalScore'},
 					{label: $t('cvssEnvironmentalScore'), value: 'cvssEnvironmentalScore'},
