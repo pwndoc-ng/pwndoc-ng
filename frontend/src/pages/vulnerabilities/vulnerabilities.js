@@ -9,6 +9,7 @@ import CustomFields from 'components/custom-fields'
 import VulnerabilityService from '@/services/vulnerability'
 import DataService from '@/services/data'
 import UserService from '@/services/user'
+import ImportAutomatorService from '@/services/import_automator'
 import Utils from '@/services/utils'
 
 import { $t } from 'boot/i18n'
@@ -205,6 +206,7 @@ export default {
             if (this.errors.title)
                 return;
 
+            ImportAutomatorService.setFakeCVSS(this.currentVulnerability, this.currentLanguage);
             VulnerabilityService.createVulnerabilities([this.currentVulnerability])
             .then(() => {
                 this.getVulnerabilities();
@@ -215,6 +217,7 @@ export default {
                     textColor:'white',
                     position: 'top-right'
                 })
+                ImportAutomatorService.triggerImporterDBUpdateForTemplate(this.currentVulnerability._id); // this might be undefined
             })
             .catch((err) => {
                 Notify.create({
@@ -243,6 +246,7 @@ export default {
             if (this.errors.title)
                 return;
 
+            ImportAutomatorService.setFakeCVSS(this.currentVulnerability, this.currentLanguage);
             VulnerabilityService.updateVulnerability(this.vulnerabilityId, this.currentVulnerability)
             .then(() => {
                 this.getVulnerabilities();
@@ -254,6 +258,7 @@ export default {
                     textColor:'white',
                     position: 'top-right'
                 })
+                ImportAutomatorService.triggerImporterDBUpdateForTemplate(this.currentVulnerability._id); // this might be undefined
             })
             .catch((err) => {
                 Notify.create({
@@ -275,6 +280,7 @@ export default {
                     textColor:'white',
                     position: 'top-right'
                 })
+                ImportAutomatorService.triggerImporterDBUpdateForTemplate(this.currentVulnerability._id); // this might be undefined
             })
             .catch((err) => {
                 Notify.create({

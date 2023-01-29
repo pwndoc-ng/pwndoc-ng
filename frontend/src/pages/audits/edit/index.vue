@@ -237,6 +237,7 @@ import AuditService from '@/services/audit';
 import UserService from '@/services/user';
 import DataService from '@/services/data';
 import Utils from '@/services/utils';
+import ImportAutomatorService from '@/services/import_automator';
 
 import { $t } from '@/boot/i18n';
 
@@ -350,6 +351,8 @@ export default {
 			},
 
 			getFindingSeverity: function(finding) {
+				ImportAutomatorService.setFakeCVSS(finding, this.audit.language);
+
 				let severity = "None"
 				let cvss = CVSS31.calculateCVSSFromVector(finding.cvssv3)
 				if (cvss.success) {
