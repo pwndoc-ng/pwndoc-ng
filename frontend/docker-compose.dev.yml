@@ -5,24 +5,17 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile.dev
-    image: yeln4ts/pwndoc:frontend-dev
+    
     container_name: pwndoc-frontend-dev
     volumes:
-      - ./src:/app/src
-      - ./ssl:/app/ssl
-      - ./public:/app/public
-      - ./.postcssrc.js:/app/.postcssrc.js
-      - ./babel.config.js:/app/babel.config.js
-      - ./quasar.conf.js:/app/quasar.conf.js
-      - ./package.json:/app/package.json
-      - ./package-lock.json:/app/package-lock.json
+      - ./quasar.conf.dev.js:/app/quasar.conf.js
     restart: always
     ports:
-      - 8081:8081
+      - 9000:9000
     networks:
-      - backend
+      - pwndocimportautomator_backend
+
 
 networks:
-  backend:
-    external:
-      name: backend_backend
+  pwndocimportautomator_backend:
+    external: true
