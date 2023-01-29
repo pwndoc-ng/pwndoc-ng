@@ -226,6 +226,14 @@ export default {
             })
         },
 
+        updateVulnerabilityFromAlternativeVersionPanel: function(update_version) {
+            // update_version contains all template info, including the parts that are not locale specific
+            // I'm copying all of it, the pwndoc doesn't seem to care.
+            // Also - this kind of copy doesn't overwrite it inside the window, but as I'm closing the window right away it doesn't matter.
+            this.currentVulnerability.details[this.currentDetailsIndex] = update_version; 
+            this.updateVulnerability();
+        },
+        
         updateVulnerability: function() {
             this.cleanErrors();
             var index = this.currentVulnerability.details.findIndex(obj => obj.title !== '');
@@ -495,5 +503,126 @@ export default {
             else
                 this.$refs.editModal.show()
         }
+        
+        ,_get_custom_fields_select: function() {
+            let answer = {};
+            
+            let customFields = this.customFields;
+            for (const singleField of customFields){
+                if (singleField.fieldType != 'select') { continue; }
+                let fieldID = singleField._id;
+                answer[fieldID] = {};
+
+                for (const singleOption of singleField.options){
+                    if (!(singleOption.locale in answer[fieldID])){
+                        answer[fieldID][singleOption.locale] = [];
+                    }
+                    answer[fieldID][singleOption.locale].push(singleOption.value);
+                }
+            }
+            return answer;
+        }
+
+        ,_translate_custom_field: function(field_id, og_locale, og_val, new_locale) {
+            let all_fields = this._get_custom_fields_select();
+            if (!(field_id in all_fields)) { return undefined; }
+
+            let og_index = all_fields[field_id][og_locale].indexOf(og_val);
+            let new_val = all_fields[field_id][new_locale][og_index];
+            return new_val;
+        }
+
+        ,_translate_several_custom_fields: function(custom_fields, og_locale_str, new_locale_str) {
+            for (let i = 0; i < custom_fields.length; i++){
+                let new_val = this._translate_custom_field(
+                    custom_fields[i].customField._id,
+                    og_locale_str,
+                    custom_fields[i].text,
+                    new_locale_str                  
+                )
+                console.debug(custom_fields[i].customField.label, og_locale_str, custom_fields[i].text, new_locale_str, new_val);
+                if (new_val === undefined) { continue; }
+                custom_fields[i].customField.text = new_val;
+            }
+        }
+
+        ,copySharedFields: function() {
+            this.cleanErrors();
+            let currentLanguageId = this.currentDetailsIndex;
+            let currentLanguageName = this.currentLanguage;
+
+            let currentVulnerability = this.currentVulnerability;
+            let ogLocale = currentVulnerability.details[currentLanguageId];
+
+            let copied_to_locales = [];
+            for (let i = 0; i < currentVulnerability.details.length; i++){
+                let newLocale = currentVulnerability.details[i];
+                if (i == currentLanguageId || newLocale.locale == 'og' ){ continue; }
+
+                newLocale.references = ogLocale.references;
+                newLocale.customFields = this.$_.cloneDeep(ogLocale.customFields);
+                this._translate_several_custom_fields(newLocale.customFields, ogLocale.locale, newLocale.locale);
+
+                copied_to_locales.push(newLocale.locale);
+            }
+            
+            Notify.create({
+                message:
+                copied_to_locales.length 
+                    ? `Custom fields copied from "${currentLanguageName}" to "${copied_to_locales}."`
+                    : `Custom fields are only copied to non-og locales that exist (i.e. have been at least opened).`,
+                color: copied_to_locales.length ? 'positive' : 'negative',
+                textColor:'white',
+                position: 'top-right'
+            })
+        }
+
+        ,copyLocaleToAllLanguagesWithoutTitle: function() {
+            this.cleanErrors();
+            let currentLanguageName = this.currentLanguage;
+
+            let currentVulnerability = this.currentVulnerability;
+            let ogLocale = currentVulnerability.details[this.currentDetailsIndex];
+
+            let copied_to_locales = [];
+
+            for (const language_dict of this.languages){
+                if (new_locale_str == 'og' || new_locale_str == currentLanguageName ){ continue; } // don't overwrite current locale or OG
+
+                // try to find details for each locale and if the details don't exist, create empty entry in the list
+                let new_locale_str = language_dict.locale;
+                let new_locale_index = -1;
+                for (let i = 0; i < currentVulnerability.details.length; i++){
+                    if (currentVulnerability.details[i].locale == new_locale_str){
+                        new_locale_index = i;
+                        break;
+                    }
+                }
+                if (new_locale_index < 0){ new_locale_index = currentVulnerability.details.push(undefined) - 1; }
+
+                // skip a locale if it has a title
+                if (currentVulnerability.details[new_locale_index]?.title?.length > 0){ continue; }
+
+                // copy the template and translate the custom fields
+                currentVulnerability.details[new_locale_index] = this.$_.cloneDeep(ogLocale);
+                
+                let newLocale = currentVulnerability.details[new_locale_index];
+                newLocale.locale = new_locale_str;
+                this._translate_several_custom_fields(newLocale.customFields, ogLocale.locale, newLocale.locale);
+
+                copied_to_locales.push(newLocale.locale);
+            }
+            
+            Notify.create({
+                message:
+                copied_to_locales.length 
+                    ? `Copied template "${currentLanguageName}" to "${copied_to_locales}."`
+                    : `No copy happened - templates for all proper languages exist and have a non-empty title.`,
+                color: copied_to_locales.length ? 'positive' : 'negative',
+                textColor:'white',
+                position: 'top-right'
+            })
+        }
+
     }
 }

@@ -286,6 +286,8 @@
 
         <q-card-actions align="right">
             <q-btn color="primary" outline @click="$refs.createModal.hide()">{{$t('btn.cancel')}}</q-btn>
+            <q-btn color="primary" outline @click="copyLocaleToAllLanguagesWithoutTitle()">Copy full template to all locales</q-btn>
+            <q-btn color="primary" outline @click="copySharedFields()">Copy locale independent fields</q-btn>
             <q-btn color="secondary" unelevated @click="createVulnerability()">{{$t('btn.create')}}</q-btn>
         </q-card-actions>
     </q-card>
@@ -446,6 +448,8 @@
 
         <q-card-actions align="right" v-if="UserService.isAllowed('vulnerabilities:update')">
             <q-btn color="primary" outline @click="$refs.editModal.hide()">{{$t('btn.cancel')}}</q-btn>
+            <q-btn color="primary" outline @click="copyLocaleToAllLanguagesWithoutTitle()">Copy full template to all locales</q-btn>
+            <q-btn color="primary" outline @click="copySharedFields()">Copy locale independent fields</q-btn>
             <q-btn v-if="currentVulnerability.status === 1" label="Approve" color="light-blue" unelevated @click="updateVulnerability()" />
             <q-btn v-else color="secondary" unelevated @click="updateVulnerability()">{{$t('btn.update')}}</q-btn>
         </q-card-actions>
@@ -588,6 +592,8 @@
             
                     <q-card-actions align="right">
                         <q-btn color="primary" outline @click="$refs.updatesModal.hide()">{{$t('btn.cancel')}}</q-btn>
+                        <q-btn color="primary" outline @click="copyLocaleToAllLanguagesWithoutTitle()">Copy full template to all locales</q-btn>
+                        <q-btn color="primary" outline @click="copySharedFields()">Copy locale independent fields</q-btn>
                         <q-btn color="orange" unelevated :label="$t('btn.update')" @click="updateVulnerability()" />
                     </q-card-actions>
                 </q-card>
@@ -767,6 +773,14 @@
                                     />
                                 </div>
                             </q-expansion-item>
+
+                            <q-separator />
+                            <!-- Update with diff - right panel -->
+                            <q-card-actions align="right">
+                                <q-btn color="primary" outline @click="$refs.updatesModal.hide()">{{$t('btn.cancel')}}</q-btn>
+                                <q-btn color="orange" unelevated @click="updateVulnerabilityFromAlternativeVersionPanel(update)">Update (based on right panel)</q-btn>
+                            </q-card-actions>
+                        
                         </q-tab-panel>
                     </q-tab-panels>
                 </q-card>
