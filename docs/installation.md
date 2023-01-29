@@ -2,6 +2,16 @@
 
 > PwnDoc uses 3 containers: the backend, the frontend and the database. 
 
+
+# Quick Installation
+
+```
+git clone https://github.com/pwndoc-ng/pwndoc-ng.git
+docker-compose up -d --build
+```
+
+
+
 ## Production
 
 All 3 containers can be run at once using the docker-compose file in the root directory.
@@ -20,22 +30,17 @@ Display backend container logs
 docker-compose logs -f pwndoc-backend
 ```
 
-Stop/Start containers
+Mini-guide of Docker
 
 ```
+# Stop/Start containers
 docker-compose stop
 docker-compose start
-```
 
-Remove containers
-
-```
+#Remove containers for fresh installation
 docker-compose down
-```
 
-Update
-
-```
+# Update containers to latest version from GitHub
 docker-compose down
 git pull
 docker-compose up -d --build

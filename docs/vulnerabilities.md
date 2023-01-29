@@ -78,6 +78,12 @@ The export format is yaml.
 
 For import, the Serpico format is also accepted allowing easier transition or just to have a default set of vulnerabilities.
 
+
+### Pre-populate pwndoc-ng with vulnerabilities
+
+There is a repo (https://github.com/JulianGR/OWASP_WSTG_ASVS) with a spreadsheet with a lot of common vulnerabilities, taken from OWASP's WSTG and ASVS. If you want your pwndoc-ng to have such vulnerabilites, download the spreadsheet, and run the script `parse_wstg.py`. This will produce a json (also included in the files of the project) that you can import.
+
+
 ## Merge
 
 It's possible to merge vulnerabilities for cases where 2 different vulnerabilities exist for 2 different languages. The goal is to avoid duplicates and better multilanguage management.
@@ -90,6 +96,12 @@ In this example :
 - In the right column only Vulnerabilities having French language AND no English language are displayed
 
 The language details from the Vulnerability of the right column will be moved to the Vulnerability of the left column. So this is *CVSS*, *references*, *etc* of the left column that will be kept.
+
+### Automatic merge
+If you have a long list of vulnerabilities in two different languages and want them merged, it is possible to do so by using a script in Selenium. 
+
+If you are using the spreadsheet from https://github.com/JulianGR/OWASP_WSTG_ASVS and want english and spanish vulnerabilites automatically merged, use the included `automatic_merge.side` Selenium script. 
+
 
 ## Validate
 
