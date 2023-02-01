@@ -86,7 +86,7 @@
                 <div class="col-12">
                     <q-card>
                         <q-card-section>
-                            <basic-editor ref="basiceditor_poc" :idUnique="basiceditor_poc"  noSync v-model="finding.poc" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"/>
+                            <basic-editor ref="basiceditor_poc" idUnique="basiceditor_poc"  noSync v-model="finding.poc" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"/>
                         </q-card-section>
                     </q-card>
                 </div>
@@ -99,7 +99,7 @@
                 <q-card-section>
                     <q-field borderless>
                         <template v-slot="control">
-                            <basic-editor v-model="finding.scope" :idUnique="basiceditor_scope" :toolbar="['format', 'marks', 'list']" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"/>
+                            <basic-editor v-model="finding.scope" idUnique="basiceditor_scope" :toolbar="['format', 'marks', 'list']" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"/>
                         </template>
                     </q-field>
                 </q-card-section>
@@ -146,7 +146,7 @@
                 <q-card-section>
                     <q-field class="col-md-12 basic-editor" borderless :label="$t('remediation')" stack-label>
                         <template v-slot="control">
-                            <basic-editor ref="basiceditor_remediation" :idUnique="basiceditor_remediation" noSync v-model="finding.remediation" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"/>
+                            <basic-editor ref="basiceditor_remediation" idUnique="basiceditor_remediation" noSync v-model="finding.remediation" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"/>
                         </template>
                     </q-field>
                 </q-card-section>
