@@ -13,6 +13,18 @@ var bodyParser = require('body-parser');
 var cookieParser = require('cookie-parser')
 var utils = require('./lib/utils');
 
+var hocus = require('@hocuspocus/server')
+
+
+
+
+  const serverHocus = hocus.Server.configure({
+    port: 8440,
+  })
+
+  serverHocus.listen()
+
+
 // Get configuration
 var env = process.env.NODE_ENV || 'dev';
 var config = require('./config/config.json')[env];
@@ -110,6 +122,9 @@ require('./routes/vulnerability')(app);
 require('./routes/data')(app);
 require('./routes/image')(app);
 require('./routes/settings')(app);
+
+
+
 
 app.get("*", function(req, res) {
     res.status(404).json({"status": "error", "data": "Route undefined"});

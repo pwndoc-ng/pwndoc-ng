@@ -21,11 +21,13 @@
                         <basic-editor 
                         v-if="diff"
                         v-model="field.text"
+                        :idUnique="field.customField._id"
                         :diff="getTextDiffInCustomFields(field)"
                         :editable=false
                         /> 
                         <basic-editor 
                         v-else
+                        :idUnique="field.customField._id"
                         ref="basiceditor_custom" 
                         v-model="field.text" 
                         :noSync="noSyncEditor"
