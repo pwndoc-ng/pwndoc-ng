@@ -18,11 +18,7 @@ var hocus = require('@hocuspocus/server')
 
 
 
-  const serverHocus = hocus.Server.configure({
-    port: 8440,
-  })
 
-  serverHocus.listen()
 
 
 // Get configuration
@@ -123,7 +119,11 @@ require('./routes/data')(app);
 require('./routes/image')(app);
 require('./routes/settings')(app);
 
+  const serverHocus = hocus.Server.configure({
+    port:  process.env.COLLAB_WEBSOCKET_PORT || 8440,
+  })
 
+  serverHocus.listen()
 
 
 app.get("*", function(req, res) {

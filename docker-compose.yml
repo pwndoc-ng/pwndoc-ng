@@ -22,6 +22,8 @@ services:
       - ./backend/src/config:/app/src/config
     depends_on:
       - mongodb
+    environment:
+      - COLLAB_WEBSOCKET_PORT=8440
     restart: always
     ports:
       - 4242:4242
