@@ -99,7 +99,7 @@
                 <q-card-section>
                     <q-field borderless>
                         <template v-slot="control">
-                            <basic-editor v-model="finding.scope" idUnique="basiceditor_scope" :toolbar="['format', 'marks', 'list']" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"/>
+                            <basic-editor v-model="finding.scope" idUnique="basiceditor_scope" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"/>
                         </template>
                     </q-field>
                 </q-card-section>
