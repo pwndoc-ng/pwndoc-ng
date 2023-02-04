@@ -114,7 +114,9 @@ require('./routes/data')(app);
 require('./routes/image')(app);
 require('./routes/settings')(app);
 
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+if(config.apidoc) {
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+}
 
 app.get("*", function(req, res) {
     res.status(404).json({"status": "error", "data": "Route undefined"});
