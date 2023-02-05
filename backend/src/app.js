@@ -13,13 +13,9 @@ var bodyParser = require('body-parser');
 var cookieParser = require('cookie-parser')
 var utils = require('./lib/utils');
 
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('./config/swagger-output.json');
 var hocus = require('@hocuspocus/server')
-
-
-
-
-
-
 
 // Get configuration
 var env = process.env.NODE_ENV || 'dev';
@@ -119,11 +115,17 @@ require('./routes/data')(app);
 require('./routes/image')(app);
 require('./routes/settings')(app);
 
+
   const serverHocus = hocus.Server.configure({
     port:  process.env.COLLAB_WEBSOCKET_PORT || 8440,
   })
 
   serverHocus.listen()
+
+
+if(config.apidoc) {
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+}
 
 
 app.get("*", function(req, res) {

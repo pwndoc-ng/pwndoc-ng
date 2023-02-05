@@ -18,6 +18,8 @@ module.exports = function(app) {
 
     // Get Roles list
     app.get("/api/data/roles", acl.hasPermission('roles:read'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         try {
             var result = Object.keys(acl.roles)
             Response.Ok(res, result)
@@ -31,6 +33,8 @@ module.exports = function(app) {
 
     // Get languages list
     app.get("/api/data/languages", acl.hasPermission('languages:read'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         Language.getAll()
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -38,6 +42,8 @@ module.exports = function(app) {
 
     // Create language
     app.post("/api/data/languages", acl.hasPermission('languages:create'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         if (!req.body.locale || !req.body.language) {
             Response.BadParameters(res, 'Missing required parameters: locale, language');
             return;
@@ -58,6 +64,8 @@ module.exports = function(app) {
     
     // Delete Language
     app.delete("/api/data/languages/:locale(*)", acl.hasPermission('languages:delete'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         Language.delete(req.params.locale)
         .then(msg => {
             Response.Ok(res, 'Language deleted successfully')
@@ -67,6 +75,8 @@ module.exports = function(app) {
 
     // Update Languages
     app.put("/api/data/languages", acl.hasPermission('languages:update'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         for (var i=0; i<req.body.length; i++) {
             var language = req.body[i]
             if (!language.locale || !language.language) {
@@ -93,6 +103,8 @@ module.exports = function(app) {
 
     // Get audit types list
     app.get("/api/data/audit-types", acl.hasPermission('audit-types:read'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         AuditType.getAll()
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -100,6 +112,8 @@ module.exports = function(app) {
 
     // Create audit type
     app.post("/api/data/audit-types", acl.hasPermission('audit-types:create'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         if (!req.body.name || !req.body.templates) {
             Response.BadParameters(res, 'Missing required parameters: name, templates');
             return;
@@ -125,6 +139,8 @@ module.exports = function(app) {
     
     // Delete audit type
     app.delete("/api/data/audit-types/:name(*)", acl.hasPermission('audit-types:delete'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         AuditType.delete(req.params.name)
         .then(msg => {
             Response.Ok(res, 'Audit type deleted successfully')
@@ -134,6 +150,8 @@ module.exports = function(app) {
 
     // Update Audit Types
     app.put("/api/data/audit-types", acl.hasPermission('audit-types:update'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         for (var i=0; i<req.body.length; i++) {
             var auditType = req.body[i]
             if (!auditType.name || !auditType.templates) {
@@ -160,13 +178,17 @@ module.exports = function(app) {
 
      // Get vulnerability types list
      app.get("/api/data/vulnerability-types", acl.hasPermission('vulnerability-types:read'), function(req, res) {
-        VulnerabilityType.getAll()
+         // #swagger.tags = ['Data']
+
+         VulnerabilityType.getAll()
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
     });
 
     // Create vulnerability type
     app.post("/api/data/vulnerability-types", acl.hasPermission('vulnerability-types:create'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         if (!req.body.name || !req.body.locale) {
             Response.BadParameters(res, 'Missing required parameters: name, locale');
             return;
@@ -186,6 +208,8 @@ module.exports = function(app) {
     
     // Delete vulnerability type
     app.delete("/api/data/vulnerability-types/:name(*)", acl.hasPermission('vulnerability-types:delete'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         VulnerabilityType.delete(req.params.name)
         .then(msg => {
             Response.Ok(res, 'Vulnerability type deleted successfully')
@@ -195,6 +219,8 @@ module.exports = function(app) {
 
     // Update Vulnerability Types
     app.put("/api/data/vulnerability-types", acl.hasPermission('vulnerability-types:update'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         for (var i=0; i<req.body.length; i++) {
             var vulnType = req.body[i]
             if (!vulnType.name || !vulnType.locale) {
@@ -221,13 +247,17 @@ module.exports = function(app) {
 
      // Get vulnerability category list
      app.get("/api/data/vulnerability-categories", acl.hasPermission('vulnerability-categories:read'), function(req, res) {
-        VulnerabilityCategory.getAll()
+         // #swagger.tags = ['Data']
+
+         VulnerabilityCategory.getAll()
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
     });
 
     // Create vulnerability category
     app.post("/api/data/vulnerability-categories", acl.hasPermission('vulnerability-categories:create'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         if (!req.body.name) {
             Response.BadParameters(res, 'Missing required parameters: name');
             return;
@@ -253,6 +283,8 @@ module.exports = function(app) {
 
     // Update Vulnerability Category
     app.put("/api/data/vulnerability-categories", acl.hasPermission('vulnerability-categories:update'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         for (var i=0; i<req.body.length; i++) {
             var vulnCat = req.body[i]
             if (!vulnCat.name) {
@@ -285,6 +317,8 @@ module.exports = function(app) {
     
     // Delete vulnerability category
     app.delete("/api/data/vulnerability-categories/:name(*)", acl.hasPermission('vulnerability-categories:delete'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         VulnerabilityCategory.delete(req.params.name)
         .then(msg => {
             Response.Ok(res, 'Vulnerability category deleted successfully')
@@ -296,6 +330,8 @@ module.exports = function(app) {
 
     // Get sections list
     app.get("/api/data/sections", acl.hasPermission('sections:read'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         CustomSection.getAll()
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -303,6 +339,8 @@ module.exports = function(app) {
 
     // Create section
     app.post("/api/data/sections", acl.hasPermission('sections:create'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         if (!req.body.field || !req.body.name) {
             Response.BadParameters(res, 'Missing required parameters: field, name');
             return;
@@ -327,6 +365,8 @@ module.exports = function(app) {
     
     // Delete section
     app.delete("/api/data/sections/:field/:locale(*)", acl.hasPermission('sections:delete'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         CustomSection.delete(req.params.field, req.params.locale)
         .then(msg => {
             Response.Ok(res, 'Section deleted successfully')
@@ -336,7 +376,9 @@ module.exports = function(app) {
 
      // Update sections
      app.put("/api/data/sections", acl.hasPermission('sections:update'), function(req, res) {
-        for (var i=0; i<req.body.length; i++) {
+         // #swagger.tags = ['Data']
+
+         for (var i=0; i<req.body.length; i++) {
             var section = req.body[i]
             if (!section.name || !section.field) {
                 Response.BadParameters(res, 'Missing required parameters: name, field')
@@ -362,6 +404,8 @@ module.exports = function(app) {
 
     // Get custom fields
     app.get("/api/data/custom-fields", acl.hasPermission('custom-fields:read'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         CustomField.getAll()
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -369,6 +413,8 @@ module.exports = function(app) {
 
     // Create custom field
     app.post("/api/data/custom-fields", acl.hasPermission('custom-fields:create'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         if ((!req.body.fieldType || !req.body.label || !req.body.display) && req.body.fieldType !== 'space') {
             Response.BadParameters(res, 'Missing required parameters: fieldType, label, display')
             return
@@ -398,7 +444,9 @@ module.exports = function(app) {
 
      // Update custom fields
      app.put("/api/data/custom-fields", acl.hasPermission('custom-fields:update'), function(req, res) {
-        for (var i=0; i<req.body.length; i++) {
+         // #swagger.tags = ['Data']
+
+         for (var i=0; i<req.body.length; i++) {
             var customField = req.body[i]
             if ((!customField.label || !customField._id || !customField.display) && customField.fieldType !== 'space') {
                 Response.BadParameters(res, 'Missing required parameters: _id, label, display')
@@ -430,6 +478,8 @@ module.exports = function(app) {
 
     // Delete custom field
     app.delete("/api/data/custom-fields/:fieldId", acl.hasPermission('custom-fields:delete'), function(req, res) {
+        // #swagger.tags = ['Data']
+
         CustomField.delete(req.params.fieldId)
         .then(msg => {
             Response.Ok(res, msg)

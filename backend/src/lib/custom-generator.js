@@ -53,5 +53,52 @@ expressions.filters.convertDateFR = function(input, s) {
     }
 }
 
+// Convert input CVSS criteria into Spanish: {input | criteriaES}
+expressions.filters.criteriaES = function(input) {
+    var pre = '<w:p><w:r><w:t>';
+    var post = '</w:t></w:r></w:p>';
+    var result = "No definido"
+
+    if (input === "Network") result = "Red"
+    else if (input === "Adjacent Network") result = "Red adyacente"
+    else if (input === "Local") result = "Local"
+    else if (input === "Physical") result = "Físico"
+    else if (input === "Required") result = "Obligatorio"
+    else if (input === "Unchanged") result = "Sin cambiar"
+    else if (input === "Changed") result = "Cambiado"
+    else if (input === "Critical") result = "Crítica"
+    else if (input === "Medium") result = "Media"
+    else if (input === "None") result = "Informativa"
+    else if (input === "Low") result = "Baja"
+    else if (input === "High") result = "Alta"
+
+    // return pre + result + post;
+    return result;
+}
+
+// Convert input date with parameter s (full,short): {input | convertDateES: 's'}
+expressions.filters.convertDateES = function(input, s) {
+    var date = new Date(input);
+    if (date !== "Invalid Date") {
+        var monthsFull = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        var monthsShort = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
+        var days = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
+        var day = date.getUTCDate();
+        var month = date.getUTCMonth();
+        var year = date.getUTCFullYear();
+        if (s === "full") {
+            return days[date.getUTCDay()] + " " + (day<10 ? '0'+day: day) + " " + monthsFull[month] + " " + year;
+        }
+        if (s === "short") {
+            return (day<10 ? '0'+day: day) + "/" + monthsShort[month] + "/" + year;
+        }
+         if (s === "OnlyYear") {
+            return year;
+        }
+    }
+}
+
+
+
 exports.expressions = expressions
 

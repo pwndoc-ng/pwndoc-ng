@@ -8,7 +8,8 @@
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
     "prod": "NODE_ENV=prod nodemon src/app.js",
-    "test": "NODE_ENV=test jest tests/index.test.js"
+    "test": "NODE_ENV=test jest tests/index.test.js",
+    "swagger-autogen": "node ./swagger.js"
   },
   "devDependencies": {
     "@babel/core": "^7.10.2",
@@ -17,7 +18,8 @@
     "babel-jest": "^26.0.1",
     "jest": "^26.0.1",
     "nodemon": "^1.19.4",
-    "npm": "^6.12.0"
+    "npm": "^6.12.0",
+    "swagger-autogen": "^2.22.0"
   },
   "dependencies": {
     "@hocuspocus/server": "^1.0.0",
@@ -42,6 +44,7 @@
     "otpauth": "^7.0.6",
     "qrcode": "^1.4.4",
     "socket.io": "^4.4.1",
+    "swagger-ui-express": "^4.6.0",
     "winston": "^2.3.1",
     "xml": "^1.0.1"
   }

@@ -1,23 +1,25 @@
-var docx = require("docx");
-var xml = require("xml");
-var htmlparser = require("htmlparser2");
+let docx = require("docx");
+let xml = require("xml");
+let htmlparser = require("htmlparser2");
 
 function html2ooxml(html, style = "") {
   if (html === "") return html;
   if (!html.match(/^<.+>/)) html = `<p>${html}</p>`;
-  var doc = new docx.Document({ sections: [] });
-  var paragraphs = [];
-  var cParagraph = null;
-  var cRunProperties = {};
-  var cParagraphProperties = {};
-  var list_state = [];
-  var inCodeBlock = false;
-  var inTable = false;
-  var inTableRow = false;
-  var cellHasText = false;
-  var tmpTable = [];
-  var tmpCells = [];
-  var parser = new htmlparser.Parser(
+  let doc = new docx.Document({ sections: [] });
+  let paragraphs = [];
+  let cParagraph = null;
+  let cRunProperties = {};
+  let cParagraphProperties = {};
+  let list_state = [];
+  let inCodeBlock = false;
+  let inTable = false;
+  let inTableRow = false;
+  let cellHasText = false;
+  let tmpAttribs = {};
+  let tableHeader = false
+  let tmpTable = [];
+  let tmpCells = [];
+  let parser = new htmlparser.Parser(
     {
       onopentag(tag, attribs) {
         if (tag === "h1") {
@@ -39,6 +41,11 @@ function html2ooxml(html, style = "") {
         } else if (tag === "table") {
           inTable = true;
         } else if (tag === "td") {
+          tmpAttribs = attribs;
+          cellHasText = false;
+        } else if (tag === "th") {
+          tableHeader = true;
+          tmpAttribs = attribs;
           cellHasText = false;
         } else if (tag === "tr") {
           inTableRow = true;
@@ -88,7 +95,7 @@ function html2ooxml(html, style = "") {
         } else if (tag === "ol") {
           list_state.push("number");
         } else if (tag === "li") {
-          var level = list_state.length - 1;
+          let level = list_state.length - 1;
           if (level >= 0 && list_state[level] === "bullet")
             cParagraphProperties.bullet = { level: level };
           else if (level >= 0 && list_state[level] === "number")
@@ -97,7 +104,7 @@ function html2ooxml(html, style = "") {
         } else if (tag === "code") {
           cRunProperties.style = "CodeChar";
         } else if (tag === "legend" && attribs && attribs.alt !== "undefined") {
-          var label = attribs.label || "Figure";
+          let label = attribs.label || "Figure";
           cParagraph = new docx.Paragraph({
             style: "Caption",
             alignment: docx.AlignmentType.CENTER,
@@ -111,7 +118,11 @@ function html2ooxml(html, style = "") {
       ontext(text) {
         if (text && inTableRow) {
           cellHasText = true;
-          tmpCells.push(text);
+          tmpCells.push({
+            text: text,
+            width: tmpAttribs.colwidth ? tmpAttribs.colwidth : "250",
+            header: tableHeader,
+          });
         } else if (text && cParagraph && !inTable) {
           cRunProperties.text = text;
           cParagraph.addChildElement(new docx.TextRun(cRunProperties));
@@ -158,33 +169,49 @@ function html2ooxml(html, style = "") {
           delete cRunProperties.style;
         } else if (tag === "tr") {
           inTableRow = false;
+          tableHeader = false;
           tmpTable.push(tmpCells);
           tmpCells = []
-        } else if (tag === "td") {
+        } else if (tag === "td" || tag === "th") {
           if(cellHasText === false) {
-            tmpCells.push("")
+            tmpCells.push({
+              text: "",
+              width: tmpAttribs.colwidth ? tmpAttribs.colwidth : "250",
+              header: tableHeader,
+            });
           }
+          tmpAttribs = {};
         } else if (tag === "table") {
           inTable = false;
-          var tblRows = [];
+          let tblRows = [];
           tmpTable.map((row) => {
-            var tmpCells = [];
+            let tmpCells = [];
+            let isHeader = false
+            let widthTotal = row.map(cell => parseInt(cell.width)).reduce((prev, next) => prev + next);
+
             row.map((cell) => {
+              isHeader = cell.header;
               tmpCells.push(new docx.TableCell({
                 width: {
-                  size: 3505,
-                  type: "auto",
+                  size: Math.round(parseFloat(cell.width / widthTotal)),
+                  type: "pct",
                 },
-                children: [new docx.Paragraph(cell)],
+                children: [new docx.Paragraph(cell.text)],
               }))
             });
+
             tblRows.push(new docx.TableRow({
-              children: tmpCells
+              children: tmpCells,
+              tableHeader: isHeader,
             }))
           });
           // build table and push to paragraphs array
           cParagraph = new docx.Table({
-            rows: tblRows
+            rows: tblRows,
+            width: {
+              size: 100,
+              type: "pct"
+            }
           });
 
           paragraphs.push(cParagraph);
@@ -209,11 +236,11 @@ function html2ooxml(html, style = "") {
   parser.write(html);
   parser.end();
 
-  var prepXml = doc.documentWrapper.document.body.prepForXml({});
-  var filteredXml = prepXml["w:body"].filter((e) => {
+  let prepXml = doc.documentWrapper.document.body.prepForXml({});
+  let filteredXml = prepXml["w:body"].filter((e) => {
     return Object.keys(e)[0] === "w:p" || Object.keys(e)[0] === "w:tbl" ;
   });
-  var dataXml = xml(filteredXml);
+  let dataXml = xml(filteredXml);
   dataXml = dataXml.replace(/w:numId w:val="{2-0}"/g, 'w:numId w:val="2"'); // Replace numbering to have correct value
 
   return dataXml;

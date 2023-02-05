@@ -6,6 +6,8 @@ module.exports = function(app) {
 
     // Get image
     app.get("/api/images/:imageId", acl.hasPermission('images:read'), function(req, res) {
+        // #swagger.tags = ['Image']
+
         Image.getOne(req.params.imageId)
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -13,6 +15,8 @@ module.exports = function(app) {
 
     // Create image
     app.post("/api/images/", acl.hasPermission('images:create'), function(req, res) {
+        // #swagger.tags = ['Image']
+
         if (!req.body.value) {
             Response.BadParameters(res, 'Missing required parameters: value')
             return
@@ -39,6 +43,8 @@ module.exports = function(app) {
 
     // Delete image
     app.delete("/api/images/:imageId", acl.hasPermission('images:delete'), function(req, res) {
+        // #swagger.tags = ['Image']
+
         Image.delete(req.params.imageId)
         .then(data => {
             Response.Ok(res, 'Image deleted successfully')
@@ -50,6 +56,8 @@ module.exports = function(app) {
 
     // Download image file
     app.get("/api/images/download/:imageId", acl.hasPermission('images:read'), function(req, res) {
+        // #swagger.tags = ['Image']
+
         Image.getOne(req.params.imageId)
         .then(data => {
             var imgBase64 = data.value.split(",")[1]

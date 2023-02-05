@@ -10,11 +10,15 @@ module.exports = function(app) {
 	
     // Check token validity
     app.get("/api/users/checktoken", acl.hasPermission('validtoken'), function(req, res) {
+        // #swagger.tags = ['User']
+
         Response.Ok(res, req.cookies['token']);
     });
 
     // Refresh token
     app.get("/api/users/refreshtoken", function(req, res) {
+        // #swagger.tags = ['User']
+
         var userAgent = req.headers['user-agent']
         var token = req.cookies['refreshToken']
         
@@ -35,6 +39,8 @@ module.exports = function(app) {
 
     // Remove token cookie
     app.delete("/api/users/refreshtoken", function(req, res) {
+        // #swagger.tags = ['User']
+
         var token = req.cookies['refreshToken']
         try {
             var decoded = jwt.verify(token, jwtRefreshSecret)
@@ -59,6 +65,8 @@ module.exports = function(app) {
 
     // Authenticate user -> return JWT token
     app.post("/api/users/token", function(req, res) {
+        // #swagger.tags = ['User']
+
         if (!req.body.password || !req.body.username) {
             Response.BadParameters(res, 'Required parameters: username, password');
             return;
@@ -91,6 +99,8 @@ module.exports = function(app) {
 
     // Check if there are any existing users for creating first user
     app.get("/api/users/init", function(req, res) {
+        // #swagger.tags = ['User']
+
         User.getAll()
         .then(msg => Response.Ok(res, msg.length === 0))
         .catch(err => Response.Internal(res, err))
@@ -98,6 +108,8 @@ module.exports = function(app) {
 
     // Get all users
     app.get("/api/users", acl.hasPermission('users:read'), function(req, res) {
+        // #swagger.tags = ['User']
+
         User.getAll()
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -105,6 +117,8 @@ module.exports = function(app) {
 
     // Get all reviewers
     app.get("/api/users/reviewers", acl.hasPermission('users:read'), function(req, res) {
+        // #swagger.tags = ['User']
+
         User.getAll()
         .then((users) => {
             var reviewers = [];
@@ -120,6 +134,8 @@ module.exports = function(app) {
 
     // Get user self
     app.get("/api/users/me", acl.hasPermission('validtoken'), function(req, res) {
+        // #swagger.tags = ['User']
+
         User.getByUsername(req.decodedToken.username)
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -127,6 +143,8 @@ module.exports = function(app) {
 
     //get TOTP Qrcode URL
     app.get("/api/users/totp", acl.hasPermission('validtoken'), function(req, res) {
+        // #swagger.tags = ['User']
+
         User.getTotpQrcode(req.decodedToken.username)
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -134,6 +152,8 @@ module.exports = function(app) {
 
     //setup TOTP
     app.post("/api/users/totp", acl.hasPermission('validtoken'), function(req, res) {
+        // #swagger.tags = ['User']
+
         if (!req.body.totpToken || !req.body.totpSecret) {
             Response.BadParameters(res, 'Missing some required parameters');
             return;
@@ -146,6 +166,8 @@ module.exports = function(app) {
 
     //cancel TOTP
     app.delete("/api/users/totp", acl.hasPermission('validtoken'), function(req, res) {
+        // #swagger.tags = ['User']
+
         if (!req.body.totpToken) {
             Response.BadParameters(res, 'Missing some required parameters');
             return;
@@ -158,6 +180,8 @@ module.exports = function(app) {
 
     // Get user by username
     app.get("/api/users/:username", acl.hasPermission('users:read'), function(req, res) {
+        // #swagger.tags = ['User']
+
         User.getByUsername(req.params.username)
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -165,6 +189,8 @@ module.exports = function(app) {
 
     // Create user
     app.post("/api/users", acl.hasPermission('users:create'), function(req, res) {
+        // #swagger.tags = ['User']
+
         if (!req.body.username || !req.body.password || !req.body.firstname || !req.body.lastname) {
             Response.BadParameters(res, 'Missing some required parameters');
             return;
@@ -193,6 +219,8 @@ module.exports = function(app) {
 
     // Create First User
     app.post("/api/users/init", function(req, res) {
+        // #swagger.tags = ['User']
+
         if (!req.body.username || !req.body.password || !req.body.firstname || !req.body.lastname) {
             Response.BadParameters(res, 'Missing some required parameters');
             return;
@@ -236,6 +264,8 @@ module.exports = function(app) {
 
     // Update my profile
     app.put("/api/users/me", acl.hasPermission('validtoken'), function(req, res) {
+        // #swagger.tags = ['User']
+
         if (!req.body.currentPassword ||
             (req.body.newPassword && !req.body.confirmPassword) ||
             (req.body.confirmPassword && !req.body.newPassword)) {
@@ -273,6 +303,8 @@ module.exports = function(app) {
 
     // Update any user (admin only)
     app.put("/api/users/:id", acl.hasPermission('users:update'), function(req, res) {
+        // #swagger.tags = ['User']
+
         if (req.body.password && !passwordpolicy.strongPassword(req.body.password)){
             Response.BadParameters(res, 'New Password does not match the password policy');
             return;

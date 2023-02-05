@@ -6,7 +6,8 @@
             "name": "pwndoc",
             "server": "mongo-pwndoc-dev",
             "port": "27017"
-        }
+        },
+        "apidoc": true
     },
     "prod": {
         "port": 4242,
@@ -15,7 +16,8 @@
             "name": "pwndoc",
             "server": "mongo-pwndoc",
             "port": "27017"
-        }
+        },
+        "apidoc": false
     },
     "test": {
         "port": 6262,
@@ -24,6 +26,7 @@
             "name": "pwndoc",
             "server": "mongo-pwndoc-test",
             "port": "27017"
-        }
+        },
+        "apidoc": true
     }
 }

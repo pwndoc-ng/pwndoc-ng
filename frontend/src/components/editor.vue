@@ -304,7 +304,7 @@
             size="sm"
             dense
             @click="
-              editor.chain().focus().insertTable({ rows: 3, cols: 3 }).run()
+              editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
             "
           >
             <q-tooltip :delay="500" content-class="text-bold"
@@ -323,7 +323,20 @@
             <q-tooltip :delay="500" content-class="text-bold"
             >Add column</q-tooltip
             >
-            <q-icon name="mdi-arrow-split-vertical" />
+            <q-icon name="mdi-table-column-plus-after" />
+          </q-btn>
+          <q-btn
+              flat
+              size="sm"
+              dense
+              @click="
+              editor.chain().focus().addRowAfter().run()
+            "
+          >
+            <q-tooltip :delay="500" content-class="text-bold"
+            >Add row</q-tooltip
+            >
+            <q-icon name="mdi-table-row-plus-after" />
           </q-btn>
           <q-btn
               flat
@@ -337,6 +350,29 @@
             >Merge cells</q-tooltip
             >
             <q-icon name="mdi-call-merge" />
+          </q-btn>
+
+          <q-btn
+              flat
+              size="sm"
+              dense
+              @click="editor.chain().focus().deleteRow().run()" :disabled="!editor.can().deleteRow()"
+          >
+            <q-tooltip :delay="500" content-class="text-bold"
+            >Delete Table Row</q-tooltip
+            >
+            <q-icon name="mdi-table-row-remove" />
+          </q-btn>
+
+          <q-btn
+              flat
+              size="sm"
+              dense
+              @click="editor.chain().focus().deleteColumn().run()" :disabled="!editor.can().deleteColumn()"
+          >
+            <q-tooltip :delay="500" content-class="text-bold"
+            >Delete Table Column</q-tooltip>
+            <q-icon name="mdi-table-column-remove" />
           </q-btn>
 
           <q-btn
@@ -587,10 +623,12 @@ export default {
           }
         }),
         Underline,
-        Table,
         TableRow,
         TableHeader,
         TableCell,
+        Table.configure({
+          resizable: true,
+        }),
         CustomImage.configure({
           HTMLAttributes: {
             class: "custom-image",
@@ -742,6 +780,7 @@ export default {
 
 <style lang="scss">
 
+
 .collaboration-cursor__caret {
   position: relative;
   margin-left: -1px;
@@ -768,6 +807,7 @@ export default {
   border-radius: 3px 3px 3px 0;
   white-space: nowrap;
 }
+
 
 
 .editor {
@@ -899,6 +939,7 @@ export default {
       }
 
       th {
+        background-color: #f1f3f5;
         font-weight: bold;
         text-align: left;
       }

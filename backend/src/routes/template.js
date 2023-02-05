@@ -8,6 +8,8 @@ module.exports = function(app) {
 
     // Get templates list
     app.get("/api/templates", acl.hasPermission('templates:read'), function(req, res) {
+        // #swagger.tags = ['Templates']
+
         Template.getAll()
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -15,6 +17,8 @@ module.exports = function(app) {
 
     // Create template
     app.post("/api/templates", acl.hasPermission('templates:create'), function(req, res) {
+        // #swagger.tags = ['Templates']
+
         if (!req.body.name || !req.body.file || !req.body.ext) {
             Response.BadParameters(res, 'Missing required parameters: name, ext, file');
             return;
@@ -41,6 +45,8 @@ module.exports = function(app) {
 
     // Update template
     app.put("/api/templates/:templateId", acl.hasPermission('templates:update'), function(req, res) {
+        // #swagger.tags = ['Templates']
+
         if (req.body.name && !utils.validFilename(req.body.name)) {
             Response.BadParameters(res, 'Bad name format');
             return;
@@ -81,6 +87,8 @@ module.exports = function(app) {
 
     // Delete template
     app.delete("/api/templates/:templateId", acl.hasPermission('templates:delete'), function(req, res) {
+        // #swagger.tags = ['Templates']
+
         Template.delete(req.params.templateId)
         .then(data => {
             fs.unlinkSync(`${__basedir}/../report-templates/${data.name}.${data.ext || 'docx'}`)
@@ -97,7 +105,9 @@ module.exports = function(app) {
 
      // Download template file
      app.get("/api/templates/download/:templateId", acl.hasPermission('templates:read'), function(req, res) {
-        Template.getOne(req.params.templateId)
+         // #swagger.tags = ['Templates']
+
+         Template.getOne(req.params.templateId)
         .then(data => {
             var file = `${__basedir}/../report-templates/${data.name}.${data.ext || 'docx'}`
             res.download(file, `${data.name}.${data.ext}`)
