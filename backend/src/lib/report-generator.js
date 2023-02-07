@@ -1,114 +1,109 @@
-var fs = require("fs");
-var Docxtemplater = require("docxtemplater");
-var JSZip = require("jszip");
-var expressions = require("angular-expressions");
-var ImageModule = require("docxtemplater-image-module-pwndoc");
-var sizeOf = require("image-size");
-var customGenerator = require("./custom-generator");
-var utils = require("./utils");
-var html2ooxml = require("./html2ooxml");
-var _ = require("lodash");
-var Image = require("mongoose").model("Image");
-var Settings = require("mongoose").model("Settings");
-var CVSS31 = require("./cvsscalc31.js");
-var translate = require("../translate");
-var $t;
+var fs = require('fs');
+var Docxtemplater = require('docxtemplater');
+var JSZip = require('jszip');
+var expressions = require('angular-expressions');
+var ImageModule = require('docxtemplater-image-module-pwndoc');
+var sizeOf = require('image-size');
+var customGenerator = require('./custom-generator');
+var utils = require('./utils');
+var html2ooxml = require('./html2ooxml');
+var _ = require('lodash');
+var Image = require('mongoose').model('Image');
+var Settings = require('mongoose').model('Settings');
+var CVSS31 = require('./cvsscalc31.js');
+var translate = require('../translate')
+var $t
 
 // Generate document with docxtemplater
 async function generateDoc(audit) {
-  var templatePath = `${__basedir}/../report-templates/${audit.template.name}.${
-    audit.template.ext || "docx"
-  }`;
-  var content = fs.readFileSync(templatePath, "binary");
+    var templatePath = `${__basedir}/../report-templates/${audit.template.name}.${audit.template.ext || 'docx'}`
+    var content = fs.readFileSync(templatePath, "binary");
 
-  var zip = new JSZip(content);
+    var zip = new JSZip(content);
 
-  translate.setLocale(audit.language);
-  $t = translate.translate;
+    translate.setLocale(audit.language)
+    $t = translate.translate
 
-  var settings = await Settings.getAll();
-  var preppedAudit = await prepAuditData(audit, settings);
+    var settings = await Settings.getAll();
+    var preppedAudit = await prepAuditData(audit, settings)
 
-  var opts = {};
-  // opts.centered = true;
-  opts.getImage = function (tagValue, tagName) {
-    if (tagValue !== "undefined") {
-      tagValue = tagValue.split(",")[1];
-      return Buffer.from(tagValue, "base64");
-    }
-    // return fs.readFileSync(tagValue, {encoding: 'base64'});
-  };
-  opts.getSize = function (img, tagValue, tagName) {
-    if (img) {
-      var sizeObj = sizeOf(img);
-      var width = sizeObj.width;
-      var height = sizeObj.height;
-      if (tagName === "company.logo_small") {
-        var divider = sizeObj.height / 37;
-        height = 37;
-        width = Math.floor(sizeObj.width / divider);
-      } else if (tagName === "company.logo") {
-        var divider = sizeObj.height / 250;
-        height = 250;
-        width = Math.floor(sizeObj.width / divider);
-        if (width > 400) {
-          divider = sizeObj.width / 400;
-          height = Math.floor(sizeObj.height / divider);
-          width = 400;
+    var opts = {};
+    // opts.centered = true;
+    opts.getImage = function(tagValue, tagName) {
+        if (tagValue !== "undefined") {
+            tagValue = tagValue.split(",")[1];
+            return Buffer.from(tagValue, 'base64');
         }
-      } else if (sizeObj.width > 600) {
-        var divider = sizeObj.width / 600;
-        width = 600;
-        height = Math.floor(sizeObj.height / divider);
-      }
-      return [width, height];
+        // return fs.readFileSync(tagValue, {encoding: 'base64'});
     }
-    return [0, 0];
-  };
-
-  if (
-    settings.report.private.imageBorder &&
-    settings.report.private.imageBorderColor
-  )
-    opts.border = settings.report.private.imageBorderColor.replace("#", "");
-
-  try {
-    var imageModule = new ImageModule(opts);
-  } catch (err) {
-    console.log(err);
-  }
-  var doc = new Docxtemplater()
-    .attachModule(imageModule)
-    .loadZip(zip)
-    .setOptions({ parser: parser, paragraphLoop: true });
-  customGenerator.apply(preppedAudit);
-  doc.setData(preppedAudit);
-  try {
-    doc.render();
-  } catch (error) {
-    if (error.properties.id === "multi_error") {
-      error.properties.errors.forEach(function (err) {
-        console.log(err);
-      });
-    } else console.log(error);
-    if (error.properties && error.properties.errors instanceof Array) {
-      const errorMessages = error.properties.errors
-        .map(function (error) {
-          return `Explanation: ${
-            error.properties.explanation
-          }\nScope: ${JSON.stringify(error.properties.scope).substring(0, 142)}...`;
-        })
-        .join("\n\n");
-      // errorMessages is a humanly readable message looking like this :
-      // 'The tag beginning with "foobar" is unopened'
-      throw `Template Error:\n${errorMessages}`;
-    } else {
-      throw error;
+    opts.getSize = function(img, tagValue, tagName) {
+        if (img) {
+            var sizeObj = sizeOf(img);
+            var width = sizeObj.width;
+            var height = sizeObj.height;
+            if (tagName === "company.logo_small") {
+                var divider = sizeObj.height / 37;
+                height = 37;
+                width = Math.floor(sizeObj.width / divider);
+            }
+            else if (tagName === "company.logo") {
+                var divider = sizeObj.height / 250;
+                height = 250;
+                width = Math.floor(sizeObj.width / divider);
+                if (width > 400) {
+                    divider = sizeObj.width / 400;
+                    height = Math.floor(sizeObj.height / divider);
+                    width = 400;
+                }
+            }
+            else if (sizeObj.width > 600) {
+                var divider = sizeObj.width / 600;
+                width = 600;
+                height = Math.floor(sizeObj.height / divider);
+            }
+            return [width,height];
+        }
+        return [0,0]
     }
-  }
-  var buf = doc.getZip().generate({ type: "nodebuffer" });
 
-  return buf;
+    if (settings.report.private.imageBorder && settings.report.private.imageBorderColor)
+        opts.border = settings.report.private.imageBorderColor.replace('#', '')
+
+    try {
+        var imageModule = new ImageModule(opts);
+    }
+    catch(err) {
+        console.log(err)
+    }
+    var doc = new Docxtemplater().attachModule(imageModule).loadZip(zip).setOptions({parser: parser, paragraphLoop: true});
+    customGenerator.apply(preppedAudit);
+    doc.setData(preppedAudit);
+    try {
+        doc.render();
+    }
+    catch (error) {
+        if (error.properties.id === 'multi_error') {
+            error.properties.errors.forEach(function(err) {
+                console.log(err);
+            });
+        }
+        else
+            console.log(error)
+        if (error.properties && error.properties.errors instanceof Array) {
+            const errorMessages = error.properties.errors.map(function (error) {
+                return `Explanation: ${error.properties.explanation}\nScope: ${JSON.stringify(error.properties.scope).substring(0,142)}...`
+            }).join("\n\n");
+            // errorMessages is a humanly readable message looking like this :
+            // 'The tag beginning with "foobar" is unopened'
+            throw `Template Error:\n${errorMessages}`;
+        }
+        else {
+            throw error
+        }
+    }
+    var buf = doc.getZip().generate({type:"nodebuffer"});
+
+    return buf;
 }
 exports.generateDoc = generateDoc;
 
@@ -179,87 +174,38 @@ expressions.filters.capfirst = function(input) {
     return input.replace(/^\w/, (c) => c.toUpperCase());
 }
 
-
 // Convert input date with parameter s (full,short): {input | convertDate: 's'}
-expressions.filters.convertDate = function (input, s) {
-  var date = new Date(input);
-  if (date != "Invalid Date") {
-    var monthsFull = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ];
-    var monthsShort = [
-      "01",
-      "02",
-      "03",
-      "04",
-      "05",
-      "06",
-      "07",
-      "08",
-      "09",
-      "10",
-      "11",
-      "12",
-    ];
-    var days = [
-      "Sunday",
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-    ];
-    var day = date.getUTCDate();
-    var month = date.getUTCMonth();
-    var year = date.getUTCFullYear();
-    if (s === "full") {
-      return (
-        days[date.getUTCDay()] +
-        ", " +
-        monthsFull[month] +
-        " " +
-        (day < 10 ? "0" + day : day) +
-        ", " +
-        year
-      );
+expressions.filters.convertDate = function(input, s) {
+    var date = new Date(input);
+    if (date != "Invalid Date") {
+        var monthsFull = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        var monthsShort = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
+        var days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        var day = date.getUTCDate();
+        var month = date.getUTCMonth();
+        var year = date.getUTCFullYear();
+        if (s === "full") {
+            return days[date.getUTCDay()] + ", " + monthsFull[month] + " " + (day<10 ? '0'+day: day) + ", " + year;
+        }
+        if (s === "short") {
+            return monthsShort[month] + "/" + (day<10 ? '0'+day: day) + "/" + year;
+        }
     }
-    if (s === "short") {
-      return (
-        monthsShort[month] + "/" + (day < 10 ? "0" + day : day) + "/" + year
-      );
-    }
-  }
-};
+}
 
 // Convert input date with parameter s (full,short): {input | convertDateLocale: 'locale':'style'}
-expressions.filters.convertDateLocale = function (input, locale, style) {
-  var date = new Date(input);
-  if (date != "Invalid Date") {
-    var options = { year: "numeric", month: "2-digit", day: "2-digit" };
+expressions.filters.convertDateLocale = function(input, locale, style) {
+    var date = new Date(input);
+    if (date != "Invalid Date") {
+        var options = { year: 'numeric', month: '2-digit', day: '2-digit'}
 
-    if (style === "full")
-      options = {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      };
+        if (style === "full")
+            options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'}
 
-    return date.toLocaleDateString(locale, options);
-  }
-};
+        return date.toLocaleDateString(locale, options)
+
+    }
+}
 
 // Convert identifier prefix to a user defined prefix: {identifier | changeID: 'PRJ-'}
 expressions.filters.changeID = function (input, prefix) {
@@ -445,19 +391,15 @@ expressions.filters.sort = function(input, key = null) {
 // Sort array by supplied field: {#findings | sortArrayByField: 'identifier':1}{/}
 // order: 1 = ascending, -1 = descending
 expressions.filters.sortArrayByField = function (input, field, order) {
-  //invalid order sort ascending
-  if (order != 1 && order != -1) order = 1;
+    //invalid order sort ascending
+    if(order != 1 && order != -1) order = 1;
 
-  const sorted = input.sort((a, b) => {
-    //multiply by order so that if is descending (-1) will reverse the values
-    return (
-      _.get(a, field).localeCompare(_.get(b, field), undefined, {
-        numeric: true,
-      }) * order
-    );
-  });
-  return sorted;
-};
+    const sorted = input.sort((a,b) => {
+        //multiply by order so that if is descending (-1) will reverse the values
+        return _.get(a, field).localeCompare(_.get(b, field), undefined, {numeric: true}) * order
+    })
+    return sorted;
+}
 
 // Takes a string as input and split it into an ordered list using a separator: {input | split: ', '}
 expressions.filters.split = function(input, sep) {
@@ -488,14 +430,16 @@ expressions.filters.where = function(input, query) {
     return input.filter(function (item) {
         return expressions.compile(query)(item);
     });
-}
+};
 
 // Convert HTML data to Open Office XML format: {@input | convertHTML: 'customStyle'}
-expressions.filters.convertHTML = function (input, style) {
-  if (typeof input === "undefined") var result = html2ooxml("");
-  else var result = html2ooxml(input.replace(/(<p><\/p>)+$/, ""), style);
-  return result;
-};
+expressions.filters.convertHTML = function(input, style) {
+    if (typeof input === 'undefined')
+        var result = html2ooxml('')
+    else
+        var result = html2ooxml(input.replace(/(<p><\/p>)+$/, ''), style)
+    return result;
+}
 
 // Count vulnerability by severity
 // Example: {findings | count: 'Critical'}
@@ -518,11 +462,15 @@ expressions.filters.count = function(input, severity, scoreType) {
             scoreAttribute = "environmentalSeverity";            
     }
     for(var i = 0; i < input.length; i++){
-         if(input[i].cvss[scoreAttribute] === severity){
+
+        if(input[i].cvss[scoreAttribute] === severity){
             count += 1;
         }
+    }
+
     return count;
 }
+
 
 // Translate using locale from 'translate' folder
 // Example: {input | translate: 'fr'}
@@ -540,6 +488,7 @@ function _getPropertyValue(obj, dataToRetrieve) {
       return o && o[k];
     }, obj);
 }
+
 // Filters helper: handles the use of preformated easilly translatable strings.
 // Source: https://www.tutorialstonight.com/javascript-string-format.php
 String.prototype.format = function () {
@@ -547,8 +496,8 @@ String.prototype.format = function () {
     return this.replace(/{([0-9]+)}/g, function (match, index) {
         return typeof args[index] == 'undefined' ? match : args[index];
     });
-}
-  
+};
+
 // Compile all angular expressions
 var angularParser = function(tag) {
     expressions = {...expressions, ...customGenerator.expressions};
@@ -560,7 +509,7 @@ var angularParser = function(tag) {
     const expr = expressions.compile(
         tag.replace(/(’|‘)/g, "'").replace(/(“|”)/g, '"')
     );
-   return {
+    return {
         get: function(scope, context) {
             let obj = {};
             const scopeList = context.scopeList;
@@ -570,199 +519,176 @@ var angularParser = function(tag) {
             }
             return expr(scope, obj);
         }
-   };
-} 
-  
-function parser(tag) {
-  // We write an exception to handle the tag "$pageBreakExceptLast"
-  if (tag === "$pageBreakExceptLast") {
-    return {
-      get(scope, context) {
-        const totalLength =
-          context.scopePathLength[context.scopePathLength.length - 1];
-        const index = context.scopePathItem[context.scopePathItem.length - 1];
-        const isLast = index === totalLength - 1;
-        if (!isLast) {
-          return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
-        } else {
-          return "";
-        }
-      },
     };
-  }
-  // We use the angularParser as the default fallback
-  // If you don't wish to use the angularParser,
-  // you can use the default parser as documented here:
-  // https://docxtemplater.readthedocs.io/en/latest/configuration.html#default-parser
-  return angularParser(tag);
+}
+
+function parser(tag) {
+    // We write an exception to handle the tag "$pageBreakExceptLast"
+    if (tag === "$pageBreakExceptLast") {
+        return {
+            get(scope, context) {
+                const totalLength = context.scopePathLength[context.scopePathLength.length - 1];
+                const index = context.scopePathItem[context.scopePathItem.length - 1];
+                const isLast = index === totalLength - 1;
+                if (!isLast) {
+                    return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
+                }
+                else {
+                    return '';
+                }
+            }
+        }
+    }
+    // We use the angularParser as the default fallback
+    // If you don't wish to use the angularParser,
+    // you can use the default parser as documented here:
+    // https://docxtemplater.readthedocs.io/en/latest/configuration.html#default-parser
+    return angularParser(tag);
 }
 function cvssStrToObject(cvss) {
-  var initialState = "Not Defined";
-  var res = {
-    AV: initialState,
-    AC: initialState,
-    PR: initialState,
-    UI: initialState,
-    S: initialState,
-    C: initialState,
-    I: initialState,
-    A: initialState,
-    E: initialState,
-    RL: initialState,
-    RC: initialState,
-    CR: initialState,
-    IR: initialState,
-    AR: initialState,
-    MAV: initialState,
-    MAC: initialState,
-    MPR: initialState,
-    MUI: initialState,
-    MS: initialState,
-    MC: initialState,
-    MI: initialState,
-    MA: initialState,
-  };
-  if (cvss) {
-    var temp = cvss.split("/");
-    for (var i = 0; i < temp.length; i++) {
-      var elt = temp[i].split(":");
-      switch (elt[0]) {
-        case "AV":
-          if (elt[1] === "N") res.AV = "Network";
-          else if (elt[1] === "A") res.AV = "Adjacent Network";
-          else if (elt[1] === "L") res.AV = "Local";
-          else if (elt[1] === "P") res.AV = "Physical";
-          res.AV = $t(res.AV);
-          break;
-        case "AC":
-          if (elt[1] === "L") res.AC = "Low";
-          else if (elt[1] === "H") res.AC = "High";
-          res.AC = $t(res.AC);
-          break;
-        case "PR":
-          if (elt[1] === "N") res.PR = "None";
-          else if (elt[1] === "L") res.PR = "Low";
-          else if (elt[1] === "H") res.PR = "High";
-          res.PR = $t(res.PR);
-          break;
-        case "UI":
-          if (elt[1] === "N") res.UI = "None";
-          else if (elt[1] === "R") res.UI = "Required";
-          res.UI = $t(res.UI);
-          break;
-        case "S":
-          if (elt[1] === "U") res.S = "Unchanged";
-          else if (elt[1] === "C") res.S = "Changed";
-          res.S = $t(res.S);
-          break;
-        case "C":
-          if (elt[1] === "N") res.C = "None";
-          else if (elt[1] === "L") res.C = "Low";
-          else if (elt[1] === "H") res.C = "High";
-          res.C = $t(res.C);
-          break;
-        case "I":
-          if (elt[1] === "N") res.I = "None";
-          else if (elt[1] === "L") res.I = "Low";
-          else if (elt[1] === "H") res.I = "High";
-          res.I = $t(res.I);
-          break;
-        case "A":
-          if (elt[1] === "N") res.A = "None";
-          else if (elt[1] === "L") res.A = "Low";
-          else if (elt[1] === "H") res.A = "High";
-          res.A = $t(res.A);
-          break;
-        case "E":
-          if (elt[1] === "U") res.E = "Unproven";
-          else if (elt[1] === "P") res.E = "Proof-of-Concept";
-          else if (elt[1] === "F") res.E = "Functional";
-          else if (elt[1] === "H") res.E = "High";
-          res.E = $t(res.E);
-          break;
-        case "RL":
-          if (elt[1] === "O") res.RL = "Official Fix";
-          else if (elt[1] === "T") res.RL = "Temporary Fix";
-          else if (elt[1] === "W") res.RL = "Workaround";
-          else if (elt[1] === "U") res.RL = "Unavailable";
-          res.RL = $t(res.RL);
-          break;
-        case "RC":
-          if (elt[1] === "U") res.RC = "Unknown";
-          else if (elt[1] === "R") res.RC = "Reasonable";
-          else if (elt[1] === "C") res.RC = "Confirmed";
-          res.RC = $t(res.RC);
-          break;
-        case "CR":
-          if (elt[1] === "L") res.CR = "Low";
-          else if (elt[1] === "M") res.CR = "Medium";
-          else if (elt[1] === "H") res.CR = "High";
-          res.CR = $t(res.CR);
-          break;
-        case "IR":
-          if (elt[1] === "L") res.IR = "Low";
-          else if (elt[1] === "M") res.IR = "Medium";
-          else if (elt[1] === "H") res.IR = "High";
-          res.IR = $t(res.IR);
-          break;
-        case "AR":
-          if (elt[1] === "L") res.AR = "Low";
-          else if (elt[1] === "M") res.AR = "Medium";
-          else if (elt[1] === "H") res.AR = "High";
-          res.AR = $t(res.AR);
-          break;
-        case "MAV":
-          if (elt[1] === "N") res.MAV = "Network";
-          else if (elt[1] === "A") res.MAV = "Adjacent Network";
-          else if (elt[1] === "L") res.MAV = "Local";
-          else if (elt[1] === "P") res.MAV = "Physical";
-          res.MAV = $t(res.MAV);
-          break;
-        case "MAC":
-          if (elt[1] === "L") res.MAC = "Low";
-          else if (elt[1] === "H") res.MAC = "High";
-          res.MAC = $t(res.MAC);
-          break;
-        case "MPR":
-          if (elt[1] === "N") res.MPR = "None";
-          else if (elt[1] === "L") res.MPR = "Low";
-          else if (elt[1] === "H") res.MPR = "High";
-          res.MPR = $t(res.MPR);
-          break;
-        case "MUI":
-          if (elt[1] === "N") res.MUI = "None";
-          else if (elt[1] === "R") res.MUI = "Required";
-          res.MUI = $t(res.MUI);
-          break;
-        case "MS":
-          if (elt[1] === "U") res.MS = "Unchanged";
-          else if (elt[1] === "C") res.MS = "Changed";
-          res.MS = $t(res.MS);
-          break;
-        case "MC":
-          if (elt[1] === "N") res.MC = "None";
-          else if (elt[1] === "L") res.MC = "Low";
-          else if (elt[1] === "H") res.MC = "High";
-          res.MC = $t(res.MC);
-          break;
-        case "MI":
-          if (elt[1] === "N") res.MI = "None";
-          else if (elt[1] === "L") res.MI = "Low";
-          else if (elt[1] === "H") res.MI = "High";
-          res.MI = $t(res.MI);
-          break;
-        case "MA":
-          if (elt[1] === "N") res.MA = "None";
-          else if (elt[1] === "L") res.MA = "Low";
-          else if (elt[1] === "H") res.MA = "High";
-          res.MA = $t(res.MA);
-          break;
-        default:
-          break;
-      }
+    var initialState = 'Not Defined'
+    var res = {AV:initialState, AC:initialState, PR:initialState, UI:initialState, S:initialState, C:initialState, I:initialState, A:initialState, E:initialState, RL:initialState, RC:initialState, CR:initialState, IR:initialState, AR:initialState, MAV:initialState, MAC:initialState, MPR:initialState, MUI:initialState, MS:initialState, MC:initialState, MI:initialState, MA:initialState};
+    if (cvss) {
+        var temp = cvss.split('/');
+        for (var i=0; i<temp.length; i++) {
+            var elt = temp[i].split(':');
+            switch(elt[0]) {
+                case "AV":
+                    if (elt[1] === "N") res.AV = "Network"
+                    else if (elt[1] === "A") res.AV = "Adjacent Network"
+                    else if (elt[1] === "L") res.AV = "Local"
+                    else if (elt[1] === "P") res.AV = "Physical"
+                    res.AV = $t(res.AV)
+                    break;
+                case "AC":
+                    if (elt[1] === "L") res.AC = "Low"
+                    else if (elt[1] === "H") res.AC = "High"
+                    res.AC = $t(res.AC)
+                    break;
+                case "PR":
+                    if (elt[1] === "N") res.PR = "None"
+                    else if (elt[1] === "L") res.PR = "Low"
+                    else if (elt[1] === "H") res.PR = "High"
+                    res.PR = $t(res.PR)
+                    break;
+                case "UI":
+                    if (elt[1] === "N") res.UI = "None"
+                    else if (elt[1] === "R") res.UI = "Required"
+                    res.UI = $t(res.UI)
+                    break;
+                case "S":
+                    if (elt[1] === "U") res.S = "Unchanged"
+                    else if (elt[1] === "C") res.S = "Changed"
+                    res.S = $t(res.S)
+                    break;
+                case "C":
+                    if (elt[1] === "N") res.C = "None"
+                    else if (elt[1] === "L") res.C = "Low"
+                    else if (elt[1] === "H") res.C = "High"
+                    res.C = $t(res.C)
+                    break;
+                case "I":
+                    if (elt[1] === "N") res.I = "None"
+                    else if (elt[1] === "L") res.I = "Low"
+                    else if (elt[1] === "H") res.I = "High"
+                    res.I = $t(res.I)
+                    break;
+                case "A":
+                    if (elt[1] === "N") res.A = "None"
+                    else if (elt[1] === "L") res.A = "Low"
+                    else if (elt[1] === "H") res.A = "High"
+                    res.A = $t(res.A)
+                    break;
+                case "E":
+                    if (elt[1] === "U") res.E = "Unproven"
+                    else if (elt[1] === "P") res.E = "Proof-of-Concept"
+                    else if (elt[1] === "F") res.E = "Functional"
+                    else if (elt[1] === "H") res.E = "High"
+                    res.E = $t(res.E)
+                    break;
+                case "RL":
+                    if (elt[1] === "O") res.RL = "Official Fix"
+                    else if (elt[1] === "T") res.RL = "Temporary Fix"
+                    else if (elt[1] === "W") res.RL = "Workaround"
+                    else if (elt[1] === "U") res.RL = "Unavailable"
+                    res.RL = $t(res.RL)
+                    break;
+                case "RC":
+                    if (elt[1] === "U") res.RC = "Unknown"
+                    else if (elt[1] === "R") res.RC = "Reasonable"
+                    else if (elt[1] === "C") res.RC = "Confirmed"
+                    res.RC = $t(res.RC)
+                    break;
+                case "CR":
+                    if (elt[1] === "L") res.CR = "Low"
+                    else if (elt[1] === "M") res.CR = "Medium"
+                    else if (elt[1] === "H") res.CR = "High"
+                    res.CR = $t(res.CR)
+                    break;
+                case "IR":
+                    if (elt[1] === "L") res.IR = "Low"
+                    else if (elt[1] === "M") res.IR = "Medium"
+                    else if (elt[1] === "H") res.IR = "High"
+                    res.IR = $t(res.IR)
+                    break;
+                case "AR":
+                    if (elt[1] === "L") res.AR = "Low"
+                    else if (elt[1] === "M") res.AR = "Medium"
+                    else if (elt[1] === "H") res.AR = "High"
+                    res.AR = $t(res.AR)
+                    break;
+                case "MAV":
+                    if (elt[1] === "N") res.MAV = "Network"
+                    else if (elt[1] === "A") res.MAV = "Adjacent Network"
+                    else if (elt[1] === "L") res.MAV = "Local"
+                    else if (elt[1] === "P") res.MAV = "Physical"
+                    res.MAV = $t(res.MAV)
+                    break;
+                case "MAC":
+                    if (elt[1] === "L") res.MAC = "Low"
+                    else if (elt[1] === "H") res.MAC = "High"
+                    res.MAC = $t(res.MAC)
+                    break;
+                case "MPR":
+                    if (elt[1] === "N") res.MPR = "None"
+                    else if (elt[1] === "L") res.MPR = "Low"
+                    else if (elt[1] === "H") res.MPR = "High"
+                    res.MPR = $t(res.MPR)
+                    break;
+                case "MUI":
+                    if (elt[1] === "N") res.MUI = "None"
+                    else if (elt[1] === "R") res.MUI = "Required"
+                    res.MUI = $t(res.MUI)
+                    break;
+                case "MS":
+                    if (elt[1] === "U") res.MS = "Unchanged"
+                    else if (elt[1] === "C") res.MS = "Changed"
+                    res.MS = $t(res.MS)
+                    break;
+                case "MC":
+                    if (elt[1] === "N") res.MC = "None"
+                    else if (elt[1] === "L") res.MC = "Low"
+                    else if (elt[1] === "H") res.MC = "High"
+                    res.MC = $t(res.MC)
+                    break;
+                case "MI":
+                    if (elt[1] === "N") res.MI = "None"
+                    else if (elt[1] === "L") res.MI = "Low"
+                    else if (elt[1] === "H") res.MI = "High"
+                    res.MI = $t(res.MI)
+                    break;
+                case "MA":
+                    if (elt[1] === "N") res.MA = "None"
+                    else if (elt[1] === "L") res.MA = "Low"
+                    else if (elt[1] === "H") res.MA = "High"
+                    res.MA = $t(res.MA)
+                    break;
+                default:
+                    break;
+            }
+        }
     }
-  }
-  return res;
+    return res
 }
 
 async function prepAuditData(data, settings) {
