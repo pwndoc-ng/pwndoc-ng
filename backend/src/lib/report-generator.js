@@ -114,6 +114,72 @@ exports.generateDoc = generateDoc;
 
 // *** Angular parser filters ***
 
+// Keep only first finding with a given title
+expressions.filters.uniqFindings = function (findings) {
+    if (!findings) return findings;
+    titles = [];
+    filtered_findings = [];
+    findings.forEach(function (f) {
+        if (!(titles.includes(f.title))){
+            titles.push(f.title);
+            filtered_findings.push(f);
+        }
+    });
+    return filtered_findings;
+};
+
+// Creates a text block or simple location bookmark:
+// - Text block: {@name | bookmarkCreate: identifier | p}
+// - Location: {@identifier | bookmarkCreate | p}
+// Identifiers are sanitized as follow:
+// - Invalid characters replaced by underscores.
+// - Identifiers longer than 40 chars are truncated (MS-Word limitation).
+expressions.filters.bookmarkCreate = function(input, refid = null) {
+    let rand_id = Math.floor(Math.random() * 1000000 + 1000);
+    let parsed_id = (refid ? refid : input).replace(/[^a-zA-Z0-9_]/g, '_').substring(0,40);
+
+    // Accept both text and OO-XML as input.
+    if (input.indexOf('<w:r') !== 0) {
+        input = '<w:r><w:t>' + input + '</w:t></w:r>';
+    }
+
+    return '<w:bookmarkStart w:id="' + rand_id + '" '
+        + 'w:name="' + parsed_id + '"/>'
+        + (refid ? input : '')
+        + '<w:bookmarkEnd w:id="' + rand_id + '"/>';
+}
+
+// Creates a hyperlink to a text block or location bookmark:
+// {@input | bookmarkLink: identifier | p}
+// Identifiers are sanitized as follow:
+// - Invalid characters replaced by underscores.
+// - Identifiers longer than 40 chars are truncated (MS-Word limitation).
+expressions.filters.bookmarkLink = function(input, identifier) {
+    identifier = identifier.replace(/[^a-zA-Z0-9_]/g, '_').substring(0,40);
+    return '<w:hyperlink w:anchor="' + identifier + '">'
+        + '<w:r><w:rPr><w:rStyle w:val="Hyperlink"/></w:rPr>'
+        + '<w:t>' + input + '</w:t>'
+        + '</w:r></w:hyperlink>';
+}
+
+// Creates a clickable dynamic field referencing a text block bookmark:
+// Identifiers are sanitized as follow:
+// - Invalid characters replaced by underscores.
+// - Identifiers longer than 40 chars are truncated (MS-Word limitation).
+expressions.filters.bookmarkRef = function(input) {
+    return '<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve">'
+        + ' REF ' + input.replace(/[^a-zA-Z0-9_]/g, '_').substring(0,40) + ' \\h </w:instrText></w:r>'
+        + '<w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>'
+        + input + '</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>';
+}
+
+// Capitalizes input first letter: {input | capfirst}
+expressions.filters.capfirst = function(input) {
+    if (!input || input == "undefined") return input;
+    return input.replace(/^\w/, (c) => c.toUpperCase());
+}
+
+
 // Convert input date with parameter s (full,short): {input | convertDate: 's'}
 expressions.filters.convertDate = function (input, s) {
   var date = new Date(input);
@@ -197,27 +263,184 @@ expressions.filters.convertDateLocale = function (input, locale, style) {
 
 // Convert identifier prefix to a user defined prefix: {identifier | changeID: 'PRJ-'}
 expressions.filters.changeID = function (input, prefix) {
-  return input.replace("IDX-", prefix);
-};
+    return input.replace("IDX-", prefix);
+}
+
+// Default value: returns input if it is truthy, otherwise its parameter.
+// Example producing a comma-separated list of affected systems, falling-back on the whole audit scope: {affected | lines | d: (scope | select: 'name') | join: ', '}
+expressions.filters.d = function(input, s) {
+    return (input && input != "undefined") ? input : s;
+}
+
+// Display "From ... to ..." dates nicely, removing redundant information when the start and end date occur during the same month or year: {date_start | fromTo: date_end:'fr' | capfirst}
+// To internationalize or customize the resulting string, associate the desired output to the strings "from {0} to {1}" and "on {0}" in your Pwndoc translate file.
+expressions.filters.fromTo = function(start, end, locale) {
+    const start_date = new Date(start);
+    const end_date = new Date(end);
+    let options = {}, start_str = '', end_str = '';
+    let str = "from {0} to {1}";
+
+    if (start_date == "Invalid Date" || end_date == "Invalid Date") return start;
+
+    options = {day: '2-digit', month: '2-digit', year: 'numeric'};
+    end_str = end_date.toLocaleDateString(locale, options);
+
+    if (start_date.getYear() != end_date.getYear()) {
+        options = {day: '2-digit', month: '2-digit', year: 'numeric'};
+        start_str = start_date.toLocaleDateString(locale, options);
+    }
+    else if (start_date.getMonth() != end_date.getMonth()) {
+        options = {day: '2-digit', month: '2-digit'};
+        start_str = start_date.toLocaleDateString(locale, options);
+    }
+    else if (start_date.getDay() != end_date.getDay()) {
+        options = {day: '2-digit'};
+        start_str = start_date.toLocaleDateString(locale, options);
+    }
+    else {
+        start_str = end_str;
+        str = "on {0}";
+    }
+
+    return translate.translate(str).format(start_str, end_str);
+}
+
+// Group input elements by an attribute: {#findings | groupBy: 'severity'}{title}{/findings | groupBy: 'severity'}
+// Source: https://stackoverflow.com/a/34890276
+expressions.filters.groupBy = function(input, key) {
+    return expressions.filters.loopObject(
+        input.reduce(function(rv, x) {
+            (rv[x[key]] = rv[x[key]] || []).push(x);
+            return rv;
+        }, {})
+    );
+}
+
+// Returns the initials from an input string (typically a firstname): {creator.firstname | initials}
+expressions.filters.initials = function(input) {
+    if (!input || input == "undefined") return input;
+    return input.replace(/(\w)\w+/gi,"$1.");
+}
+
+// Returns a string which is a concatenation of input elements using an optional separator string: {references | join: ', '}
+// Can also be used to build raw OOXML strings.
+expressions.filters.join = function(input, sep = '') {
+    if (!input || input == "undefined") return input;
+    return input.join(sep);
+}
+
+// Returns the length (ie. number of items for an array) of input: {input | length}
+// Can be used as a conditional to check the emptiness of a list: {#input | length}Not empty{/input | length}
+expressions.filters.length = function(input) {
+    return input.length;
+}
+
+// Takes a multilines input strings (either raw or simple HTML paragraphs) and returns each line as an ordered list: {input | lines}
+expressions.filters.lines = function(input) {
+    if (!input || input == "undefined") return input;
+    if (input.indexOf('<p>') == 0) {
+        return input.substring(3,input.length - 4).split('</p><p>');
+    }
+    else {
+        return input.split("\n");
+    }
+}
+
+// Creates a hyperlink: {@input | linkTo: 'https://example.com' | p}
+expressions.filters.linkTo = function(input, url) {
+    return '<w:r><w:fldChar w:fldCharType="begin"/></w:r>'
+        + '<w:r><w:instrText xml:space="preserve"> HYPERLINK "' + url + '" </w:instrText></w:r>'
+        + '<w:r><w:fldChar w:fldCharType="separate"/></w:r>'
+        + '<w:r><w:rPr><w:rStyle w:val="Hyperlink"/></w:rPr>'
+        + '<w:t>' + input + '</w:t>'
+        + '</w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>';
+}
+
+// Loop over the input object, providing acccess to its keys and values: {#findings | loopObject}{key}{value.title}{/findings | loopObject}
+// Source: https://stackoverflow.com/a/60887987
+expressions.filters.loopObject = function(input) {
+    return Object.keys(input).map(function(key) {
+        return { key , value : input[key]};
+    });
+}
+
+// Lowercases input: {input | lower}
+expressions.filters.lower = function(input) {
+    if (!input || input == "undefined") return input;
+        return input.toLowerCase();
+}
+
+// Creates a clickable "mailto:" link, assumes that input is an email address if
+// no other address has been provided as parameter:
+// {@lastname | mailto: email | p}
+expressions.filters.mailto = function(input, address = null) {
+    return expressions.filters.linkTo(input, 'mailto:' + (address ? address : input));
+}
+
+// Applies a filter on a sequence of objects: {scope | select: 'name' | map: 'lower' | join: ', '}
+expressions.filters.map = function(input, filter) {
+    let args = Array.prototype.slice.call(arguments, 2);
+    return input.map(x => expressions.filters[filter](x, ...args));
+}
 
 // Replace newlines in office XML format: {@input | NewLines}
-expressions.filters.NewLines = function (input) {
-  var pre = "<w:p><w:r><w:t>";
-  var post = "</w:t></w:r></w:p>";
-  var lineBreak = "<w:br/>";
-  var result = "";
+expressions.filters.NewLines = function(input) {
+    var pre = '<w:p><w:r><w:t>';
+    var post = '</w:t></w:r></w:p>';
+    var lineBreak = '<w:br/>';
+    var result = '';
 
-  if (!input) return pre + post;
+    if(!input) return pre + post;
 
-  input = utils.escapeXMLEntities(input);
-  var inputArray = input.split(/\n\n+/g);
-  inputArray.forEach((p) => {
-    result += `${pre}${p.replace(/\n/g, lineBreak)}${post}`;
-  });
-  // input = input.replace(/\n/g, lineBreak);
-  // return pre + input + post;
-  return result;
-};
+    input = utils.escapeXMLEntities(input);
+    var inputArray = input.split(/\n\n+/g);
+    inputArray.forEach(p => {
+        result += `${pre}${p.replace(/\n/g, lineBreak)}${post}`
+    });
+    // input = input.replace(/\n/g, lineBreak);
+    // return pre + input + post;
+    return result;
+}
+
+// Embeds input within OOXML paragraph tags, applying an optional style name to it: {@input | p: 'Some style'}
+expressions.filters.p = function(input, style = null) {
+    let result = '<w:p>';
+
+    if (style !== null ) {
+        let style_parsed = style.replaceAll(' ', '');
+        result += '<w:pPr><w:pStyle w:val="' + style_parsed + '"/></w:pPr>';
+    }
+    result += input + '</w:p>';
+
+    return result;
+}
+
+// Reverses the input array: {input | reverse}
+expressions.filters.reverse = function(input) {
+    return input.reverse();
+}
+
+// Add proper XML tags to embed raw string inside a docxtemplater raw expression: {@('Vulnerability: ' | s) + title | bookmarkCreate: identifier | p}
+expressions.filters.s = function(input) {
+    return '<w:r><w:t xml:space="preserve">' + input + '</w:t></w:r>';
+}
+
+// Looks up an attribute from a sequence of objects, doted notation is supported: {findings | select: 'cvss.environmentalSeverity'}
+expressions.filters.select = function(input, attr) {
+    return input.map(function(item) { return _getPropertyValue(item, attr) });
+}
+
+// Sorts the input array according an optional given attribute, dotted notation is supported: {#findings | sort 'cvss.environmentalSeverity'}{name}{/findings | sort 'cvss.environmentalSeverity'}
+expressions.filters.sort = function(input, key = null) {
+    if (key === null) {
+        return input.sort();
+    }
+    else {
+        return input.sort(function(a, b) {
+            return _getPropertyValue(a, key) < _getPropertyValue(b, key);
+        });
+    }
+}
 
 // Sort array by supplied field: {#findings | sortArrayByField: 'identifier':1}{/}
 // order: 1 = ascending, -1 = descending
@@ -236,6 +459,37 @@ expressions.filters.sortArrayByField = function (input, field, order) {
   return sorted;
 };
 
+// Takes a string as input and split it into an ordered list using a separator: {input | split: ', '}
+expressions.filters.split = function(input, sep) {
+    if (!input || input == "undefined") return input;
+    return input.split(sep);
+}
+
+// Capitalizes input first letter of each word, can be associated to 'lower' to normalize case: {creator.lastname | lower | title}
+expressions.filters.title= function(input) {
+    if (!input || input == "undefined") return input;
+    return input.replace(/\w\S*/g, (w) => (w.replace(/^\w/, (c) => c.toUpperCase())));
+}
+
+// Returns the JSON representation of the input value, useful to dump variables content while debugging a template: {input | toJSON}
+expressions.filters.toJSON = function(input) {
+    return JSON.stringify(input);
+}
+
+// Upercases input: {input | upper}
+expressions.filters.upper = function(input) {
+    if (!input || input == "undefined") return input;
+    return input.toUpperCase();
+}
+
+// Filters input elements matching a free-form Angular statements: {#findings | where: 'cvss.severity == "Critical"'}{title}{/findings | where: 'cvss.severity == "Critical"'}
+// Source: https://docxtemplater.com/docs/angular-parse/#data-filtering
+expressions.filters.where = function(input, query) {
+    return input.filter(function (item) {
+        return expressions.compile(query)(item);
+    });
+}
+
 // Convert HTML data to Open Office XML format: {@input | convertHTML: 'customStyle'}
 expressions.filters.convertHTML = function (input, style) {
   if (typeof input === "undefined") var result = html2ooxml("");
@@ -245,52 +499,80 @@ expressions.filters.convertHTML = function (input, style) {
 
 // Count vulnerability by severity
 // Example: {findings | count: 'Critical'}
-expressions.filters.count = function (input, severity) {
-  if (!input) return input;
-  var count = 0;
-
-  for (var i = 0; i < input.length; i++) {
-    if (input[i].cvss.baseSeverity === severity) {
-      count += 1;
+// Example: {findings | count: 'Critical':'base'}
+// Example: {findings | count: 'High':'temporal'}
+// Example: {findings | count: 'Medium':'environmental'}
+expressions.filters.count = function(input, severity, scoreType) {
+    if(!input) return input;
+    var count = 0;
+    var scoreAttribute;
+    switch(scoreType){
+        case "base":
+            scoreAttribute = "baseSeverity";
+            break;
+        case "temporal":
+            scoreAttribute = "temporalSeverity";
+            break;
+        case "environmental":
+        default:  // Set default to environmental score
+            scoreAttribute = "environmentalSeverity";            
     }
-  }
-
-  return count;
-};
+    for(var i = 0; i < input.length; i++){
+         if(input[i].cvss[scoreAttribute] === severity){
+            count += 1;
+        }
+    return count;
+}
 
 // Translate using locale from 'translate' folder
 // Example: {input | translate: 'fr'}
-expressions.filters.translate = function (input, locale) {
-  if (!input) return input;
-  return $t(input, locale);
-};
+expressions.filters.translate = function(input, locale) {
+    if (!input) return input
+    return $t(input, locale)
+}
 
+// Filters helper: handles the use of dotted notation as property names.
+// Source: https://stackoverflow.com/a/37510735
+function _getPropertyValue(obj, dataToRetrieve) {
+  return dataToRetrieve
+    .split('.')
+    .reduce(function(o, k) {
+      return o && o[k];
+    }, obj);
+}
+// Filters helper: handles the use of preformated easilly translatable strings.
+// Source: https://www.tutorialstonight.com/javascript-string-format.php
+String.prototype.format = function () {
+    let args = arguments;
+    return this.replace(/{([0-9]+)}/g, function (match, index) {
+        return typeof args[index] == 'undefined' ? match : args[index];
+    });
+}
+  
 // Compile all angular expressions
-var angularParser = function (tag) {
-  expressions = { ...expressions, ...customGenerator.expressions };
-  if (tag === ".") {
-    return {
-      get: function (s) {
-        return s;
-      },
-    };
-  }
-  const expr = expressions.compile(
-    tag.replace(/(’|‘)/g, "'").replace(/(“|”)/g, '"')
-  );
-  return {
-    get: function (scope, context) {
-      let obj = {};
-      const scopeList = context.scopeList;
-      const num = context.num;
-      for (let i = 0, len = num + 1; i < len; i++) {
-        obj = _.merge(obj, scopeList[i]);
-      }
-      return expr(scope, obj);
-    },
-  };
-};
-
+var angularParser = function(tag) {
+    expressions = {...expressions, ...customGenerator.expressions};
+    if (tag === '.') {
+        return {
+            get: function(s){ return s;}
+        };
+    }
+    const expr = expressions.compile(
+        tag.replace(/(’|‘)/g, "'").replace(/(“|”)/g, '"')
+    );
+   return {
+        get: function(scope, context) {
+            let obj = {};
+            const scopeList = context.scopeList;
+            const num = context.num;
+            for (let i = 0, len = num + 1; i < len; i++) {
+                obj = _.merge(obj, scopeList[i]);
+            }
+            return expr(scope, obj);
+        }
+   };
+} 
+  
 function parser(tag) {
   // We write an exception to handle the tag "$pageBreakExceptLast"
   if (tag === "$pageBreakExceptLast") {
@@ -484,297 +766,289 @@ function cvssStrToObject(cvss) {
 }
 
 async function prepAuditData(data, settings) {
-  /** CVSS Colors for table cells */
-  var noneColor = settings.report.public.cvssColors.noneColor.replace("#", ""); //default of blue ("#4A86E8")
-  var lowColor = settings.report.public.cvssColors.lowColor.replace("#", ""); //default of green ("#008000")
-  var mediumColor = settings.report.public.cvssColors.mediumColor.replace(
-    "#",
-    ""
-  ); //default of yellow ("#f9a009")
-  var highColor = settings.report.public.cvssColors.highColor.replace("#", ""); //default of red ("#fe0000")
-  var criticalColor = settings.report.public.cvssColors.criticalColor.replace(
-    "#",
-    ""
-  ); //default of black ("#212121")
+    /** CVSS Colors for table cells */
+    var noneColor = settings.report.public.cvssColors.noneColor.replace('#', ''); //default of blue ("#4A86E8")
+    var lowColor = settings.report.public.cvssColors.lowColor.replace('#', ''); //default of green ("#008000")
+    var mediumColor = settings.report.public.cvssColors.mediumColor.replace('#', ''); //default of yellow ("#f9a009")
+    var highColor = settings.report.public.cvssColors.highColor.replace('#', ''); //default of red ("#fe0000")
+    var criticalColor = settings.report.public.cvssColors.criticalColor.replace('#', ''); //default of black ("#212121")
 
-  var cellNoneColor =
-    '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="' +
-    noneColor +
-    '"/></w:tcPr>';
-  var cellLowColor =
-    '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="' +
-    lowColor +
-    '"/></w:tcPr>';
-  var cellMediumColor =
-    '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="' +
-    mediumColor +
-    '"/></w:tcPr>';
-  var cellHighColor =
-    '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="' +
-    highColor +
-    '"/></w:tcPr>';
-  var cellCriticalColor =
-    '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="' +
-    criticalColor +
-    '"/></w:tcPr>';
+    var cellNoneColor = '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="' + noneColor + '"/></w:tcPr>';
+    var cellLowColor = '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="'+lowColor+'"/></w:tcPr>';
+    var cellMediumColor = '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="'+mediumColor+'"/></w:tcPr>';
+    var cellHighColor = '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="'+highColor+'"/></w:tcPr>';
+    var cellCriticalColor = '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="'+criticalColor+'"/></w:tcPr>';
 
-  var result = {};
-  result.name = data.name || "undefined";
-  result.auditType = $t(data.auditType) || "undefined";
-  result.location = data.location || "undefined";
-  result.date = data.date || "undefined";
-  result.date_start = data.date_start || "undefined";
-  result.date_end = data.date_end || "undefined";
-  if (data.customFields) {
-    for (field of data.customFields) {
-      var fieldType = field.customField.fieldType;
-      var label = field.customField.label;
+    /** Remediation complexity  Colors for table cells */
+    
+    var lowColorRemediationComplexity = settings.report.public.remediationColorsComplexity.lowColor.replace('#', ''); 
+    var mediumColorRemediationComplexity = settings.report.public.remediationColorsComplexity.mediumColor.replace('#', '');
+    var highColorRemediationComplexity = settings.report.public.remediationColorsComplexity.highColor.replace('#', ''); 
 
-      if (fieldType === "text")
-        result[_.deburr(label.toLowerCase()).replace(/\s/g, "")] =
-          await splitHTMLParagraphs(field.text);
-      else if (fieldType !== "space")
-        result[_.deburr(label.toLowerCase()).replace(/\s/g, "")] = field.text;
-    }
-  }
+    var cellLowColorRemediationComplexity = '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="'+lowColorRemediationComplexity+'"/></w:tcPr>';
+    var cellMediumColorRemediationComplexity = '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="'+mediumColorRemediationComplexity+'"/></w:tcPr>';
+    var cellHighColorRemediationComplexity = '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="'+highColorRemediationComplexity+'"/></w:tcPr>';
 
-  result.company = {};
-  if (data.company) {
-    result.company.name = data.company.name || "undefined";
-    result.company.shortName = data.company.shortName || result.company.name;
-    result.company.logo = data.company.logo || "undefined";
-    result.company.logo_small = data.company.logo || "undefined";
-  }
 
-  result.client = {};
-  if (data.client) {
-    result.client.email = data.client.email || "undefined";
-    result.client.firstname = data.client.firstname || "undefined";
-    result.client.lastname = data.client.lastname || "undefined";
-    result.client.phone = data.client.phone || "undefined";
-    result.client.cell = data.client.cell || "undefined";
-    result.client.title = data.client.title || "undefined";
-  }
+    /** Remediation priority Colors for table cells */
 
-  result.collaborators = [];
-  data.collaborators.forEach((collab) => {
-    result.collaborators.push({
-      username: collab.username || "undefined",
-      firstname: collab.firstname || "undefined",
-      lastname: collab.lastname || "undefined",
-      email: collab.email || "undefined",
-      phone: collab.phone || "undefined",
-      role: collab.role || "undefined",
-    });
-  });
-  result.language = data.language || "undefined";
-  result.scope = data.scope.toObject() || [];
+    var lowColorRemediationPriority = settings.report.public.remediationColorsPriority.lowColor.replace('#', ''); 
+    var mediumColorRemediationPriority = settings.report.public.remediationColorsPriority.mediumColor.replace('#', ''); 
+    var highColorRemediationPriority = settings.report.public.remediationColorsPriority.highColor.replace('#', ''); 
+    var urgentColorRemediationPriority = settings.report.public.remediationColorsPriority.urgentColor.replace('#', ''); 
 
-  let pocfilter = function (poc) {
-    if (poc !== undefined) {
-      return poc.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ".");
-    }
-    return undefined;
-  };
+    var cellLowColorRemediationPriority = '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="'+lowColorRemediationPriority+'"/></w:tcPr>';
+    var cellMediumColorRemediationPriority = '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="'+mediumColorRemediationPriority+'"/></w:tcPr>';
+    var cellHighColorRemediationPriority = '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="'+highColorRemediationPriority+'"/></w:tcPr>';
+    var cellUrgentColorRemediationPriority = '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="'+urgentColorRemediationPriority+'"/></w:tcPr>';
 
-  result.findings = [];
-  for (finding of data.findings) {
-    var tmpCVSS = CVSS31.calculateCVSSFromVector(finding.cvssv3);
-    var tmpFinding = {
-      title: finding.title || "",
-      vulnType: $t(finding.vulnType) || "",
-      description: await splitHTMLParagraphs(finding.description),
-      observation: await splitHTMLParagraphs(finding.observation),
-      remediation: await splitHTMLParagraphs(finding.remediation),
-      remediationComplexity: finding.remediationComplexity || "",
-      priority: finding.priority || "",
-      references: finding.references || [],
-      poc: await splitHTMLParagraphs(pocfilter(finding.poc)),
-      affected: finding.scope || "",
-      status: finding.status || "",
-      category: $t(finding.category) || $t("No Category"),
-      identifier: "IDX-" + utils.lPad(finding.identifier),
-    };
-    // Handle CVSS
-    tmpFinding.cvss = {
-      vectorString: tmpCVSS.vectorString || "",
-      baseMetricScore: tmpCVSS.baseMetricScore || "",
-      baseSeverity: tmpCVSS.baseSeverity || "",
-      temporalMetricScore: tmpCVSS.temporalMetricScore || "",
-      temporalSeverity: tmpCVSS.temporalSeverity || "",
-      environmentalMetricScore: tmpCVSS.environmentalMetricScore || "",
-      environmentalSeverity: tmpCVSS.environmentalSeverity || "",
-    };
-    if (tmpCVSS.baseImpact)
-      tmpFinding.cvss.baseImpact = CVSS31.roundUp1(tmpCVSS.baseImpact);
-    else tmpFinding.cvss.baseImpact = "";
-    if (tmpCVSS.baseExploitability)
-      tmpFinding.cvss.baseExploitability = CVSS31.roundUp1(
-        tmpCVSS.baseExploitability
-      );
-    else tmpFinding.cvss.baseExploitability = "";
 
-    if (tmpCVSS.environmentalModifiedImpact)
-      tmpFinding.cvss.environmentalModifiedImpact = CVSS31.roundUp1(
-        tmpCVSS.environmentalModifiedImpact
-      );
-    else tmpFinding.cvss.environmentalModifiedImpact = "";
-    if (tmpCVSS.environmentalModifiedExploitability)
-      tmpFinding.cvss.environmentalModifiedExploitability = CVSS31.roundUp1(
-        tmpCVSS.environmentalModifiedExploitability
-      );
-    else tmpFinding.cvss.environmentalModifiedExploitability = "";
+    var result = {}
+    result.name = data.name || "undefined"
+    result.auditType = $t(data.auditType) || "undefined"
+    result.location = data.location || "undefined"
+    result.date = data.date || "undefined"
+    result.date_start = data.date_start || "undefined"
+    result.date_end = data.date_end || "undefined"
+    if (data.customFields) {
+        for (field of data.customFields) {
+            var fieldType = field.customField.fieldType
+            var label = field.customField.label
 
-    if (tmpCVSS.baseSeverity === "Low")
-      tmpFinding.cvss.cellColor = cellLowColor;
-    else if (tmpCVSS.baseSeverity === "Medium")
-      tmpFinding.cvss.cellColor = cellMediumColor;
-    else if (tmpCVSS.baseSeverity === "High")
-      tmpFinding.cvss.cellColor = cellHighColor;
-    else if (tmpCVSS.baseSeverity === "Critical")
-      tmpFinding.cvss.cellColor = cellCriticalColor;
-    else tmpFinding.cvss.cellColor = cellNoneColor;
-
-    if (tmpCVSS.temporalSeverity === "Low")
-      tmpFinding.cvss.temporalCellColor = cellLowColor;
-    else if (tmpCVSS.temporalSeverity === "Medium")
-      tmpFinding.cvss.temporalCellColor = cellMediumColor;
-    else if (tmpCVSS.temporalSeverity === "High")
-      tmpFinding.cvss.temporalCellColor = cellHighColor;
-    else if (tmpCVSS.temporalSeverity === "Critical")
-      tmpFinding.cvss.temporalCellColor = cellCriticalColor;
-    else tmpFinding.cvss.temporalCellColor = cellNoneColor;
-
-    if (tmpCVSS.environmentalSeverity === "Low")
-      tmpFinding.cvss.environmentalCellColor = cellLowColor;
-    else if (tmpCVSS.environmentalSeverity === "Medium")
-      tmpFinding.cvss.environmentalCellColor = cellMediumColor;
-    else if (tmpCVSS.environmentalSeverity === "High")
-      tmpFinding.cvss.environmentalCellColor = cellHighColor;
-    else if (tmpCVSS.environmentalSeverity === "Critical")
-      tmpFinding.cvss.environmentalCellColor = cellCriticalColor;
-    else tmpFinding.cvss.environmentalCellColor = cellNoneColor;
-
-    tmpFinding.cvssObj = cvssStrToObject(tmpCVSS.vectorString);
-
-    if (finding.customFields) {
-      for (field of finding.customFields) {
-        // For retrocompatibility of findings with old customFields
-        // or if custom field has been deleted, last saved custom fields will be available
-        if (field.customField) {
-          var fieldType = field.customField.fieldType;
-          var label = field.customField.label;
-        } else {
-          var fieldType = field.fieldType;
-          var label = field.label;
+            if (fieldType === 'text')
+                result[_.deburr(label.toLowerCase()).replace(/\s/g, '')] = await splitHTMLParagraphs(field.text)
+            else if (fieldType !== 'space')
+                result[_.deburr(label.toLowerCase()).replace(/\s/g, '')] = field.text
         }
-        if (fieldType === "text")
-          tmpFinding[
-            _.deburr(label.toLowerCase())
-              .replace(/\s/g, "")
-              .replace(/[^\w]/g, "_")
-          ] = await splitHTMLParagraphs(field.text);
-        else if (fieldType !== "space")
-          tmpFinding[
-            _.deburr(label.toLowerCase())
-              .replace(/\s/g, "")
-              .replace(/[^\w]/g, "_")
-          ] = field.text;
-      }
     }
-    result.findings.push(tmpFinding);
-  }
 
-  result.categories = _.chain(result.findings)
-    .groupBy("category")
-    .map((value, key) => {
-      return { categoryName: key, categoryFindings: value };
+    result.company = {}
+    if (data.company) {
+        result.company.name = data.company.name || "undefined"
+        result.company.shortName = data.company.shortName || result.company.name
+        result.company.logo = data.company.logo || "undefined"
+        result.company.logo_small = data.company.logo || "undefined"
+    }
+
+    result.client = {}
+    if (data.client) {
+        result.client.email = data.client.email || "undefined"
+        result.client.firstname = data.client.firstname || "undefined"
+        result.client.lastname = data.client.lastname || "undefined"
+        result.client.phone = data.client.phone || "undefined"
+        result.client.cell = data.client.cell || "undefined"
+        result.client.title = data.client.title || "undefined"
+    }
+
+    result.collaborators = []
+    data.collaborators.forEach(collab => {
+        result.collaborators.push({
+            username: collab.username || "undefined",
+            firstname: collab.firstname || "undefined",
+            lastname: collab.lastname || "undefined",
+            email: collab.email || "undefined",
+            phone: collab.phone || "undefined",
+            role: collab.role || "undefined"
+        })
     })
-    .value();
 
-  result.creator = {};
-  if (data.creator) {
-    result.creator.username = data.creator.username || "undefined";
-    result.creator.firstname = data.creator.firstname || "undefined";
-    result.creator.lastname = data.creator.lastname || "undefined";
-    result.creator.email = data.creator.email || "undefined";
-    result.creator.phone = data.creator.phone || "undefined";
-    result.creator.role = data.creator.role || "undefined";
-  }
+    result.reviewers = []
+    data.reviewers.forEach(reviewer => {
+        result.reviewers.push({
+            username: reviewer.username || "undefined",
+            firstname: reviewer.firstname || "undefined",
+            lastname: reviewer.lastname || "undefined",
+            email: reviewer.email || "undefined",
+            phone: reviewer.phone || "undefined",
+            role: reviewer.role || "undefined"
+        })
+    })
 
-  for (section of data.sections) {
-    var formatSection = {
-      name: $t(section.name),
-    };
-    if (section.text)
-      // keep text for retrocompatibility
-      formatSection.text = await splitHTMLParagraphs(section.text);
-    else if (section.customFields) {
-      for (field of section.customFields) {
-        var fieldType = field.customField.fieldType;
-        var label = field.customField.label;
-        if (fieldType === "text")
-          formatSection[
-            _.deburr(label.toLowerCase())
-              .replace(/\s/g, "")
-              .replace(/[^\w]/g, "_")
-          ] = await splitHTMLParagraphs(field.text);
-        else if (fieldType !== "space")
-          formatSection[
-            _.deburr(label.toLowerCase())
-              .replace(/\s/g, "")
-              .replace(/[^\w]/g, "_")
-          ] = field.text;
-      }
+
+    result.language = data.language || "undefined"
+    result.scope = data.scope.toObject() || []
+
+    result.findings = []
+    for (finding of data.findings) {
+        var tmpCVSS = CVSS31.calculateCVSSFromVector(finding.cvssv3);
+        var tmpFinding = {
+            title: finding.title || "",
+            vulnType: $t(finding.vulnType) || "",
+            description: await splitHTMLParagraphs(finding.description),
+            observation: await splitHTMLParagraphs(finding.observation),
+            remediation: await splitHTMLParagraphs(finding.remediation),
+            remediationComplexity: finding.remediationComplexity || "",
+            priority: finding.priority || "",
+            references: finding.references || [],
+            poc: await splitHTMLParagraphs(finding.poc),
+            affected: finding.scope || "",
+            status: finding.status || "",
+            category: $t(finding.category) || $t("No Category"),
+            identifier: "IDX-" + utils.lPad(finding.identifier)
+        }
+        // Remediation Complexity color 
+        if (tmpFinding.remediationComplexity === 1) tmpFinding.remediation.cellColorComplexity = cellLowColorRemediationComplexity
+        else if (tmpFinding.remediationComplexity === 2) tmpFinding.remediation.cellColorComplexity = cellMediumColorRemediationComplexity
+        else if (tmpFinding.remediationComplexity === 3) tmpFinding.remediation.cellColorComplexity = cellHighColorRemediationComplexity
+        else tmpFinding.remediation.cellColorComplexity = cellNoneColor
+
+        // Remediation Priority color 
+        if (tmpFinding.priority === 1) tmpFinding.remediation.cellColorPriority = cellLowColorRemediationPriority
+        else if (tmpFinding.priority === 2) tmpFinding.remediation.cellColorPriority = cellMediumColorRemediationPriority
+        else if (tmpFinding.priority === 3) tmpFinding.remediation.cellColorPriority = cellHighColorRemediationPriority
+        else if (tmpFinding.priority === 4) tmpFinding.remediation.cellColorPriority = cellUrgentColorRemediationPriority
+        else tmpFinding.remediation.cellColorPriority = cellNoneColor
+
+        // Handle CVSS
+        tmpFinding.cvss = {
+            vectorString: tmpCVSS.vectorString || "",
+            baseMetricScore: tmpCVSS.baseMetricScore || "",
+            baseSeverity: tmpCVSS.baseSeverity || "",
+            temporalMetricScore: tmpCVSS.temporalMetricScore || "",
+            temporalSeverity: tmpCVSS.temporalSeverity || "",
+            environmentalMetricScore: tmpCVSS.environmentalMetricScore || "",
+            environmentalSeverity: tmpCVSS.environmentalSeverity || ""
+        }
+        if (tmpCVSS.baseImpact)
+            tmpFinding.cvss.baseImpact = CVSS31.roundUp1(tmpCVSS.baseImpact)
+        else
+            tmpFinding.cvss.baseImpact = ""
+        if (tmpCVSS.baseExploitability)
+            tmpFinding.cvss.baseExploitability = CVSS31.roundUp1(tmpCVSS.baseExploitability)
+        else
+            tmpFinding.cvss.baseExploitability = ""
+
+        if (tmpCVSS.environmentalModifiedImpact)
+            tmpFinding.cvss.environmentalModifiedImpact = CVSS31.roundUp1(tmpCVSS.environmentalModifiedImpact)
+        else
+            tmpFinding.cvss.environmentalModifiedImpact = ""
+        if (tmpCVSS.environmentalModifiedExploitability)
+            tmpFinding.cvss.environmentalModifiedExploitability = CVSS31.roundUp1(tmpCVSS.environmentalModifiedExploitability)
+        else
+            tmpFinding.cvss.environmentalModifiedExploitability = ""
+
+        if (tmpCVSS.baseSeverity === "Low") tmpFinding.cvss.cellColor = cellLowColor
+        else if (tmpCVSS.baseSeverity === "Medium") tmpFinding.cvss.cellColor = cellMediumColor
+        else if (tmpCVSS.baseSeverity === "High") tmpFinding.cvss.cellColor = cellHighColor
+        else if (tmpCVSS.baseSeverity === "Critical") tmpFinding.cvss.cellColor = cellCriticalColor
+        else tmpFinding.cvss.cellColor = cellNoneColor
+
+        if (tmpCVSS.temporalSeverity === "Low") tmpFinding.cvss.temporalCellColor = cellLowColor
+        else if (tmpCVSS.temporalSeverity === "Medium") tmpFinding.cvss.temporalCellColor = cellMediumColor
+        else if (tmpCVSS.temporalSeverity === "High") tmpFinding.cvss.temporalCellColor = cellHighColor
+        else if (tmpCVSS.temporalSeverity === "Critical") tmpFinding.cvss.temporalCellColor = cellCriticalColor
+        else tmpFinding.cvss.temporalCellColor = cellNoneColor
+
+        if (tmpCVSS.environmentalSeverity === "Low") tmpFinding.cvss.environmentalCellColor = cellLowColor
+        else if (tmpCVSS.environmentalSeverity === "Medium") tmpFinding.cvss.environmentalCellColor = cellMediumColor
+        else if (tmpCVSS.environmentalSeverity === "High") tmpFinding.cvss.environmentalCellColor = cellHighColor
+        else if (tmpCVSS.environmentalSeverity === "Critical") tmpFinding.cvss.environmentalCellColor = cellCriticalColor
+        else tmpFinding.cvss.environmentalCellColor = cellNoneColor
+
+        tmpFinding.cvssObj = cvssStrToObject(tmpCVSS.vectorString)
+
+        if (finding.customFields) {
+            for (field of finding.customFields) {
+                // For retrocompatibility of findings with old customFields
+                // or if custom field has been deleted, last saved custom fields will be available
+                if (field.customField) {
+                    var fieldType = field.customField.fieldType
+                    var label = field.customField.label
+                }
+                else {
+                    var fieldType = field.fieldType
+                    var label = field.label
+                }
+                if (fieldType === 'text')
+                    tmpFinding[_.deburr(label.toLowerCase()).replace(/\s/g, '').replace(/[^\w]/g, '_')] = await splitHTMLParagraphs(field.text)
+                else if (fieldType !== 'space')
+                    tmpFinding[_.deburr(label.toLowerCase()).replace(/\s/g, '').replace(/[^\w]/g, '_')] = field.text
+            }
+        }
+        result.findings.push(tmpFinding)
     }
-    result[section.field] = formatSection;
-  }
-  replaceSubTemplating(result);
-  return result;
+
+    result.categories = _
+        .chain(result.findings)
+        .groupBy("category")
+        .map((value,key) => {return {categoryName:key, categoryFindings:value}})
+        .value()
+
+    result.creator = {}
+    if (data.creator) {
+        result.creator.username = data.creator.username || "undefined"
+        result.creator.firstname = data.creator.firstname || "undefined"
+        result.creator.lastname = data.creator.lastname || "undefined"
+        result.creator.email = data.creator.email || "undefined"
+        result.creator.phone = data.creator.phone || "undefined"
+        result.creator.role = data.creator.role || "undefined"
+    }
+
+    for (section of data.sections) {
+        var formatSection = {
+            name: $t(section.name)
+        }
+        if (section.text) // keep text for retrocompatibility
+            formatSection.text = await splitHTMLParagraphs(section.text)
+        else if (section.customFields) {
+            for (field of section.customFields) {
+                var fieldType = field.customField.fieldType
+                var label = field.customField.label
+                if (fieldType === 'text')
+                    formatSection[_.deburr(label.toLowerCase()).replace(/\s/g, '').replace(/[^\w]/g, '_')] = await splitHTMLParagraphs(field.text)
+                else if (fieldType !== 'space')
+                    formatSection[_.deburr(label.toLowerCase()).replace(/\s/g, '').replace(/[^\w]/g, '_')] = field.text
+            }
+        }
+        result[section.field] = formatSection
+    }
+    replaceSubTemplating(result)
+    return result
 }
 
 async function splitHTMLParagraphs(data) {
-  var result = [];
-  if (!data) return result;
+    var result = []
+    if (!data)
+        return result
 
-  var splitted = data.split(/(<img.+?src=".*?".+?alt=".*?".*?>)/);
+    var splitted = data.split(/(<img.+?src=".*?".+?alt=".*?".*?>)/)
 
-  for (value of splitted) {
-    if (value.startsWith("<img")) {
-      var src = value.match(/<img.+src="(.*?)"/) || "";
-      var alt = value.match(/<img.+alt="(.*?)"/) || "";
-      if (src && src.length > 1) src = src[1];
-      if (alt && alt.length > 1) alt = _.unescape(alt[1]);
+    for (value of splitted){
+        if (value.startsWith("<img")) {
+            var src = value.match(/<img.+src="(.*?)"/) || ""
+            var alt = value.match(/<img.+alt="(.*?)"/) || ""
+            if (src && src.length > 1) src = src[1]
+            if (alt && alt.length > 1) alt = _.unescape(alt[1])
 
-      if (!src.startsWith("data")) {
-        try {
-          src = (await Image.getOne(src)).value;
-        } catch (error) {
-          src = "data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA=";
+            if (!src.startsWith('data')){
+                try {
+                    src = (await Image.getOne(src)).value
+                } catch (error) {
+                    src = "data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA="
+                }
+            }
+            if (result.length === 0)
+                result.push({text: "", images: []})
+            result[result.length-1].images.push({image: src, caption: alt})
         }
-      }
-      if (result.length === 0) result.push({ text: "", images: [] });
-      result[result.length - 1].images.push({ image: src, caption: alt });
-    } else if (value === "") {
-      continue;
-    } else {
-      result.push({ text: value, images: [] });
+        else if (value === "") {
+            continue
+        }
+        else {
+            result.push({text: value, images: []})
+        }
     }
-  }
-  return result;
+    return result
 }
 
-function replaceSubTemplating(o, originalData = o) {
-  var regexp = /\{_\{([a-zA-Z0-9\[\]\_\.]{1,})\}_\}/gm;
-  if (Array.isArray(o))
-    o.forEach((key) => replaceSubTemplating(key, originalData));
-  else if (typeof o === "object" && !!o) {
-    Object.keys(o).forEach((key) => {
-      if (typeof o[key] === "string")
-        o[key] = o[key].replace(regexp, (match, word) =>
-          _.get(originalData, word.trim(), "")
-        );
-      else replaceSubTemplating(o[key], originalData);
-    });
-  }
+function replaceSubTemplating(o, originalData = o){
+    var regexp = /\{_\{([a-zA-Z0-9\[\]\_\.]{1,})\}_\}/gm;
+    if (Array.isArray(o))
+        o.forEach(key => replaceSubTemplating(key, originalData))
+    else if (typeof o === 'object' && !!o) {
+        Object.keys(o).forEach(key => {
+            if (typeof o[key] === 'string') o[key] = o[key].replace(regexp, (match, word) =>  _.get(originalData,word.trim(),''))
+            else replaceSubTemplating(o[key], originalData)
+        })
+    }
 }
