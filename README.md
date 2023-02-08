@@ -9,22 +9,26 @@ The main goal is to have more time to **Pwn** and less time to **Doc** by mutual
 
 PwnDoc was originaly manage by its creator. After months of absence, an increase of issues and pending pull requests, we decided to open this maintained fork.
 
-This fork includes pending PR such as:
+This fork includes pending PR and new feature such as:
 - Fix build error due to Node version
 - Fix LFI/RCE vulnerability
-- New filters code from @WhiteWinterWolf
+- Tiptap 2.0 WYSIWYG
+- Collaborative editing
+- Table support
+- New filters
 - Reviewer variable
 - Remediation complexity color by @Syzik
 - Mongo-data volume from @noraj
 - Minor bumps
+...
 
 ## Documentation
 
-- [Installation](https://pwndoc.github.io/pwndoc/#/installation)
-- [Data](https://pwndoc.github.io/pwndoc/#/data)
-- [Vulnerabilities](https://pwndoc.github.io/pwndoc/#/vulnerabilities)
-- [Audits](https://pwndoc.github.io/pwndoc/#/audits)
-- [Templating](https://pwndoc.github.io/pwndoc/#/docxtemplate)
+- [Installation](https://pwndoc-ng.github.io/pwndoc-ng/#/installation)
+- [Data](https://pwndoc-ng.github.io/pwndoc-ng/#/data)
+- [Vulnerabilities](https://pwndoc-ng.github.io/pwndoc-ng/#/vulnerabilities)
+- [Audits](https://pwndoc-ng.github.io/pwndoc-ng/#/audits)
+- [Templating](https://pwndoc-ng.github.io/pwndoc-ng/#/docxtemplate)
 
 
 ## Features
@@ -54,4 +58,3 @@ This fork includes pending PR such as:
 ## Contribute
 
 Feel free to contribute :).
-
