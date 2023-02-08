@@ -510,6 +510,13 @@ import TableHeader from "@tiptap/extension-table-header";
 import CustomImage from "./editor-image";
 //import Caption from "./editor-caption";
 import { Figure } from "./figure";
+import {v4 as uuidv4} from 'uuid';
+import UserService from '@/services/user';
+import Collaboration from '@tiptap/extension-collaboration'
+import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
+import { HocuspocusProvider } from '@hocuspocus/provider'
+import * as Y from 'yjs'
+
 
 const Diff = require("diff");
 //  Internal libs
@@ -523,6 +530,10 @@ export default {
     editable: {
       type: Boolean,
       default: true,
+    },
+    idUnique: {
+      type: String,
+      default: '',
     },
     toolbar: {
       type: Array,
@@ -576,12 +587,38 @@ export default {
   },
 
   mounted() {
+     
+     const ydoc = new Y.Doc()
+     if(this.idUnique == '') {
+      this.ClassEditor = uuidv4()
+     } else {
+      this.ClassEditor = this.idUnique
+     }
+     this.username = UserService.user.username
+
+
+     this.provider = new HocuspocusProvider({
+      url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
+      name: this.$route.params.auditId,
+      document  : ydoc
+    })
     this.editor = new Editor({
       content: this.value,
       extensions: [
         StarterKit,
         Highlight.configure({
           multicolor: true,
+        }),
+        Collaboration.configure({
+          document: ydoc,
+          field: this.$route.params.auditId+'-'+this.$route.params.findingId+'-'+this.ClassEditor
+        }),
+        CollaborationCursor.configure({
+          provider: this.provider,
+          user: {
+            name:  this.username,
+            color:  this.stringToColour(this.username)
+          }
         }),
         Underline,
         TableRow,
@@ -607,7 +644,7 @@ export default {
       disableInputRules: true,
       disablePasteRules: true,
     });
-    this.affixRelativeElement += "-" + Math.floor(Math.random() * 1000000 + 1);
+    this.affixRelativeElement += "-" +  this.ClassEditor;
     //this.editor.setOptions({ editable: this.editable });
     this.editor.setEditable(this.editable);
     if (
@@ -621,6 +658,7 @@ export default {
   },
   beforeDestroy() {
     this.editor.destroy();
+    this.provider.destroy()
   },
   computed: {
     formatIcon: function () {
@@ -679,7 +717,7 @@ export default {
       return content;
     },
   },
-
+ 
   methods: {
     importImage(files) {
       var file = files[0];
@@ -708,6 +746,18 @@ export default {
 
       fileReader.readAsDataURL(file);
     },
+     stringToColour : function (str) {
+      var hash = 0;
+      for (var i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      var colour = '#';
+      for (var i = 0; i < 3; i++) {
+        var value = (hash >> (i * 8)) & 0xFF;
+        colour += ('00' + value.toString(16)).substr(-2);
+      }
+      return colour;
+    },
     updateHTML() {
       console.log("updateHTML");
       this.json = this.editor.getJSON();
@@ -727,6 +777,35 @@ export default {
 </script>
 
 <style lang="scss">
+
+
+.collaboration-cursor__caret {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 1px solid #0D0D0D;
+  border-right: 1px solid #0D0D0D;
+  word-break: normal;
+  pointer-events: none;
+}
+
+.collaboration-cursor__label {
+ text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;
+ color:white;
+  position: absolute;
+  top: -1.4em;
+  left: -1px;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+  user-select: none;
+
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px 3px 3px 0;
+  white-space: nowrap;
+}
+
 
 
 .editor {
