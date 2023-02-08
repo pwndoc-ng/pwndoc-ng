@@ -13,6 +13,22 @@ exports.apply = apply;
 
 var filters = {};
 
+
+// Count vulnerability by category
+// Example: {findings | countCategory: 'MyWebCategory'}
+expressions.filters.countCategory = function(input, category) {
+    if(!input) return input;
+    var count = 0;
+
+    for(var i = 0; i < input.length; i++){
+        if(input[i].category === category){
+            count += 1;
+        }
+    }
+    return count;
+}
+
+
 // Convert input CVSS criteria into French: {input | criteriaFR}
 expressions.filters.criteriaFR = function(input) {
     var pre = '<w:p><w:r><w:t>';
