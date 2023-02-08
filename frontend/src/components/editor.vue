@@ -563,9 +563,7 @@ export default {
 
      this.provider = new HocuspocusProvider({
       url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
-      parameters: {
-        key: 'write_bqgvQ3Zwl34V4Nxt43zR',
-      },
+      name: this.$route.params.auditId,
       document  : ydoc
     })
     this.editor = new Editor({
