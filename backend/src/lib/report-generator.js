@@ -393,13 +393,14 @@ expressions.filters.sort = function(input, key = null) {
 expressions.filters.sortArrayByField = function (input, field, order) {
     //invalid order sort ascending
     if(order != 1 && order != -1) order = 1;
-
+    
     const sorted = input.sort((a,b) => {
         //multiply by order so that if is descending (-1) will reverse the values
-        return _.get(a, field).localeCompare(_.get(b, field), undefined, {numeric: true}) * order
-    })
+        return _.get(a, field).toString().localeCompare(_.get(b, field).toString(), undefined, {numeric: true}) * order
+    })    
     return sorted;
-}
+} 
+
 
 // Takes a string as input and split it into an ordered list using a separator: {input | split: ', '}
 expressions.filters.split = function(input, sep) {
