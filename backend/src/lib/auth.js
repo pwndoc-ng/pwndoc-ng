@@ -154,6 +154,20 @@ class ACL {
             })
         }
     }
+    hasPermissionFromReq (permission,token) {
+        var jwt = require('jsonwebtoken')
+        return jwt.verify(token, jwtSecret, (err, decoded) => {
+            if (err) {
+                return false
+            }
+            if ( permission === "validtoken" || this.isAllowed(decoded.role, permission)) {
+                    return decoded
+            }
+            else {
+                return false
+            }
+        })
+    }
 
     buildRoles(role) {
         var currentRole = this.roles[role] || this.roles['user'] // Default to user role in case of inexistant role
