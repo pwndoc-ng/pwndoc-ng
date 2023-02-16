@@ -567,6 +567,7 @@ export default {
       affixRelativeElement: "affix-relative-element",
       status: 'connecting',
       state:false,
+      fullId:"",
       initialeDataUpdated:false,
       htmlEncode: Utils.htmlEncode,
     };
@@ -591,11 +592,15 @@ export default {
       this.ClassEditor = this.idUnique
      }
      this.username = UserService.user.username
-
+     if (typeof this.$route.params.findingId == 'undefined'){
+        this.fullId=this.ClassEditor
+     } else {
+        this.fullId= this.$route.params.auditId+'-'+this.$route.params.findingId+'-'+this.ClassEditor
+     }
 
      this.provider = new HocuspocusProvider({
       url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
-      name: this.$route.params.auditId,
+      name: this.$route.params.auditId ||  this.idUnique.replace('-', '/'),
       document  : ydoc
     })
     this.provider.on('status', event => {
@@ -612,7 +617,7 @@ export default {
         }),
         Collaboration.configure({
           document: ydoc,
-          field: this.$route.params.auditId+'-'+this.$route.params.findingId+'-'+this.ClassEditor
+          field: this.fullId
         }),
         CollaborationCursor.configure({
           provider: this.provider,
