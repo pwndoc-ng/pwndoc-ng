@@ -565,20 +565,17 @@ export default {
       html: "",
       toggleDiff: true,
       affixRelativeElement: "affix-relative-element",
-
+      status: 'connecting',
+      state:false,
+      fullId:"",
+      initialeDataUpdated:false,
       htmlEncode: Utils.htmlEncode,
     };
   },
 
   watch: {
     value(value) {
-      // HTML
-      const isSame = this.editor.getHTML() === value;
-      if (isSame) {
-        return;
-      }
-      var content = this.htmlEncode(this.value);
-      this.editor.commands.setContent(content, false);
+      this.updateInitialeValue(value)
     },
     editable(value) {
       //this.editor.setOptions({ editable: this.editable });
@@ -595,15 +592,24 @@ export default {
       this.ClassEditor = this.idUnique
      }
      this.username = UserService.user.username
-
+     if (typeof this.$route.params.findingId == 'undefined'){
+        this.fullId=this.ClassEditor
+     } else {
+        this.fullId= this.$route.params.auditId+'-'+this.$route.params.findingId+'-'+this.ClassEditor
+     }
 
      this.provider = new HocuspocusProvider({
       url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
-      name: this.$route.params.auditId,
+      name: this.$route.params.auditId ||  this.idUnique.replace('-', '/'),
       document  : ydoc
     })
+    this.provider.on('status', event => {
+      this.status = event.status
+    })
+    this.provider.on('synced', state => {
+      this.state=state.state
+    })
     this.editor = new Editor({
-      content: this.value,
       extensions: [
         StarterKit,
         Highlight.configure({
@@ -611,7 +617,7 @@ export default {
         }),
         Collaboration.configure({
           document: ydoc,
-          field: this.$route.params.auditId+'-'+this.$route.params.findingId+'-'+this.ClassEditor
+          field: this.fullId
         }),
         CollaborationCursor.configure({
           provider: this.provider,
@@ -653,8 +659,7 @@ export default {
     ) {
       return;
     }
-    var content = this.htmlEncode(this.value);
-    this.editor.commands.setContent(content);
+    this.updateInitialeValue(this.value)
   },
   beforeDestroy() {
     this.editor.destroy();
@@ -719,6 +724,26 @@ export default {
   },
  
   methods: {
+    async updateInitialeValue(value){
+      if(this.initialeDataUpdated==false && value!=''){
+        for (let i = 0; i < 26; i++) { // 5 second to connect web socket failed after
+          if(this.status=='connected' && this.state){
+            if(this.editor.getHTML() != value && this.editor.getHTML()=='<p></p>'){
+              var content = this.htmlEncode(value);
+              this.editor.commands.setContent(content, true);
+            }
+            this.initialeDataUpdated=true
+            break;
+          } else {
+            await this.sleep(200)
+            console.log('Wait websocket')
+          }
+        }
+      } 
+    },
+    sleep(milliseconds) {
+      return new Promise((resolve) => setTimeout(resolve, milliseconds));
+    },
     importImage(files) {
       var file = files[0];
       var fileReader = new FileReader();
