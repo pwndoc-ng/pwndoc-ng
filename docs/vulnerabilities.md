@@ -35,46 +35,34 @@ The export format is yaml.
 
 **Example**
 ```
-- references: 
-    - reference1
-    - reference2
-  cvssv3: 'CVSS:3.0/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N'
-  cvssScore: '3.1'
-  cvssSeverity: Low
-  priority: 2
-  remediationComplexity: 2
+- cvssv3: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:N'
   details:
-    - locale: fr
-      title: Attributs des cookies
-      vulnType: Application Web
+    - references:
+        - 'https://cwe.mitre.org/data/definitions/1275.html'
+        - >-
+          https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/06-Session_Management_Testing/02-Testing_for_Cookies_Attributes
+        - >-
+          https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html#samesite-cookie-attribute
+        - >-
+          https://cheatsheetseries.owasp.org/cheatsheets/Clickjacking_Defense_Cheat_Sheet.html#defending-with-samesite-cookies
+      customFields: []
+      locale: EN 
+      title: 'Cookie without SameSite attribut [WSTG-SESS-02]'
       description: >-
-        Les cookies permettent de stocker des informations relatives à
-        l'utilisateur comme par exemple ses informations de session.
-
-        Il est donc important qu'ils soient sécurisés au maximum afin de
-        prévenir toute fuite d'informations. Pour cela il existe des «flags» à
-        définir lors de la création d'un cookie:
-
-        - le flag «Secure» indique que le cookie ne peut être transmis que si le
-        canal de communication est chiffré (HTTPS)
-
-        - le flag «HttpOnly» indique que le cookie ne peut être récupéré par du
-        code JavaScript ce qui prévient sa récupération par des attaques de type
-        XSS
-      observation: null
-      remediation: Définir les flags «Secure» et «HttpOnly» lors de la création de cookies
-    - locale: en
-      title: Cookie Without the HTTPOnly and Secure Flags
-      vulnType: Web Application
-      description: >-
-        Session tokens stored in the “Cookie” headers can be protected from client-side attacks. Those protections are referred to as flags that the web server declares on each cookie it sets. 
-        Among those flags, the “HTTPOnly” flag restricts access to the cookie from the JavaScript code. The “secure” flag restricts the transmission of the protected cookie on a regular HTTP channel. Those two flags were not set for some cookies used by the application.
+        The cookie, which is set after the login, has no SameSite-attribute.
       observation: >-
-        With a successful Cross-Site Scripting (XSS) exploitation, the attacker could access the cookies using JavaScript and steal the session token of the victim to impersonate him on the application. The “HTTPOnly” flag would prevent the attacker from accessing the cookie in this scenario.
-        Another strategy an attacker could exploit is eavesdropping on web traffic and wait for the client to use resources over the HTTP cleartext protocol. If the resources reside on the same domain, the vulnerable cookie will be used over this channel and captured by the attacker. Also, a "man-in-the-middle" (MITM) technique called “SSL Stripping” could be performed by the attacker to force usage of the insecure HTTP protocol. Again, the session token could be captured when the “secure” flag is not set.
-      remediation: |
-        Ensure the “HTTPOnly” and “secure” flags are set on each cookie that is used by the application.
+		SameSite is an attribute that can be set in a cookie to instruct the web browser whether that cookie can be sent along with cross-site requests to prevent Cross-Site Request Forgery (CSRF) attacks. The attribute has three possible values:
+Strict: The cookie is only sent in a first-party context, preventing cross-site requests from third-party websites to include it.
+Lax: The cookie is allowed to be sent in GET cross-site requests initiated by top-level navigation of third-party websites. For example, if you follow a hypertext link from an external website, the request includes the cookie.
+None: The cookie is explicitly set to be sent by the browser in any context.
+The default behavior of web browsers can differ when handling cookies in a cross-site context, making the final decision to send the cookie in that context unpredictable. The SameSite attribute should be set in every cookie to enforce the expected result from developers.
+      remediation: >-
+		It is recommended to set the SameSite attribute to 'strict' in the cookie.
+  category: Web Application 
+  priority: 2
+  remediationComplexity: 1
 ```
+
 
 For import, the Serpico format is also accepted allowing easier transition or just to have a default set of vulnerabilities.
 
