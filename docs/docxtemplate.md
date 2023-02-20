@@ -30,12 +30,12 @@ data = { array: [{name: 'value1'}, {name: 'value2'}, {name: 'value3'}]}
 ### Condition
 
 ```
-data = {findings: [{title: 'vuln1', cvssSeverity: 'Critical'}, {title: 'vuln2', cvssSeverity: 'High'}, {title: 'vuln3', cvssSeverity: 'Medium'}]}
+data = {findings: [{title: 'vuln1', cvss.baseSeverity: 'Critical'}, {title: 'vuln2', cvssSeverity: 'High'}, {title: 'vuln3', cvssSeverity: 'Medium'}]}
 -> // List Vulnerabilities with cvssSeverity Critical
 {#findings}
-{#cvssSeverity == 'Critical'}
-{title} : {cvssSeverity}
-{/cvssSeverity == 'Critical'}
+{#cvss.baseSeverity == 'Critical'}
+{title} : {cvss.baseSeverity}
+{/cvss.baseSeverity == 'Critical'}
 {/findings}
 ```
 
@@ -95,6 +95,7 @@ Locale of Audit. [Custom Data](/data?id=languages)
 ### company
 Object containing:
 * **company.name**
+* **company.shortName**
 * **company.logo** (max width 400px)
 * **company.logo_small** (height 37px)
 
@@ -198,9 +199,13 @@ List of findings. Array of Objects:
 * **findings[i].remediationComplexity** (Number 1-3)
 * **findings[i].priority** (Number 1-4)
 * **findings[i].references** (Array of String)
-* **findings[i].cvssv3**
-* **findings[i].cvssScore**
-* **findings[i].cvssSeverity**
+* **findings[i].cvss.vectorString**
+* **findings[i].cvss.baseMetricScore**
+* **findings[i].cvss.baseSeverity**
+* **findings[i].cvss.temporalMetricScore**
+* **findings[i].cvss.temporalSeverity**
+* **findings[i].cvss.environmentalMetricScore**
+* **findings[i].cvss.environmentalSeverity**
 * **findings[i].cvssObj** (Object of cvss Criterias)
 * **findings[i].poc** (HTML with images)
 * **findings[i].affected** (HTML without images)
@@ -219,7 +224,7 @@ Eg. if Custom Field label is `Aggravating Factors` it will be added to the array
 List of Findings{#findings}
 {identifier | changeID: 'PROJ1-'}    {title}    {vulnType}
 >
-Severity: {cvssSeverity}    Score: {cvssScore}
+Severity: {cvss.baseSeverity}    Score: {cvss.baseMetricScore}
 Attack Vector: cvssObj.AV               Scope: cvssObj.S
 Attack Complexity: cvssObj.AC           Confidentiality: cvssObj.C
 Required Privileges: cvssObj.PR         Integrity: cvssObj.I
