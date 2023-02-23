@@ -227,8 +227,31 @@
             @click="editor.chain().focus().toggleStrike().run()"
           >
             <q-tooltip :delay="500" content-class="text-bold">Strike</q-tooltip>
+          <!-- link par not time do do this now for later
             <q-icon name="format_strikethrough" />
           </q-btn>
+          <q-btn
+            flat
+            size="sm"
+            dense
+            :class="{ 'is-active': editor.isActive('link') }"
+            @click="setLink"
+          >
+            <q-tooltip :delay="500" content-class="text-bold">set a link</q-tooltip>
+            <q-icon name="mdi-link" />
+          </q-btn>
+      <q-btn
+            flat
+            size="sm"
+            dense
+            @click="editor.chain().focus().unsetLink().run()"
+            :disabled="!editor.isActive('link') "
+          >
+            <q-tooltip :delay="500" content-class="text-bold">unset a link</q-tooltip>
+            <q-icon name="mdi-link-off" />
+          </q-btn>
+
+          -->
           <!-- Strike button end -->
         </div>
 
@@ -507,6 +530,7 @@ import Table from "@tiptap/extension-table";
 import TableCell from "@tiptap/extension-table-cell";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
+import Link from "@tiptap/extension-link";
 import CustomImage from "./editor-image";
 //import Caption from "./editor-caption";
 import { Figure } from "./figure";
@@ -568,6 +592,8 @@ export default {
       status: 'connecting',
       state:false,
       fullId:"",
+      countChange:0,
+      countChangeAfterUpdate:-1,
       initialeDataUpdated:false,
       htmlEncode: Utils.htmlEncode,
     };
@@ -579,7 +605,7 @@ export default {
     },
     editable(value) {
       //this.editor.setOptions({ editable: this.editable });
-      this.editor.setEditable(this.editable);
+      this.editor.setEditable(this.editable && this.initialeDataUpdated);
     },
   },
 
@@ -610,6 +636,7 @@ export default {
       this.state=state.state
     })
     this.editor = new Editor({
+      editable: false,
       extensions: [
         StarterKit,
         Highlight.configure({
@@ -626,6 +653,11 @@ export default {
             color:  this.stringToColour(this.username)
           }
         }),
+        Link.configure({
+          protocols: ['ftp', 'mailto'],
+             linkOnPaste: false,
+              openOnClick: false,
+        }),
         Underline,
         TableRow,
         TableHeader,
@@ -638,12 +670,17 @@ export default {
             class: "custom-image",
           },
         }),
+
         Figure,
         //Caption,
         //CustomImage,
       ],
       onUpdate: () => {
         console.log("onUpdate");
+        if(this.state && this.initialeDataUpdated && this.countChangeAfterUpdate>0 && this.countChangeAfterUpdate<this.countChange){
+           this.$emit('editorchange') // need save only if sync is done
+        }
+        this.countChange++
         if (this.noSync) return;
         this.updateHTML();
       },
@@ -652,7 +689,7 @@ export default {
     });
     this.affixRelativeElement += "-" +  this.ClassEditor;
     //this.editor.setOptions({ editable: this.editable });
-    this.editor.setEditable(this.editable);
+    this.editor.setEditable(this.editable && this.initialeDataUpdated);
     if (
       typeof this.value === "undefined" ||
       this.value === this.editor.getHTML()
@@ -722,24 +759,65 @@ export default {
       return content;
     },
   },
+
  
   methods: {
     async updateInitialeValue(value){
-      if(this.initialeDataUpdated==false && value!=''){
-        for (let i = 0; i < 26; i++) { // 5 second to connect web socket failed after
-          if(this.status=='connected' && this.state){
-            if(this.editor.getHTML() != value && this.editor.getHTML()=='<p></p>'){
-              var content = this.htmlEncode(value);
-              this.editor.commands.setContent(content, true);
+    if( typeof this.$route.params.auditId == 'undefined' && (this.idUnique.split('-')[0]=="undefined" || this.idUnique.split('-') == ""  )&& this.initialeDataUpdated==false){
+      // if editor is init not in vuln edit context like cutom field
+      this.initialeDataUpdated=true
+      this.editor.setEditable(this.editable && this.initialeDataUpdated);
+      this.$emit('ready')
+      this.countChangeAfterUpdate=this.countChange
+    } else {
+      if(this.initialeDataUpdated==false){
+          for (let i = 0; i < 200; i++) { // 25 second to connect web socket failed after
+            if(this.status=='connected' && this.state){
+              if(this.editor.getHTML() != value && this.editor.getHTML()=='<p></p>'){
+                var content = this.htmlEncode(value);
+                this.editor.commands.setContent(content, false);
+              }
+              this.initialeDataUpdated=true
+              this.editor.setEditable(this.editable && this.initialeDataUpdated);
+              this.$emit('ready')
+              this.countChangeAfterUpdate=this.countChange
+              break;
+            } else {
+              await this.sleep(500)
+              console.log('Wait websocket')
             }
-            this.initialeDataUpdated=true
-            break;
-          } else {
-            await this.sleep(200)
-            console.log('Wait websocket')
           }
         }
       } 
+    },
+    setLink(){
+      const previousUrl = this.editor.getAttributes('link').href
+      const url = window.prompt('URL', previousUrl)
+
+      // cancelled
+      if (url === null) {
+        return
+      }
+
+      // empty
+      if (url === '') {
+        this.editor
+          .chain()
+          .focus()
+          .extendMarkRange('link')
+          .unsetLink()
+          .run()
+
+        return
+      }
+
+      // update link
+      this.editor
+        .chain()
+        .focus()
+        .extendMarkRange('link')
+        .setLink({ href: url })
+        .run()
     },
     sleep(milliseconds) {
       return new Promise((resolve) => setTimeout(resolve, milliseconds));
