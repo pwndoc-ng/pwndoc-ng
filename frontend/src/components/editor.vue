@@ -227,7 +227,7 @@
             @click="editor.chain().focus().toggleStrike().run()"
           >
             <q-tooltip :delay="500" content-class="text-bold">Strike</q-tooltip>
-          <!-- link par not time do do this now for later
+
             <q-icon name="format_strikethrough" />
           </q-btn>
           <q-btn
@@ -251,7 +251,7 @@
             <q-icon name="mdi-link-off" />
           </q-btn>
 
-          -->
+
           <!-- Strike button end -->
         </div>
 
@@ -679,8 +679,10 @@ export default {
         console.log("onUpdate");
         if(this.state && this.initialeDataUpdated && this.countChangeAfterUpdate>0 && this.countChangeAfterUpdate<this.countChange){
            this.$emit('editorchange') // need save only if sync is done
+        } else {
+          this.countChange++
         }
-        this.countChange++
+        
         if (this.noSync) return;
         this.updateHTML();
       },

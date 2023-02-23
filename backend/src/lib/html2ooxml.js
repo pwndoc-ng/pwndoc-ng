@@ -85,7 +85,9 @@ function html2ooxml(html, style = "") {
               break;
           }
           cRunProperties.highlight = color;
-        } else if (tag === "br") {
+        } else if (tag ==="a") {
+          cRunProperties.link = attribs.href;
+        }else if (tag === "br") {
           if (inCodeBlock) {
             paragraphs.push(cParagraph);
             cParagraph = new docx.Paragraph({ style: "Code" });
@@ -123,10 +125,14 @@ function html2ooxml(html, style = "") {
             width: tmpAttribs.colwidth ? tmpAttribs.colwidth : "250",
             header: tableHeader,
           });
+        } else if(cRunProperties.link){
+          cParagraph.addChildElement(new docx.TextRun({"text":`{_|link|_{${text}|-|${cRunProperties.link}}_|link|_}`, "style": "Hyperlink"}));
+
         } else if (text && cParagraph && !inTable) {
           cRunProperties.text = text;
           cParagraph.addChildElement(new docx.TextRun(cRunProperties));
-        }
+
+        } 
       },
 
       onclosetag(tag) {
@@ -172,6 +178,8 @@ function html2ooxml(html, style = "") {
           tableHeader = false;
           tmpTable.push(tmpCells);
           tmpCells = []
+        } else if (tag === "a") {
+          delete cRunProperties.link
         } else if (tag === "td" || tag === "th") {
           if(cellHasText === false) {
             tmpCells.push({
@@ -242,7 +250,9 @@ function html2ooxml(html, style = "") {
   });
   let dataXml = xml(filteredXml);
   dataXml = dataXml.replace(/w:numId w:val="{2-0}"/g, 'w:numId w:val="2"'); // Replace numbering to have correct value
-
+  //a little dirty but until we do better it works
+  dataXml = dataXml.replace(/\{_\|link\|_\{(.*)\|\-\|(.*)\}_\|link\|_\}/gm, '<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> HYPERLINK $2 </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:rPr><w:rStyle w:val="Hyperlink"/></w:rPr><w:t> $1 </w:t> </w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>')
+  console.log(dataXml)
   return dataXml;
 }
 
