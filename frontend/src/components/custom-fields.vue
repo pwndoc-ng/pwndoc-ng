@@ -21,6 +21,7 @@
                         <basic-editor 
                         v-if="diff"
                         v-model="field.text"
+                        v-on:editorchange="eventPropagation"
                         :idUnique="field.customField._id"
                         :diff="getTextDiffInCustomFields(field)"
                         :editable=false
@@ -28,6 +29,7 @@
                         <basic-editor 
                         v-else
                         :idUnique="field.customField._id"
+                        v-on:editorchange="eventPropagation"
                         ref="basiceditor_custom" 
                         v-model="field.text" 
                         :noSync="noSyncEditor"
@@ -278,7 +280,9 @@ export default {
             }
             return false
         },
-
+        eventPropagation: function(){
+            this.$emit('editorchange')
+        },
         getTextDiffInCustomFields: function(field) {
             var result = ''
             if (this.diff) {

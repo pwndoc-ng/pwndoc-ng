@@ -16,7 +16,7 @@
         @click="deleteFinding()"
         v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
         />
-        <q-btn color="positive" :label="$t('btn.save')+'(ctrl+s)'" no-caps @click="updateFinding()"  v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT" />
+        <q-btn color="positive" :disable="!readyToSave" :label="$t('btn.save')+'(ctrl+s)'" no-caps @click="updateFinding()"  v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT" />
     </div>
 </breadcrumb>
 
@@ -52,12 +52,12 @@
                     />
                     <q-field class="col-md-12 basic-editor" borderless :label="$t('description')" stack-label>
                         <template v-slot="control">
-                            <basic-editor ref="basiceditor_description" idUnique="basiceditor_description"  noSync v-model="finding.description" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"/>
+                            <basic-editor ref="basiceditor_description" v-on:editorchange="readyToSave ? needSave=true : null" v-on:ready="readyToSave=true" idUnique="basiceditor_description"  noSync v-model="finding.description" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"/>
                         </template>
                     </q-field>
                     <q-field class="col-md-12 basic-editor" borderless :label="$t('observation')" stack-label>
                         <template v-slot="control">
-                            <basic-editor ref="basiceditor_observation" idUnique="basiceditor_observation" noSync v-model="finding.observation" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"/>
+                            <basic-editor ref="basiceditor_observation" v-on:editorchange="readyToSave ? needSave=true : null" idUnique="basiceditor_observation" noSync v-model="finding.observation" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"/>
                         </template>
                     </q-field>
                     <textarea-array class="col-12" :label="$t('references')" v-model="finding.references" :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"/>
@@ -73,6 +73,7 @@
                     ref="customfields" 
                     v-model="finding.customFields" 
                     custom-element="QCardSection" 
+                    v-on:editorchange="readyToSave ? needSave=true : null" 
                     no-sync-editor
                     :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     :locale="$parent.audit.language"
@@ -86,7 +87,7 @@
                 <div class="col-12">
                     <q-card>
                         <q-card-section>
-                            <basic-editor ref="basiceditor_poc" idUnique="basiceditor_poc"  noSync v-model="finding.poc" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"/>
+                            <basic-editor ref="basiceditor_poc" v-on:editorchange="readyToSave ? needSave=true : null" idUnique="basiceditor_poc"  noSync v-model="finding.poc" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"/>
                         </q-card-section>
                     </q-card>
                 </div>
@@ -99,7 +100,7 @@
                 <q-card-section>
                     <q-field borderless>
                         <template v-slot="control">
-                            <basic-editor v-model="finding.scope" idUnique="basiceditor_scope" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"/>
+                            <basic-editor v-model="finding.scope" idUnique="basiceditor_scope" v-on:editorchange="readyToSave ? needSave=true : null" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"/>
                         </template>
                     </q-field>
                 </q-card-section>
@@ -146,7 +147,7 @@
                 <q-card-section>
                     <q-field class="col-md-12 basic-editor" borderless :label="$t('remediation')" stack-label>
                         <template v-slot="control">
-                            <basic-editor ref="basiceditor_remediation" idUnique="basiceditor_remediation" noSync v-model="finding.remediation" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"/>
+                            <basic-editor ref="basiceditor_remediation" v-on:editorchange="readyToSave ? needSave=true : null" idUnique="basiceditor_remediation" noSync v-model="finding.remediation" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"/>
                         </template>
                     </q-field>
                 </q-card-section>
