@@ -18,7 +18,7 @@
     "babel-jest": "^26.0.1",
     "jest": "^26.0.1",
     "nodemon": "^1.19.4",
-    "npm": "^6.12.0",
+    "npm": "^6.14.18",
     "swagger-autogen": "^2.22.0"
   },
   "dependencies": {
