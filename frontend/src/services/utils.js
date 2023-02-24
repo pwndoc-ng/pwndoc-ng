@@ -50,6 +50,7 @@ export default {
       .replace(/ΩΠгbrΏΠг/g, "<br>")
       .replace(/ΩΠгcodeΏΠг/g, "<code>")
       .replace(/ΩΠг\/codeΏΠг/g, "</code>")
+      .replace(/ΩΠгbrΏΠг/g, "<br>")
       .replace(/ΩΠгulΏΠг/g, "<ul>")
       .replace(/ΩΠг\/ulΏΠг/g, "</ul>")
       .replace(/ΩΠгolΏΠг/g, "<ol>")
@@ -68,8 +69,12 @@ export default {
       .replace(/ΩΠг\/h5ΏΠг/g, "</h5>")
       .replace(/ΩΠгh6ΏΠг/g, "<h6>")
       .replace(/ΩΠг\/h6ΏΠг/g, "</h6>")
+      .replace(/ΩΠгa.+?href="(.*?)".*?rel="(.*?)".*?ΏΠг/g, '<a href="$1" rel="$2">')
+      .replace(/ΩΠгa.+?rel="(.*?)".*?href="(.*?)".*?ΏΠг/g, '<a href="$2" rel="$1">')
+      .replace(/ΩΠг\/aΏΠг/g, '</a>')
       .replace(/ΩΠг/g, "&lt;")
       .replace(/ΏΠг/g, "&gt;");
+
 
     return result;
   },
