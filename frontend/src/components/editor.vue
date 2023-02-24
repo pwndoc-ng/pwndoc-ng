@@ -774,8 +774,7 @@ export default {
           for (let i = 0; i < 200; i++) { // 25 second to connect web socket failed after
             if(this.status=='connected' && this.state){
               if(this.editor.getHTML() != value && this.editor.getHTML()=='<p></p>'){
-                var content = this.htmlEncode(value);
-                this.editor.commands.setContent(content, false);
+                this.editor.commands.setContent(value, false);
               }
               this.initialeDataUpdated=true
               this.editor.setEditable(this.editable && this.initialeDataUpdated);
