@@ -767,8 +767,7 @@ export default {
     async updateInitialeValue(value){
     if( typeof this.$route.params.auditId == 'undefined' && (this.idUnique.split('-')[0]=="undefined" || this.idUnique.split('-') == ""  )&& this.initialeDataUpdated==false){
       // if editor is init not in vuln edit context like cutom field
-      var content = this.htmlEncode(value);
-      this.editor.commands.setContent(content, false);
+      this.editor.commands.setContent(value, false);
       this.initialeDataUpdated=true
       this.editor.setEditable(this.editable && this.initialeDataUpdated);
       this.$emit('ready')
