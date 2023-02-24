@@ -387,6 +387,12 @@ expressions.filters.sort = function(input, key = null) {
         });
     }
 }
+expressions.filters.sortDESC = function(input, key = null) {
+    return  _.sortBy(input, o => _.get(o,key)).reverse()
+}
+expressions.filters.sortASC = function(input=null, key = null) {
+    return  _.sortBy(input, o =>  _.get(o,key))
+}
 
 // Sort array by supplied field: {#findings | sortArrayByField: 'identifier':1}{/}
 // order: 1 = ascending, -1 = descending
