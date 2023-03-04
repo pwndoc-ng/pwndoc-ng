@@ -12,6 +12,8 @@ module.exports = function(app, io) {
 
     // Get audits list of user (all for admin) with regex filter on findings
     app.get("/api/audits", acl.hasPermission('audits:read'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
         var getUsersRoom = function(room) {
             return utils.getSockets(io, room).map(s => s.username)
         }
@@ -46,6 +48,8 @@ module.exports = function(app, io) {
 
     // Create audit with name, auditType, language provided
     app.post("/api/audits", acl.hasPermission('audits:create'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
         if (!req.body.name || !req.body.language || !req.body.auditType) {
             Response.BadParameters(res, 'Missing some required parameters: name, language, auditType');
             return;
@@ -64,6 +68,8 @@ module.exports = function(app, io) {
 
     // Delete audit if creator or admin
     app.delete("/api/audits/:auditId", acl.hasPermission('audits:delete'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
         Audit.delete(acl.isAllowed(req.decodedToken.role, 'audits:delete-all'), req.params.auditId, req.decodedToken.id)
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -73,6 +79,8 @@ module.exports = function(app, io) {
 
     // Get Audit with ID
     app.get("/api/audits/:auditId", acl.hasPermission('audits:read'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
         Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id)
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -80,6 +88,8 @@ module.exports = function(app, io) {
 
     // Get audit general information
     app.get("/api/audits/:auditId/general", acl.hasPermission('audits:read'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
         Audit.getGeneral(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id)
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -87,6 +97,8 @@ module.exports = function(app, io) {
 
     // Update audit general information
     app.put("/api/audits/:auditId/general", acl.hasPermission('audits:update'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+
         var update = {};
         
         var settings = await Settings.getAll();
@@ -186,6 +198,8 @@ module.exports = function(app, io) {
 
     // Get audit network information
     app.get("/api/audits/:auditId/network", acl.hasPermission('audits:read'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
         Audit.getNetwork(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id)
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -193,6 +207,8 @@ module.exports = function(app, io) {
 
     // Update audit network information
     app.put("/api/audits/:auditId/network", acl.hasPermission('audits:update'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+
         var settings = await Settings.getAll();
 
         var audit = await Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id);
@@ -213,6 +229,8 @@ module.exports = function(app, io) {
 
     // Add finding to audit
     app.post("/api/audits/:auditId/findings", acl.hasPermission('audits:update'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+
         var settings = await Settings.getAll();
         var audit = await Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id);
         if (settings.reviews.enabled && audit.state !== "EDIT") {
@@ -257,6 +275,8 @@ module.exports = function(app, io) {
 
     // Get finding of audit
     app.get("/api/audits/:auditId/findings/:findingId", acl.hasPermission('audits:read'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
         Audit.getFinding(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id, req.params.findingId)
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -264,6 +284,8 @@ module.exports = function(app, io) {
 
     // Update finding of audit
     app.put("/api/audits/:auditId/findings/:findingId", acl.hasPermission('audits:update'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+
         var settings = await Settings.getAll();
         var audit = await Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id);
         if (settings.reviews.enabled && audit.state !== "EDIT") {
@@ -302,6 +324,8 @@ module.exports = function(app, io) {
 
     // Delete finding of audit
     app.delete("/api/audits/:auditId/findings/:findingId", acl.hasPermission('audits:update'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+
         var settings = await Settings.getAll();
         var audit = await Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id);
         if (settings.reviews.enabled && audit.state !== "EDIT") {
@@ -318,6 +342,8 @@ module.exports = function(app, io) {
 
     // Get section of audit
     app.get("/api/audits/:auditId/sections/:sectionId", acl.hasPermission('audits:read'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
         Audit.getSection(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id, req.params.sectionId)
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -325,6 +351,8 @@ module.exports = function(app, io) {
 
     // Update section of audit
     app.put("/api/audits/:auditId/sections/:sectionId", acl.hasPermission('audits:update'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+
         var settings = await Settings.getAll();
         var audit = await Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id);
         if (settings.reviews.enabled && audit.state !== "EDIT") {
@@ -355,6 +383,8 @@ module.exports = function(app, io) {
 
     // Generate Report for specific audit
     app.get("/api/audits/:auditId/generate", acl.hasPermission('audits:read'), function(req, res){
+        // #swagger.tags = ['Audit']
+
         Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id)
         .then(async audit => {
             var settings = await Settings.getAll();
@@ -380,6 +410,8 @@ module.exports = function(app, io) {
 
     // Update sort options of an audit
     app.put("/api/audits/:auditId/sortfindings", acl.hasPermission('audits:update'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+
         var settings = await Settings.getAll();
         var audit = await Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id);
         if (settings.reviews.enabled && audit.state !== "EDIT") {
@@ -401,6 +433,8 @@ module.exports = function(app, io) {
 
     // Update finding position (oldIndex -> newIndex)
     app.put("/api/audits/:auditId/movefinding", acl.hasPermission('audits:update'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+
         var settings = await Settings.getAll();
         var audit = await Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id);
         if (settings.reviews.enabled && audit.state !== "EDIT") {
@@ -431,6 +465,8 @@ module.exports = function(app, io) {
 
     // Give or remove a reviewer's approval to an audit
     app.put("/api/audits/:auditId/toggleApproval", acl.hasPermission('audits:review'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+
         const settings = await Settings.getAll();
 
         if (!settings.reviews.enabled) {
@@ -484,6 +520,9 @@ module.exports = function(app, io) {
 
     // Sets the audit state to EDIT or REVIEW
     app.put("/api/audits/:auditId/updateReadyForReview", acl.hasPermission('audits:update'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+
+
         const settings = await Settings.getAll();
 
         if (!settings.reviews.enabled) {

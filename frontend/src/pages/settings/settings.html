@@ -20,6 +20,14 @@
               </q-item-section>
             </q-item>
           </q-card-section>
+          <q-card-section>
+            <div class="text-bold">{{$t('extendCvssTemporalEnvironment')}}</div>
+            <q-item>
+                <q-item-section class="col-md-2">
+                    <q-toggle :label="$t('btn.enable')" v-model="settings.report.public.extendCvssTemporalEnvironment" />
+                </q-item-section>
+            </q-item>
+        </q-card-section>
         </q-card>
 
         <q-card v-if="UserService.isAllowed('settings:read')" class="q-my-md">

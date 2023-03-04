@@ -32,6 +32,10 @@ const SettingSchema = new Schema({
             captions: {
                 type: [{type: String, unique: true}],
                 default: ['Figure']
+            },
+            extendCvssTemporalEnvironment: { 
+                type: Boolean, 
+                default: false 
             }
         },
         private: {

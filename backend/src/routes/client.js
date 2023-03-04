@@ -6,6 +6,8 @@ module.exports = function(app) {
 
     // Get clients list
     app.get("/api/clients", acl.hasPermission('clients:read'), function(req, res) {
+        // #swagger.tags = ['Client']
+
         Client.getAll()
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -13,6 +15,8 @@ module.exports = function(app) {
 
     // Create client
     app.post("/api/clients", acl.hasPermission('clients:create'), function(req, res) {
+        // #swagger.tags = ['Client']
+
         if (!req.body.email) {
             Response.BadParameters(res, 'Required parameters: email');
             return;
@@ -38,6 +42,8 @@ module.exports = function(app) {
 
     // Update client
     app.put("/api/clients/:id", acl.hasPermission('clients:update'), function(req, res) {
+        // #swagger.tags = ['Client']
+
         var client = {};
         // Optional parameters
         if (req.body.email) client.email = req.body.email;
@@ -56,6 +62,8 @@ module.exports = function(app) {
 
     // Delete client
     app.delete("/api/clients/:id", acl.hasPermission('clients:delete'), function(req, res) {
+        // #swagger.tags = ['Client']
+
         Client.delete(req.params.id)
         .then(msg => Response.Ok(res, 'Client deleted successfully'))
         .catch(err => Response.Internal(res, err))

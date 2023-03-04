@@ -6,6 +6,8 @@ module.exports = function(app) {
 
     // Get companies list
     app.get("/api/companies", acl.hasPermission('companies:read'), function(req, res) {
+        // #swagger.tags = ['Company']
+
         Company.getAll()
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -13,6 +15,8 @@ module.exports = function(app) {
 
     // Create company
     app.post("/api/companies", acl.hasPermission('companies:create'), function(req, res) {
+        // #swagger.tags = ['Company']
+
         if (!req.body.name) {
             Response.BadParameters(res, 'Required paramters: name');
             return;
@@ -33,6 +37,8 @@ module.exports = function(app) {
 
     // Update company
     app.put("/api/companies/:id", acl.hasPermission('companies:update'), function(req, res) {
+        // #swagger.tags = ['Company']
+
         var company = {};
         // Optional parameters
         if (req.body.name) company.name = req.body.name;
@@ -46,6 +52,8 @@ module.exports = function(app) {
 
     // Delete company
     app.delete("/api/companies/:id", acl.hasPermission('companies:delete'), function(req, res) {
+        // #swagger.tags = ['Company']
+
         Company.delete(req.params.id)
         .then(msg => Response.Ok(res, 'Company deleted successfully'))
         .catch(err => Response.Internal(res, err))

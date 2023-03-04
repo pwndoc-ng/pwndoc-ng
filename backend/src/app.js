@@ -13,6 +13,12 @@ var bodyParser = require('body-parser');
 var cookieParser = require('cookie-parser')
 var utils = require('./lib/utils');
 
+
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('./config/swagger-output.json');
+
+
+
 // Get configuration
 var env = process.env.NODE_ENV || 'dev';
 var config = require('./config/config.json')[env];
@@ -110,6 +116,53 @@ require('./routes/vulnerability')(app);
 require('./routes/data')(app);
 require('./routes/image')(app);
 require('./routes/settings')(app);
+
+
+
+var hocus = require('@hocuspocus/server')
+var acl = require('./lib/auth').acl;
+var Audit = require('mongoose').model('Audit');
+
+
+  const serverHocus = hocus.Server.configure({
+    port:  process.env.COLLAB_WEBSOCKET_PORT || 8440,
+      onUpgrade(data) {
+        return new Promise( async (resolve, reject) =>  {
+          const { request, socket, head } = data
+          var waitProcess = false
+          request.rawHeaders.forEach( async (header) => {
+            if(header.includes('token=JWT%20')) {
+              header.split('; ').forEach(cookie =>{
+                splitedToken = cookie.split('%20')
+                if(splitedToken.length > 1 && acl.hasPermissionFromReq('audits:read',splitedToken[1]) ){
+                  decodeToken = acl.hasPermissionFromReq('audits:read',splitedToken[1])
+                  auditId=''
+                  if(request.url.split('/').length>=2){
+                    auditId=request.url.split('/')[2]
+                  }
+                  var query = Audit.findById(auditId)
+                  if (decodeToken.role!="admin"){
+                    query.or([{creator: decodeToken.id}, {collaborators: decodeToken.id}, {reviewers: decodeToken.id}])
+                  }
+                  waitProcess=true
+                  query.exec().then( x=> resolve()).catch(err=>reject())
+                }
+              })
+            }
+          })
+          if(!waitProcess){
+            reject() 
+          }
+        })
+      }
+  })
+  serverHocus.listen()
+
+
+if(config.apidoc) {
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+}
+
 
 app.get("*", function(req, res) {
     res.status(404).json({"status": "error", "data": "Route undefined"});

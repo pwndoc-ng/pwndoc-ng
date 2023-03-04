@@ -1,451 +1,965 @@
 <template>
-<q-card flat bordered class="editor full-width" :class="affixRelativeElement" :style="(editable)?'':'border: 1px dashed lightgrey'">
-    <affix :relative-element-selector="'.'+affixRelativeElement" :enabled="!noAffix" class="bg-white">
-        <editor-menu-bar :editor="editor" v-slot="{ commands, isActive }">
-            <q-toolbar class="editor-toolbar">
-                <div v-if="toolbar.indexOf('format') !== -1">
-                    <q-tooltip :delay="500" content-class="text-bold">Text Format</q-tooltip>
-                    <q-btn-dropdown size="sm" unelevated dense :icon="formatIcon" :label="formatLabel" style="width:42px" class="text-bold">
-                        <q-list dense>
-                            <q-item 
-                            clickable 
-                            :class="{ 'is-active': isActive.paragraph() }" 
-                            @click="commands.paragraph()">
-                                <q-item-section>
-                                    <q-icon name="fa fa-paragraph" />
-                                </q-item-section>
-                            </q-item>
-                            <q-item 
-                            clickable 
-                            :class="{ 'is-active': isActive.heading({level: 1}) }" 
-                            @click="commands.heading({level: 1})">
-                                <q-item-section>H1</q-item-section>
-                            </q-item>
-                            <q-item 
-                            clickable
-                            :class="{ 'is-active': isActive.heading({level: 2}) }"
-                            @click="commands.heading({level: 2})">
-                                <q-item-section>H2</q-item-section>
-                            </q-item>
-                            <q-item 
-                            clickable
-                            :class="{ 'is-active': isActive.heading({level: 3}) }"
-                            @click="commands.heading({level: 3})">
-                                <q-item-section>H3</q-item-section>
-                            </q-item>
-                            <q-item 
-                            clickable
-                            :class="{ 'is-active': isActive.heading({level: 4}) }"
-                            @click="commands.heading({level: 4})">
-                                <q-item-section>H4</q-item-section>
-                            </q-item>
-                            <q-item 
-                            clickable
-                            :class="{ 'is-active': isActive.heading({level: 5}) }"
-                            @click="commands.heading({level: 5})">
-                                <q-item-section>H5</q-item-section>
-                            </q-item>
-                            <q-item 
-                            clickable
-                            :class="{ 'is-active': isActive.heading({level: 6}) }"
-                            @click="commands.heading({level: 6})">
-                                <q-item-section>H6</q-item-section>
-                            </q-item>
-                        </q-list>
-                    </q-btn-dropdown>
-                </div>
-                <q-separator vertical class="q-mx-sm" v-if="toolbar.indexOf('format') !== -1" />
-                
-                <div v-if="toolbar.indexOf('marks') !== -1">
-                    <q-btn flat size="sm" dense
-                    :class="{ 'is-active': isActive.bold() }"
-                    @click="commands.bold"
-                    >
-                        <q-tooltip :delay="500" content-class="text-bold">Bold</q-tooltip>
-                        <q-icon name="format_bold" />
-                    </q-btn>
+  <q-card
+    v-if="editor"
+    flat
+    bordered
+    class="editor full-width"
+    :class="affixRelativeElement"
+    :style="editable ? '' : 'border: 1px dashed lightgrey'"
+  >
+    <affix
+      :relative-element-selector="'.' + affixRelativeElement"
+      :enabled="!noAffix"
+      class="bg-white"
+    >
+      <q-toolbar class="editor-toolbar">
+        <div v-if="toolbar.indexOf('format') !== -1">
+          <q-tooltip :delay="500" content-class="text-bold"
+            >Text Format</q-tooltip
+          >
+          <q-btn-dropdown
+            size="sm"
+            unelevated
+            dense
+            :icon="formatIcon"
+            :label="formatLabel"
+            style="width: 42px"
+            class="text-bold"
+          >
+            <q-list dense>
+              <q-item
+                clickable
+                :class="{ 'is-active': editor.isActive('paragraph') }"
+                @click="editor.chain().focus().setParagraph().run()"
+              >
+                <q-item-section>
+                  <q-icon name="fa fa-paragraph" />
+                </q-item-section>
+              </q-item>
+              <q-item
+                clickable
+                :class="{
+                  'is-active': editor.isActive('heading', { level: 1 }),
+                }"
+                @click="
+                  editor.chain().focus().toggleHeading({ level: 1 }).run()
+                "
+              >
+                <q-item-section>H1</q-item-section>
+              </q-item>
+              <q-item
+                clickable
+                :class="{
+                  'is-active': editor.isActive('heading', { level: 2 }),
+                }"
+                @click="
+                  editor.chain().focus().toggleHeading({ level: 2 }).run()
+                "
+              >
+                <q-item-section>H2</q-item-section>
+              </q-item>
+              <q-item
+                clickable
+                :class="{
+                  'is-active': editor.isActive('heading', { level: 3 }),
+                }"
+                @click="
+                  editor.chain().focus().toggleHeading({ level: 3 }).run()
+                "
+              >
+                <q-item-section>H3</q-item-section>
+              </q-item>
+              <q-item
+                clickable
+                :class="{
+                  'is-active': editor.isActive('heading', { level: 4 }),
+                }"
+                @click="
+                  editor.chain().focus().toggleHeading({ level: 4 }).run()
+                "
+              >
+                <q-item-section>H4</q-item-section>
+              </q-item>
+              <q-item
+                clickable
+                :class="{
+                  'is-active': editor.isActive('heading', { level: 5 }),
+                }"
+                @click="
+                  editor.chain().focus().toggleHeading({ level: 5 }).run()
+                "
+              >
+                <q-item-section>H5</q-item-section>
+              </q-item>
+              <q-item
+                clickable
+                :class="{
+                  'is-active': editor.isActive('heading', { level: 6 }),
+                }"
+                @click="
+                  editor.chain().focus().toggleHeading({ level: 6 }).run()
+                "
+              >
+                <q-item-section>H6</q-item-section>
+              </q-item>
+            </q-list>
+          </q-btn-dropdown>
+        </div>
+        <q-separator
+          vertical
+          class="q-mx-sm"
+          v-if="toolbar.indexOf('format') !== -1"
+        />
+        <div v-if="toolbar.indexOf('marks') !== -1">
+          <!-- Highlight dropdown button -->
+          <q-btn-dropdown
+            size="sm"
+            unelevated
+            dense
+            :icon="highlightIcon"
+            style="width: 42px"
+            class="text-bold"
+          >
+            <q-tooltip :delay="500" content-class="text-bold"
+              >Highlight</q-tooltip
+            >
+            <q-list dense>
+              <q-item
+                clickable
+                :class="{ 'is-active': editor.isActive('highlight') }"
+                @click="
+                  editor
+                    .chain()
+                    .focus()
+                    .toggleHighlight({ color: '#ffff00' })
+                    .run()
+                "
+                style="background-color: yellow"
+              >
+              </q-item>
+              <q-item
+                clickable
+                :class="{ 'is-active': editor.isActive('highlight') }"
+                @click="
+                  editor
+                    .chain()
+                    .focus()
+                    .toggleHighlight({ color: '#fe0000' })
+                    .run()
+                "
+                style="background-color: red"
+              >
+              </q-item>
+              <q-item
+                clickable
+                :class="{ 'is-active': editor.isActive('highlight') }"
+                @click="
+                  editor
+                    .chain()
+                    .focus()
+                    .toggleHighlight({ color: '#00ff00' })
+                    .run()
+                "
+                style="background-color: #00ff00"
+              >
+              </q-item>
+              <q-item
+                clickable
+                :class="{ 'is-active': editor.isActive('highlight') }"
+                @click="
+                  editor
+                    .chain()
+                    .focus()
+                    .toggleHighlight({ color: '#00ffff' })
+                    .run()
+                "
+                style="background-color: #00ffff"
+              >
+              </q-item>
+            </q-list>
+          </q-btn-dropdown>
+          <!-- Highlight dropdown button end -->
 
-                    <q-btn flat size="sm" dense
-                    :class="{ 'is-active': isActive.italic() }"
-                    @click="commands.italic"
-                    >
-                        <q-tooltip :delay="500" content-class="text-bold">Italic</q-tooltip>
-                        <q-icon name="format_italic" />
-                    </q-btn>
+          <!-- Bold button -->
+          <q-btn
+            flat
+            size="sm"
+            dense
+            :class="{ 'is-active': editor.isActive('bold') }"
+            @click="editor.chain().focus().toggleBold().run()"
+          >
+            <q-tooltip :delay="500" content-class="text-bold">Bold</q-tooltip>
+            <q-icon name="format_bold" />
+          </q-btn>
+          <!-- Bold button end -->
+          <!-- Italic button -->
+          <q-btn
+            flat
+            size="sm"
+            dense
+            :class="{ 'is-active': editor.isActive('italic') }"
+            @click="editor.chain().focus().toggleItalic().run()"
+          >
+            <q-tooltip :delay="500" content-class="text-bold">Italic</q-tooltip>
+            <q-icon name="format_italic" />
+          </q-btn>
+          <!-- Italic button end -->
+          <!-- Underline button -->
+          <q-btn
+            flat
+            size="sm"
+            dense
+            @click="editor.chain().focus().toggleUnderline().run()"
+            :class="{ 'is-active': editor.isActive('underline') }"
+          >
+            <q-tooltip :delay="500" content-class="text-bold"
+              >Underline</q-tooltip
+            >
+            <q-icon name="format_underline" />
+          </q-btn>
+          <!-- Underline button end -->
+          <!-- Strike button -->
+          <q-btn
+            flat
+            size="sm"
+            dense
+            :class="{ 'is-active': editor.isActive('strike') }"
+            @click="editor.chain().focus().toggleStrike().run()"
+          >
+            <q-tooltip :delay="500" content-class="text-bold">Strike</q-tooltip>
 
-                    <q-btn flat size="sm" dense
-                    :class="{ 'is-active': isActive.underline() }"
-                    @click="commands.underline"
-                    >
-                        <q-tooltip :delay="500" content-class="text-bold">Underline</q-tooltip>
-                        <q-icon name="format_underline" />
-                    </q-btn>
+            <q-icon name="format_strikethrough" />
+          </q-btn>
+          <q-btn
+            flat
+            size="sm"
+            dense
+            :class="{ 'is-active': editor.isActive('link') }"
+            @click="setLink"
+          >
+            <q-tooltip :delay="500" content-class="text-bold">set a link</q-tooltip>
+            <q-icon name="mdi-link" />
+          </q-btn>
+      <q-btn
+            flat
+            size="sm"
+            dense
+            @click="editor.chain().focus().unsetLink().run()"
+            :disabled="!editor.isActive('link') "
+          >
+            <q-tooltip :delay="500" content-class="text-bold">unset a link</q-tooltip>
+            <q-icon name="mdi-link-off" />
+          </q-btn>
 
-                    <q-btn flat size="sm" dense
-                    :class="{ 'is-active': isActive.strike() }"
-                    @click="commands.strike"
-                    >
-                        <q-tooltip :delay="500" content-class="text-bold">Strikethrough</q-tooltip>
-                        <q-icon name="format_strikethrough" />
-                    </q-btn>
-                </div>
-                <q-separator vertical class="q-mx-sm" v-if="toolbar.indexOf('marks') !== -1" />
 
-                <div v-if="toolbar.indexOf('list') !== -1">
-                    <q-btn flat size="sm" dense
-                    :class="{ 'is-active': isActive.bullet_list() }"
-                    @click="commands.bullet_list"
-                    >
-                        <q-tooltip :delay="500" content-class="text-bold">Bullets</q-tooltip>
-                        <q-icon name="format_list_bulleted" />
-                    </q-btn>
+          <!-- Strike button end -->
+        </div>
 
-                    <q-btn flat size="sm" dense
-                    :class="{ 'is-active': isActive.ordered_list() }"
-                    @click="commands.ordered_list"
-                    >
-                        <q-tooltip :delay="500" content-class="text-bold">Numbering</q-tooltip>
-                        <q-icon name="format_list_numbered" />
-                    </q-btn>
-                </div>
-                <q-separator vertical class="q-mx-sm" v-if="toolbar.indexOf('list') !== -1" />
+        <q-separator
+          vertical
+          class="q-mx-sm"
+          v-if="toolbar.indexOf('marks') !== -1"
+        />
+        <div v-if="toolbar.indexOf('list') !== -1">
+          <!-- Bullet list -->
+          <q-btn
+            flat
+            size="sm"
+            dense
+            @click="editor.chain().focus().toggleBulletList().run()"
+            :class="{ 'is-active': editor.isActive('bulletList') }"
+          >
+            <q-tooltip :delay="500" content-class="text-bold"
+              >Bulleted list</q-tooltip
+            >
+            <q-icon name="format_list_bulleted" />
+          </q-btn>
+          <!-- Bullet list end-->
+          <!-- Number list -->
+          <q-btn
+            flat
+            size="sm"
+            dense
+            @click="editor.chain().focus().toggleOrderedList().run()"
+            :class="{ 'is-active': editor.isActive('orderedList') }"
+          >
+            <q-tooltip :delay="500" content-class="text-bold"
+              >Numbered list</q-tooltip
+            >
+            <q-icon name="format_list_numbered" />
+          </q-btn>
+          <!-- Number list end-->
+        </div>
+        <q-separator
+          vertical
+          class="q-mx-sm"
+          v-if="toolbar.indexOf('list') !== -1"
+        />
 
-                <div v-if="toolbar.indexOf('code') !== -1">
-                    <q-btn flat size="sm" dense
-                    :class="{ 'is-active': isActive.code() }"
-                    @click="commands.code"
-                    >
-                        <q-tooltip :delay="500" content-class="text-bold">Code</q-tooltip>
-                        <q-icon name="code" />
-                    </q-btn>
+        <div v-if="toolbar.indexOf('code') !== -1">
+          <q-btn flat size="sm" dense
+                 :class="{ 'is-active': editor.isActive('code') }"
+                 @click="editor.chain().focus().toggleCode().run()"
+          >
+            <q-tooltip :delay="500" content-class="text-bold">Code</q-tooltip>
+            <q-icon name="code" />
+          </q-btn>
 
-                    <q-btn flat size="sm" dense
-                    :class="{ 'is-active': isActive.code_block() }"
-                    @click="commands.code_block"
-                    >
-                        <q-tooltip :delay="500" content-class="text-bold">Code Block</q-tooltip>
-                        <q-icon name="mdi-console" />
-                    </q-btn>
-                </div>
-                <q-separator vertical class="q-mx-sm" v-if="toolbar.indexOf('code') !== -1" />
-                    
-                <div v-if="toolbar.indexOf('image') !== -1">
-                    <q-tooltip :delay="500" content-class="text-bold">Insert Image</q-tooltip>
-                    <q-btn flat size="sm" dense>
-                        <label class="cursor-pointer">
-                            <input
-                            type="file"
-                            accept="image/*"
-                            class="hidden"
-                            @change="importImage($event.target.files)"
-                            :disabled="!editable"
-                            />
-                            <q-icon name="image" />
-                        </label>
-                    </q-btn>
-                </div>
-                <q-separator vertical class="q-mx-sm" v-if="toolbar.indexOf('image') !== -1" />
+          <q-btn flat size="sm" dense
+                 :class="{ 'is-active': editor.isActive('codeBlock') }"
+                 @click="editor.chain().focus().toggleCodeBlock().run()"
+          >
+            <q-tooltip :delay="500" content-class="text-bold">Code Block</q-tooltip>
+            <q-icon name="mdi-console" />
+          </q-btn>
+        </div>
 
-                <div v-if="toolbar.indexOf('caption') !== -1">
-                    <q-tooltip :delay="500" content-class="text-bold">Insert Caption</q-tooltip>
-                    <q-btn-dropdown flat size="sm" dense icon="subtitles">
-                        <q-list dense>
-                            <q-item v-for="caption of $settings.report.public.captions" :key="caption" clickable v-close-popup @click="commands.caption({label: caption, alt: ''})">
-                                <q-item-section>{{caption}}</q-item-section>
-                            </q-item>
-                        </q-list>
-                    </q-btn-dropdown>
-                </div>
-                <q-separator vertical class="q-mx-sm" v-if="toolbar.indexOf('caption') !== -1" />
+        <q-separator
+            vertical
+            class="q-mx-sm"
+            v-if="toolbar.indexOf('table') !== -1"
+        />
 
-                <q-btn flat size="sm" dense
-                @click="commands.undo"
-                >
-                    <q-tooltip :delay="500" content-class="text-bold">Undo</q-tooltip>
-                    <q-icon name="undo" />
-                </q-btn>
+        <div v-if="toolbar.indexOf('table') !== -1">
+          <!-- Add Table -->
+          <q-btn
+            flat
+            size="sm"
+            dense
+            @click="
+              editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+            "
+          >
+            <q-tooltip :delay="500" content-class="text-bold"
+              >Insert table</q-tooltip
+            >
+            <q-icon name="mdi-table" />
+          </q-btn>
+          <q-btn
+              flat
+              size="sm"
+              dense
+              @click="
+              editor.chain().focus().addColumnAfter().run()
+            "
+          >
+            <q-tooltip :delay="500" content-class="text-bold"
+            >Add column</q-tooltip
+            >
+            <q-icon name="mdi-table-column-plus-after" />
+          </q-btn>
+          <q-btn
+              flat
+              size="sm"
+              dense
+              @click="
+              editor.chain().focus().addRowAfter().run()
+            "
+          >
+            <q-tooltip :delay="500" content-class="text-bold"
+            >Add row</q-tooltip
+            >
+            <q-icon name="mdi-table-row-plus-after" />
+          </q-btn>
+          <q-btn
+              flat
+              size="sm"
+              dense
+              @click="
+              editor.chain().focus().mergeCells().run()
+            "
+          >
+            <q-tooltip :delay="500" content-class="text-bold"
+            >Merge cells</q-tooltip
+            >
+            <q-icon name="mdi-call-merge" />
+          </q-btn>
 
-                <q-btn flat size="sm" dense
-                @click="commands.redo"
-                >
-                    <q-tooltip :delay="500" content-class="text-bold">Redo</q-tooltip>
-                    <q-icon name="redo" />
-                </q-btn>
+          <q-btn
+              flat
+              size="sm"
+              dense
+              @click="editor.chain().focus().deleteRow().run()" :disabled="!editor.can().deleteRow()"
+          >
+            <q-tooltip :delay="500" content-class="text-bold"
+            >Delete Table Row</q-tooltip
+            >
+            <q-icon name="mdi-table-row-remove" />
+          </q-btn>
 
-                <q-separator vertical class="q-mx-sm" v-if="diff !== undefined && (diff || value) && value !== diff" />
-                <div v-if="diff !== undefined && (diff || value) && value !== diff">
-                    <q-btn flat size="sm" dense
-                    :class="{'is-active': toggleDiff}"
-                    label="toggle diff"
-                    @click="toggleDiff = !toggleDiff"
-                    />
-                </div>
+          <q-btn
+              flat
+              size="sm"
+              dense
+              @click="editor.chain().focus().deleteColumn().run()" :disabled="!editor.can().deleteColumn()"
+          >
+            <q-tooltip :delay="500" content-class="text-bold"
+            >Delete Table Column</q-tooltip>
+            <q-icon name="mdi-table-column-remove" />
+          </q-btn>
 
-            </q-toolbar>
-            <!-- <q-separator /> -->
-        </editor-menu-bar>
+          <q-btn
+            flat
+            size="sm"
+            dense
+            @click="editor.chain().focus().deleteTable().run()"
+            :disabled="!editor.can().deleteTable()"
+          >
+            <q-icon name="delete" />
+            <q-tooltip :delay="500" content-class="text-bold"
+            >Delete table</q-tooltip
+            >
+          </q-btn>
+          <!-- Add Table end -->
+        </div>
+        <q-separator
+          vertical
+          class="q-mx-sm"
+          v-if="toolbar.indexOf('code') !== -1"
+        />
+        <!-- Image upload -->
+        <div v-if="toolbar.indexOf('image') !== -1">
+          <q-tooltip :delay="500" content-class="text-bold">
+            Insert Image
+          </q-tooltip>
+          <q-btn flat size="sm" dense>
+            <label class="cursor-pointer">
+              <input
+                type="file"
+                accept="image/*"
+                class="hidden"
+                @change="importImage($event.target.files)"
+                :disabled="!editable"
+              />
+              <q-icon name="image" />
+            </label>
+          </q-btn>
+        </div>
+        <q-separator
+          vertical
+          class="q-mx-sm"
+          v-if="toolbar.indexOf('image') !== -1"
+        />
+        <!-- Image upload end -->
+        <div v-if="toolbar.indexOf('caption') !== -1">
+          <q-tooltip :delay="500" content-class="text-bold">
+            Insert Caption</q-tooltip
+          >
+          <q-btn-dropdown flat size="sm" dense icon="subtitles">
+            <q-list dense>
+              <q-item
+                v-for="caption of $settings.report.public.captions"
+                :key="caption"
+                clickable
+                v-close-popup
+                @click="
+                  editor
+                    .chain()
+                    .focus()
+                    .caption({ label: caption, alt: '' })
+                    .run()
+                "
+              >
+                <q-item-section>{{ caption }}</q-item-section>
+              </q-item>
+            </q-list>
+          </q-btn-dropdown>
+        </div>
+        <q-separator
+          vertical
+          class="q-mx-sm"
+          v-if="toolbar.indexOf('caption') !== -1"
+        />
+
+        <q-btn
+          flat
+          size="sm"
+          dense
+          @click="editor.chain().focus().undo().run()"
+        >
+          <q-tooltip :delay="500" content-class="text-bold">Undo</q-tooltip>
+          <q-icon name="undo" />
+        </q-btn>
+
+        <q-btn
+          flat
+          size="sm"
+          dense
+          @click="editor.chain().focus().redo().run()"
+        >
+          <q-tooltip :delay="500" content-class="text-bold">Redo</q-tooltip>
+          <q-icon name="redo" />
+        </q-btn>
+
+        <q-separator
+          vertical
+          class="q-mx-sm"
+          v-if="diff !== undefined && (diff || value) && value !== diff"
+        />
+        <div v-if="diff !== undefined && (diff || value) && value !== diff">
+          <q-btn
+            flat
+            size="sm"
+            dense
+            :class="{ 'is-active': toggleDiff }"
+            label="toggle diff"
+            @click="toggleDiff = !toggleDiff"
+          />
+        </div>
+      </q-toolbar>
     </affix>
     <q-separator />
-    <editor-content v-if="typeof diff === 'undefined' || !toggleDiff" class="editor__content q-pa-sm" :editor="editor"/>
+    <editor-content
+      v-if="typeof diff === 'undefined' || !toggleDiff"
+      class="editor__content q-pa-sm"
+      :editor="editor"
+    />
     <div v-else class="editor__content q-pa-sm">
-        <div class="ProseMirror" v-html="diffContent"></div>
+      <div class="ProseMirror" v-html="diffContent"></div>
     </div>
-</q-card>
+  </q-card>
 </template>
 
 <script>
-// Import the editor
-import { Editor, EditorContent, EditorMenuBar } from "tiptap"
-import {
-  Blockquote,
-  CodeBlock,
-  HardBreak,
-  Heading,
-  OrderedList,
-  BulletList,
-  ListItem,
-  Bold,
-  Code,
-  Italic,
-  Strike,
-  Underline,
-  History,
-  TrailingNode
-} from 'tiptap-extensions'
+import { Editor, EditorContent } from "@tiptap/vue-2";
+//  Import extensions
+import Highlight from "@tiptap/extension-highlight";
+import Underline from "@tiptap/extension-underline";
+import StarterKit from "@tiptap/starter-kit";
+import Table from "@tiptap/extension-table";
+import TableCell from "@tiptap/extension-table-cell";
+import TableRow from "@tiptap/extension-table-row";
+import TableHeader from "@tiptap/extension-table-header";
+import Link from "@tiptap/extension-link";
+import CustomImage from "./editor-image";
+//import Caption from "./editor-caption";
+import { Figure } from "./figure";
+import {v4 as uuidv4} from 'uuid';
+import UserService from '@/services/user';
+import Collaboration from '@tiptap/extension-collaboration'
+import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
+import { HocuspocusProvider } from '@hocuspocus/provider'
+import * as Y from 'yjs'
 
-import CustomImage from './editor-image'
-import Caption from './editor-caption'
 
-const Diff = require('diff')
-
-import Utils from '@/services/utils'
-import ImageService from '@/services/image'
+const Diff = require("diff");
+//  Internal libs
+import Utils from "@/services/utils";
+import ImageService from "@/services/image";
 
 export default {
-    name: 'BasicEditor',
-    props: {
-        value: String,
-        editable: {
-            type: Boolean,
-            default: true
-        },
-        toolbar: {
-            type: Array,
-            default: function() {
-                return ['format', 'marks', 'list', 'code', 'image', 'caption']
-            }
-        },
-        noAffix: {
-            type: Boolean,
-            default: false
-        },
-        diff: String,
-        disableDrop: {
-            type: Boolean,
-            default: false
-        },
-        noSync: {
-            type: Boolean,
-            default: false
+  name: "BasicEditor",
+  props: {
+    value: String,
+    editable: {
+      type: Boolean,
+      default: true,
+    },
+    idUnique: {
+      type: String,
+      default: '',
+    },
+    toolbar: {
+      type: Array,
+      default: function () {
+        return ["format", "marks", "list", "code", "table", "image", "caption"];
+      },
+    },
+    noAffix: {
+      type: Boolean,
+      default: false,
+    },
+    diff: String,
+    disableDrop: {
+      type: Boolean,
+      default: false,
+    },
+    noSync: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  components: {
+    EditorContent,
+  },
+  data() {
+    return {
+      editor: null,
+      json: "",
+      html: "",
+      toggleDiff: true,
+      affixRelativeElement: "affix-relative-element",
+      status: 'connecting',
+      state:false,
+      fullId:"",
+      countChange:0,
+      countChangeAfterUpdate:-1,
+      initialeDataUpdated:false,
+      htmlEncode: Utils.htmlEncode,
+    };
+  },
+
+  watch: {
+    value(value) {
+      this.updateInitialeValue(value)
+    },
+    editable(value) {
+      //this.editor.setOptions({ editable: this.editable });
+      this.editor.setEditable(this.editable && this.initialeDataUpdated);
+    },
+  },
+
+  mounted() {
+     
+     const ydoc = new Y.Doc()
+     if(this.idUnique == '') {
+      this.ClassEditor = uuidv4()
+     } else {
+      this.ClassEditor = this.idUnique
+     }
+     this.username = UserService.user.username
+     if (typeof this.$route.params.findingId == 'undefined'){
+        this.fullId=this.ClassEditor
+     } else {
+        this.fullId= this.$route.params.auditId+'-'+this.$route.params.findingId+'-'+this.ClassEditor
+     }
+
+     this.provider = new HocuspocusProvider({
+      url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
+      name: this.$route.params.auditId ||  this.idUnique.replace('-', '/'),
+      document  : ydoc
+    })
+    this.provider.on('status', event => {
+      this.status = event.status
+    })
+    this.provider.on('synced', state => {
+      this.state=state.state
+    })
+    this.editor = new Editor({
+      editable: false,
+      extensions: [
+        StarterKit,
+        Highlight.configure({
+          multicolor: true,
+        }),
+        Collaboration.configure({
+          document: ydoc,
+          field: this.fullId
+        }),
+        CollaborationCursor.configure({
+          provider: this.provider,
+          user: {
+            name:  this.username,
+            color:  this.stringToColour(this.username)
+          }
+        }),
+        Link.configure({
+          protocols: ['ftp', 'mailto'],
+             linkOnPaste: false,
+              openOnClick: false,
+        }),
+        Underline,
+        TableRow,
+        TableHeader,
+        TableCell,
+        Table.configure({
+          resizable: true,
+        }),
+        CustomImage.configure({
+          HTMLAttributes: {
+            class: "custom-image",
+          },
+        }),
+
+        Figure,
+        //Caption,
+        //CustomImage,
+      ],
+      onUpdate: () => {
+        console.log("onUpdate");
+        if(this.state && this.initialeDataUpdated && this.countChangeAfterUpdate>0 && this.countChangeAfterUpdate<this.countChange){
+           this.$emit('editorchange') // need save only if sync is done
+        } else {
+          this.countChange++
         }
-    },
-    components: {
-        EditorContent,
-        EditorMenuBar
-    },
-    data() {
-        return {
-            editor: new Editor({
-                extensions: [
-                    new Blockquote(),
-                    new BulletList(),
-                    new CodeBlock(),
-                    new HardBreak(),
-                    new Heading({ levels: [1, 2, 3, 4, 5, 6] }),
-                    new ListItem(),
-                    new OrderedList(),
-                    new Bold(),
-                    new Code(),
-                    new Italic(),
-                    new Strike(),
-                    new Underline(),
-                    new History(),
-                    new CustomImage(),
-                    new Caption(),
-                    new TrailingNode({node: 'paragraph', notAfter: ['paragraph', 'heading', 'bullet_list', 'ordered_list', 'code_block']})
-                ],
-                onUpdate: ({ getJSON, getHTML }) => {
-                    if (this.noSync)
-                        return
-                    this.updateHTML()
-                },
-                disableInputRules: true,
-                disablePasteRules: true
-            }),
-            json: '',
-            html: '',
-            toggleDiff: true,
-            affixRelativeElement: 'affix-relative-element',
-
-            htmlEncode: Utils.htmlEncode
-        }
-    },
-
-    watch: {
-       value (value) {
-            if (value === this.editor.getHTML()) {
-                return;
-            }
-            var content = this.htmlEncode(this.value)
-            this.editor.setContent(content);
-       },
-
-       editable (value) {
-           this.editor.setOptions({editable: this.editable})
-       }
-    },
-
-    mounted: function() {
-        this.affixRelativeElement += '-'+Math.floor((Math.random()*1000000) + 1)
-        this.editor.setOptions({editable: this.editable})
-        if (typeof this.value === "undefined" || this.value === this.editor.getHTML()) {
-            return;
-        }
-        var content = this.htmlEncode(this.value)
-        this.editor.setContent(content)
-    },
-
-    beforeDestroy() {
-        this.editor.destroy()
-    },
-
-    computed: {
-        formatIcon: function () {
-            if (this.editor.isActive.paragraph()) 
-                return 'fa fa-paragraph'
-            else
-                return null
-        },
-
-        formatLabel: function() {
-            if (this.editor.isActive.heading({level: 1})) return 'H1'
-            else if (this.editor.isActive.heading({level: 2})) return 'H2'
-            else if (this.editor.isActive.heading({level: 3})) return 'H3'
-            else if (this.editor.isActive.heading({level: 4})) return 'H4'
-            else if (this.editor.isActive.heading({level: 5})) return 'H5'
-            else if (this.editor.isActive.heading({level: 6})) return 'H6'
-        },
-
-        diffContent: function() {
-            var content = ''
-            if (typeof this.diff !== "undefined") {
-                var HtmlDiff = new Diff.Diff(true)
-                HtmlDiff.tokenize = function(value) {
-                    return value.split(/([{}:;,.]|<p>|<\/p>|<pre><code>|<\/code><\/pre>|<[uo]l><li>.*<\/li><\/[uo]l>|\s+)/);
-                }
-                var value = this.value || ""
-                var diff = HtmlDiff.diff(this.diff, value)
-                diff.forEach(part => {
-                    const diffclass = part.added ? 'diffadd' : part.removed ? 'diffrem' : 'diffeq'
-                    var value = part.value.replace(/<p><\/p>/g, '<p><br></p>')
-                    if (part.added || part.removed) {
-                        value = value
-                        .replace(/(<p>)(.+?)(<\/p>|$)/g, `$1<span class="${diffclass}">$2</span>$3`) // Insert span diffclass in paragraphs
-                        .replace(/(<pre><code>)(.+?)(<\/code><\/pre>|$)/g, `$1<span class="${diffclass}">$2</span>$3`) // Insert span diffclass in codeblocks
-                        .replace(/(^[^<].*?)(<|$)/g, `<span class="${diffclass}">$1</span>$2`) // Insert span diffclass if text only
-                    }
-                        content += value
-                })
-            }
-            return content
-        }
-    },
-
-    methods: {
-        importImage(files) {
-            var file = files[0];
-            var fileReader = new FileReader();
-
-            var auditId = null
-              var path = window.location.pathname.split('/')
-              if (path && path.length > 3 && path[1] === 'audits')
-                auditId = path[2]
-
-            fileReader.onloadend = (e) => {
-                Utils.resizeImg(fileReader.result)
-                .then(data => {
-                    return ImageService.createImage({value: data, name: file.name, auditId: auditId})
-                })
-                .then((data) => {
-                    this.editor.commands.image({src: data.data.datas._id, alt: file.name })
-                })
-                .catch(err => console.log(err))
-            }
-
-            fileReader.readAsDataURL(file);
-        },
-
-        updateHTML() {
-            this.json = this.editor.getJSON()
-            this.html = this.editor.getHTML()
-            if (Array.isArray(this.json.content) && this.json.content.length === 1 && !this.json.content[0].hasOwnProperty("content")) {
-                this.html = ""
-            }
-            this.$emit('input', this.html)
-        }
+        
+        if (this.noSync) return;
+        this.updateHTML();
+      },
+      disableInputRules: true,
+      disablePasteRules: true,
+    });
+    this.affixRelativeElement += "-" +  this.ClassEditor;
+    //this.editor.setOptions({ editable: this.editable });
+    this.editor.setEditable(this.editable && this.initialeDataUpdated);
+    if (
+      typeof this.value === "undefined" ||
+      this.value === this.editor.getHTML()
+    ) {
+      return;
     }
-}
+    this.updateInitialeValue(this.value)
+  },
+  beforeDestroy() {
+    this.editor.destroy();
+    this.provider.destroy()
+  },
+  computed: {
+    formatIcon: function () {
+      if (this.editor.isActive("paragraph")) return "fa fa-paragraph";
+      else return null;
+    },
+    highlightIcon: function () {
+      return "fa fa-highlighter";
+    },
+
+    formatLabel: function () {
+      if (this.editor.isActive("heading", { level: 1 })) return "H1";
+      else if (this.editor.isActive("heading", { level: 2 })) return "H2";
+      else if (this.editor.isActive("heading", { level: 3 })) return "H3";
+      else if (this.editor.isActive("heading", { level: 4 })) return "H4";
+      else if (this.editor.isActive("heading", { level: 5 })) return "H5";
+      else if (this.editor.isActive("heading", { level: 6 })) return "H6";
+    },
+
+    diffContent: function () {
+      var content = "";
+      if (typeof this.diff !== "undefined") {
+        var HtmlDiff = new Diff.Diff(true);
+        HtmlDiff.tokenize = function (value) {
+          return value.split(
+            /([{}:;,.]|<p>|<\/p>|<pre><code>|<\/code><\/pre>|<[uo]l><li>.*<\/li><\/[uo]l>|\s+)/
+          );
+        };
+        var value = this.value || "";
+        var diff = HtmlDiff.diff(this.diff, value);
+        diff.forEach((part) => {
+          const diffclass = part.added
+            ? "diffadd"
+            : part.removed
+            ? "diffrem"
+            : "diffeq";
+          var value = part.value.replace(/<p><\/p>/g, "<p><br></p>");
+          if (part.added || part.removed) {
+            value = value
+              .replace(
+                /(<p>)(.+?)(<\/p>|$)/g,
+                `$1<span class="${diffclass}">$2</span>$3`
+              ) // Insert span diffclass in paragraphs
+              .replace(
+                /(<pre><code>)(.+?)(<\/code><\/pre>|$)/g,
+                `$1<span class="${diffclass}">$2</span>$3`
+              ) // Insert span diffclass in codeblocks
+              .replace(
+                /(^[^<].*?)(<|$)/g,
+                `<span class="${diffclass}">$1</span>$2`
+              ); // Insert span diffclass if text only
+          }
+          content += value;
+        });
+      }
+      return content;
+    },
+  },
+
+ 
+  methods: {
+    async updateInitialeValue(value){
+    if( typeof this.$route.params.auditId == 'undefined' && (this.idUnique.split('-')[0]=="undefined" || this.idUnique.split('-') == ""  )&& this.initialeDataUpdated==false){
+      // if editor is init not in vuln edit context like cutom field
+      this.editor.commands.setContent(value, false);
+      this.initialeDataUpdated=true
+      this.editor.setEditable(this.editable && this.initialeDataUpdated);
+      this.$emit('ready')
+      this.countChangeAfterUpdate=this.countChange
+    } else {
+      if(this.initialeDataUpdated==false){
+          for (let i = 0; i < 200; i++) { // 25 second to connect web socket failed after
+            if(this.status=='connected' && this.state){
+              if(this.editor.getHTML() != value && this.editor.getHTML()=='<p></p>'){
+                this.editor.commands.setContent(value, false);
+              }
+              this.initialeDataUpdated=true
+              this.editor.setEditable(this.editable && this.initialeDataUpdated);
+              this.$emit('ready')
+              this.countChangeAfterUpdate=this.countChange
+              break;
+            } else {
+              await this.sleep(500)
+              console.log('Wait websocket')
+            }
+          }
+        }
+      } 
+    },
+    setLink(){
+      const previousUrl = this.editor.getAttributes('link').href
+      const url = window.prompt('URL', previousUrl)
+
+      // cancelled
+      if (url === null) {
+        return
+      }
+
+      // empty
+      if (url === '') {
+        this.editor
+          .chain()
+          .focus()
+          .extendMarkRange('link')
+          .unsetLink()
+          .run()
+
+        return
+      }
+
+      // update link
+      this.editor
+        .chain()
+        .focus()
+        .extendMarkRange('link')
+        .setLink({ href: url })
+        .run()
+    },
+    sleep(milliseconds) {
+      return new Promise((resolve) => setTimeout(resolve, milliseconds));
+    },
+    importImage(files) {
+      var file = files[0];
+      var fileReader = new FileReader();
+
+      var auditId = null;
+      var path = window.location.pathname.split("/");
+      if (path && path.length > 3 && path[1] === "audits") auditId = path[2];
+      fileReader.onloadend = (e) => {
+        Utils.resizeImg(fileReader.result)
+          .then((data) => {
+            return ImageService.createImage({
+              value: data,
+              name: file.name,
+              auditId: auditId,
+            });
+          })
+          .then((data) => {
+            this.editor.commands.setImage({
+              src: data.data.datas._id,
+              alt: file.name,
+            });
+          })
+          .catch((err) => console.log(err));
+      };
+
+      fileReader.readAsDataURL(file);
+    },
+     stringToColour : function (str) {
+      var hash = 0;
+      for (var i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      var colour = '#';
+      for (var i = 0; i < 3; i++) {
+        var value = (hash >> (i * 8)) & 0xFF;
+        colour += ('00' + value.toString(16)).substr(-2);
+      }
+      return colour;
+    },
+    updateHTML() {
+      console.log("updateHTML");
+      this.json = this.editor.getJSON();
+      this.html = this.editor.getHTML();
+      if (
+        Array.isArray(this.json.content) &&
+        this.json.content.length === 1 &&
+        !this.json.content[0].hasOwnProperty("content") &&
+        !this.json.content[0].hasOwnProperty("attrs")
+      ) {
+        this.html = "";
+      }
+      this.$emit("input", this.html);
+    },
+  },
+};
 </script>
 
 <style lang="scss">
+
+
+.collaboration-cursor__caret {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 1px solid #0D0D0D;
+  border-right: 1px solid #0D0D0D;
+  word-break: normal;
+  pointer-events: none;
+}
+
+.collaboration-cursor__label {
+ text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;
+ color:white;
+  position: absolute;
+  top: -1.4em;
+  left: -1px;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+  user-select: none;
+
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px 3px 3px 0;
+  white-space: nowrap;
+}
+
+
+
 .editor {
-    :focus {
-        outline: none;
+  :focus {
+    outline: none;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  p,
+  ul,
+  ol,
+  pre,
+  blockquote {
+    &:first-child {
+      margin-top: 0;
     }
 
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6,
-    p,
-    ul,
-    ol,
-    pre,
-    blockquote {
-        &:first-child {
-            margin-top: 0;
-        }
-
-        &:last-child {
-            margin-bottom: 0;
-        }
+    &:last-child {
+      margin-bottom: 0;
     }
+  }
 
-    .affix {
-        width: auto;
-        border-bottom: 1px solid rgba(0,0,0,0.12);
-        border-right: 1px solid rgba(0,0,0,0.12);
-        top: 50px!important;
-        z-index: 1000
-    }
+  .affix {
+    width: auto;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+    border-right: 1px solid rgba(0, 0, 0, 0.12);
+    top: 50px !important;
+    z-index: 1000;
+  }
 }
 
 .editor {
   &__content {
-
     overflow-wrap: break-word;
     word-wrap: break-word;
     word-break: break-word;
 
     .ProseMirror {
-        min-height: 200px;
-        cursor: auto;
+      min-height: 200px;
+      cursor: auto;
     }
 
     h1 {
-        font-size: 4.25rem;
+      font-size: 4.25rem;
     }
 
     pre {
@@ -503,8 +1017,8 @@ export default {
     }
 
     .selected {
-        outline-style: solid;
-        outline-color: $blue-4;
+      outline-style: solid;
+      outline-color: $blue-4;
     }
 
     table {
@@ -514,7 +1028,8 @@ export default {
       margin: 0;
       overflow: hidden;
 
-      td, th {
+      td,
+      th {
         min-width: 1em;
         border: 2px solid grey;
         padding: 3px 5px;
@@ -527,6 +1042,7 @@ export default {
       }
 
       th {
+        background-color: #f1f3f5;
         font-weight: bold;
         text-align: left;
       }
@@ -535,14 +1051,19 @@ export default {
         z-index: 2;
         position: absolute;
         content: "";
-        left: 0; right: 0; top: 0; bottom: 0;
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: 0;
         background: rgba(200, 200, 255, 0.4);
         pointer-events: none;
       }
 
       .column-resize-handle {
         position: absolute;
-        right: -2px; top: 0; bottom: 0;
+        right: -2px;
+        top: 0;
+        bottom: 0;
         width: 4px;
         z-index: 20;
         background-color: #adf;
@@ -559,27 +1080,26 @@ export default {
       cursor: ew-resize;
       cursor: col-resize;
     }
-
   }
 }
 .is-active {
-    color: green;
+  color: green;
 }
 .editor-toolbar {
-    min-height: 32px;
+  min-height: 32px;
 }
 
 .diffrem {
-    background-color: #fdb8c0;
+  background-color: #fdb8c0;
 }
 pre .diffrem {
-    background-color: $red-6;
+  background-color: $red-6;
 }
 
 .diffadd {
-    background-color: #acf2bd;
+  background-color: #acf2bd;
 }
 pre .diffadd {
-    background-color: $green-6;
+  background-color: $green-6;
 }
 </style>

@@ -210,14 +210,14 @@
         <q-card-section>
             <q-field borderless :label="$t('description')" stack-label>
                 <template v-slot="control">
-                    <basic-editor noAffix v-model="currentVulnerability.details[currentDetailsIndex].description" />
+                    <basic-editor :idUnique="currentVulnerability._id+'-description'" noAffix v-model="currentVulnerability.details[currentDetailsIndex].description" />
                 </template>
             </q-field>
         </q-card-section>
         <q-card-section>
             <q-field borderless :label="$t('observation')" stack-label>
                 <template v-slot="control">
-                    <basic-editor noAffix v-model="currentVulnerability.details[currentDetailsIndex].observation" />
+                    <basic-editor :idUnique="currentVulnerability._id+'-observation'" noAffix v-model="currentVulnerability.details[currentDetailsIndex].observation" />
                 </template>
             </q-field>
         </q-card-section>
@@ -232,7 +232,7 @@
         <q-card-section>
             <q-field borderless :label="$t('remediation')" stack-label>
                 <template v-slot="control">
-                    <basic-editor noAffix v-model="currentVulnerability.details[currentDetailsIndex].remediation" />
+                    <basic-editor :idUnique="currentVulnerability._id+'-remediation'" noAffix v-model="currentVulnerability.details[currentDetailsIndex].remediation" />
                 </template>
             </q-field>
         </q-card-section>
@@ -373,14 +373,14 @@
         <q-card-section>
             <q-field borderless :label="$t('description')" stack-label class="basic-editor">
                 <template v-slot="control">
-                    <basic-editor noAffix v-model="currentVulnerability.details[currentDetailsIndex].description" />
+                    <basic-editor :idUnique="currentVulnerability._id+'-description'"   noAffix v-model="currentVulnerability.details[currentDetailsIndex].description" />
                 </template>
             </q-field>
         </q-card-section>
         <q-card-section>
             <q-field borderless :label="$t('observation')" stack-label class="basic-editor">
                 <template v-slot="control">
-                    <basic-editor noAffix v-model="currentVulnerability.details[currentDetailsIndex].observation" />
+                    <basic-editor :idUnique="currentVulnerability._id+'-observation'"   noAffix v-model="currentVulnerability.details[currentDetailsIndex].observation" />
                 </template>
             </q-field>
         </q-card-section>
@@ -395,7 +395,7 @@
         <q-card-section>
             <q-field borderless :label="$t('remediation')" stack-label class="basic-editor">
                 <template v-slot="control">
-                    <basic-editor noAffix v-model="currentVulnerability.details[currentDetailsIndex].remediation" />
+                    <basic-editor :idUnique="currentVulnerability._id+'-remediation'"   noAffix v-model="currentVulnerability.details[currentDetailsIndex].remediation" />
                 </template>
             </q-field>
         </q-card-section>
@@ -517,14 +517,14 @@
                     <q-card-section>
                         <q-field borderless :label="$t('description')" stack-label class="basic-editor">
                             <template v-slot="control">
-                                <basic-editor noAffix v-model="currentVulnerability.details[currentDetailsIndex].description" />
+                                <basic-editor noAffix :idUnique="currentVulnerability._id+'-description'"  v-model="currentVulnerability.details[currentDetailsIndex].description" />
                             </template>
                         </q-field>
                     </q-card-section>
                     <q-card-section>
                         <q-field borderless :label="$t('observation')" stack-label class="basic-editor">
                             <template v-slot="control">
-                                <basic-editor noAffix v-model="currentVulnerability.details[currentDetailsIndex].observation" />
+                                <basic-editor noAffix :idUnique="currentVulnerability._id+'-observation'"  v-model="currentVulnerability.details[currentDetailsIndex].observation" />
                             </template>
                         </q-field>
                     </q-card-section>
@@ -537,7 +537,7 @@
                     <q-card-section>
                         <q-field borderless :label="$t('remediation')" stack-label class="basic-editor">
                             <template v-slot="control">
-                                <basic-editor noAffix v-model="currentVulnerability.details[currentDetailsIndex].remediation" />
+                                <basic-editor noAffix :idUnique="currentVulnerability._id+'-remediation'" v-model="currentVulnerability.details[currentDetailsIndex].remediation" />
                             </template>
                         </q-field>
                     </q-card-section>
@@ -659,6 +659,7 @@
                                     <template v-slot="control">
                                         <basic-editor noAffix 
                                         v-model="update.description" 
+                                        :idUnique="currentVulnerability._id+'-description'"
                                         :diff="currentVulnerability.details[currentDetailsIndex].description || ''" 
                                         :editable=false />
                                     </template>
@@ -679,6 +680,7 @@
                                     <template v-slot="control">
                                         <basic-editor noAffix 
                                         v-model="update.observation"
+                                        :idUnique="currentVulnerability._id+'-observation'"
                                         :diff="currentVulnerability.details[currentDetailsIndex].observation || ''"
                                         :editable=false />
                                     </template>
@@ -707,6 +709,7 @@
                                     <template v-slot="control">
                                         <basic-editor noAffix 
                                         v-model="update.remediation" 
+                                        :idUnique="currentVulnerability._id+'-remediation'"
                                         :diff="currentVulnerability.details[currentDetailsIndex].remediation || ''"
                                         :editable=false />
                                     </template>

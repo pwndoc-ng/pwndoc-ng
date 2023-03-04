@@ -27,6 +27,8 @@ export default {
             proofsTabVisited: false,
             detailsTabVisited: false,
             vulnTypes: [],
+            readyToSave:false,
+            needSave:false,
             AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE
         }
     },
@@ -65,6 +67,7 @@ export default {
             cancel: {label: $t('btn.cancel'), color: 'white'}
             })
             .onOk(() => next())
+
         }
         else
             next()
@@ -180,6 +183,7 @@ export default {
                         textColor:'white',
                         position: 'top-right'
                     })
+                    this.needSave=false
                 })
                 .catch((err) => {
                     Notify.create({
@@ -266,39 +270,8 @@ export default {
                 this.detailsTabVisited = true
             }
         },
-
         unsavedChanges: function() {
-            if (this.finding.title !== this.findingOrig.title)
-                return true
-            if ((this.finding.vulnType || this.findingOrig.vulnType) && this.finding.vulnType !== this.findingOrig.vulnType)
-                return true
-            if ((this.finding.description || this.findingOrig.description) && this.finding.description !== this.findingOrig.description)
-                return true
-            if ((this.finding.observation || this.findingOrig.observation) && this.finding.observation !== this.findingOrig.observation)
-                return true
-            if (!this.$_.isEqual(this.finding.references, this.findingOrig.references))
-                return true
-            if (!this.$_.isEqual(this.finding.customFields, this.findingOrig.customFields))
-                return true
-
-            if ((this.finding.poc || this.findingOrig.poc) && this.finding.poc !== this.findingOrig.poc)
-                return true
-            
-            if ((this.finding.scope || this.findingOrig.scope) && this.finding.scope !== this.findingOrig.scope)
-                return true
-            if ((this.finding.cvssv3 || this.findingOrig.cvssv3) && this.finding.cvssv3 !== this.findingOrig.cvssv3)
-                return true
-            if ((this.finding.remediationComplexity || this.findingOrig.remediationComplexity) && this.finding.remediationComplexity !== this.findingOrig.remediationComplexity)
-                return true
-            if ((this.finding.priority || this.findingOrig.priority) && this.finding.priority !== this.findingOrig.priority)
-                return true
-            if ((this.finding.remediation || this.findingOrig.remediation) && this.finding.remediation !== this.findingOrig.remediation)
-                return true
-
-            if (this.finding.status !== this.findingOrig.status)
-                return true
-
-            return false
+            return this.needSave
         }
     }
 }
