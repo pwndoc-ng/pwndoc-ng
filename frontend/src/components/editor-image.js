@@ -131,7 +131,7 @@ export default Image.extend({
             },
             paste(view, event) {
               var isImage = false;
-              var file = event.clipboardData.files[0];
+              var file = event.clipboardData.items[0];
 
               var auditId = null;
               var path = window.location.pathname.split("/");
@@ -139,6 +139,7 @@ export default Image.extend({
                 auditId = path[2];
 
               if (file && file.type.startsWith("image")) {
+                var blob = file.getAsFile()
                 isImage = true;
                 const { schema } = view.state;
                 var fileReader = new FileReader();
@@ -157,7 +158,7 @@ export default Image.extend({
                       alt: ${file.name},`);
                       const node = schema.nodes.custom_image.create({
                         src: data.data.datas._id,
-                        alt: file.name,
+                        alt: file.name || "",
                       });
                       const { selection } = view.state.tr;
                       const transaction = view.state.tr.replaceRangeWith(
@@ -171,7 +172,7 @@ export default Image.extend({
                     .catch((err) => console.log(err));
                 };
 
-                fileReader.readAsDataURL(file);
+                fileReader.readAsDataURL(blob);
               }
 
               if (isImage) {
