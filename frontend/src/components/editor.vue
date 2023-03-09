@@ -587,13 +587,12 @@ export default {
       editor: null,
       json: "",
       html: "",
+      oldHtml: "",
       toggleDiff: true,
       affixRelativeElement: "affix-relative-element",
       status: 'connecting',
       state:false,
       fullId:"",
-      countChange:0,
-      countChangeAfterUpdate:-1,
       initialeDataUpdated:false,
       htmlEncode: Utils.htmlEncode,
     };
@@ -677,10 +676,9 @@ export default {
       ],
       onUpdate: () => {
         console.log("onUpdate");
-        if(this.state && this.initialeDataUpdated && this.countChangeAfterUpdate>0 && this.countChangeAfterUpdate<this.countChange){
-           this.$emit('editorchange') // need save only if sync is done
-        } else {
-          this.countChange++
+        if (this.state && this.initialeDataUpdated && this.oldHtml != this.editor.getHTML()) {
+          console.log("editorchange") 
+          this.$emit('editorchange') // need save only if sync is done
         }
         
         if (this.noSync) return;
@@ -766,23 +764,23 @@ export default {
   methods: {
     async updateInitialeValue(value){
     if( typeof this.$route.params.auditId == 'undefined' && (this.idUnique.split('-')[0]=="undefined" || this.idUnique.split('-') == ""  )&& this.initialeDataUpdated==false){
-      // if editor is init not in vuln edit context like cutom field
+      // if editor is init not in vuln edit context like custom field
+      this.oldHtml = value
       this.editor.commands.setContent(value, false);
       this.initialeDataUpdated=true
       this.editor.setEditable(this.editable && this.initialeDataUpdated);
       this.$emit('ready')
-      this.countChangeAfterUpdate=this.countChange
     } else {
       if(this.initialeDataUpdated==false){
           for (let i = 0; i < 200; i++) { // 25 second to connect web socket failed after
             if(this.status=='connected' && this.state){
               if(this.editor.getHTML() != value && this.editor.getHTML()=='<p></p>'){
+                this.oldHtml = value
                 this.editor.commands.setContent(value, false);
               }
               this.initialeDataUpdated=true
               this.editor.setEditable(this.editable && this.initialeDataUpdated);
               this.$emit('ready')
-              this.countChangeAfterUpdate=this.countChange
               break;
             } else {
               await this.sleep(500)
@@ -876,6 +874,7 @@ export default {
         this.html = "";
       }
       this.$emit("input", this.html);
+      this.oldHtml = this.html
     },
   },
 };
