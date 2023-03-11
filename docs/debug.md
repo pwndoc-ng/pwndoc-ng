@@ -5,7 +5,7 @@
 Attach a shell to the running mongoDB container:
 
 ```
-docker exec -it mongo-pwndoc /bin/sh
+docker exec -it mongo-pwndoc-ng /bin/sh
 ```
 
 Then connect to the database:

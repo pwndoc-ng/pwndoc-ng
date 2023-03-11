@@ -1,12 +1,12 @@
 version: '3'
 services:
 
-  pwndoc-frontend:
+  pwndoc-ng-frontend:
     build: 
       context: .
       dockerfile: Dockerfile.dev
-    image: yeln4ts/pwndoc:frontend-dev
-    container_name: pwndoc-frontend-dev
+    image: pwndoc-ng/pwndoc-ng:frontend-dev
+    container_name: pwndoc-ng-frontend-dev
     volumes:
       - ./src:/app/src
       - ./ssl:/app/ssl

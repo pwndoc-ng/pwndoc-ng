@@ -1,6 +1,6 @@
 # Installation
 
-> PwnDoc uses 3 containers: the backend, the frontend and the database. 
+> PwnDoc uses 3 containers: the backend, the frontend and the database.
 
 ## Production
 
@@ -17,7 +17,7 @@ docker-compose up -d --build
 Display backend container logs
 
 ```
-docker-compose logs -f pwndoc-backend
+docker-compose logs -f pwndoc-ng-backend
 ```
 
 Stop/Start containers
@@ -41,7 +41,7 @@ git pull
 docker-compose up -d --build
 ```
 
-Application is accessible through https://localhost:8443  
+Application is accessible through https://localhost:8443
 API is accessible through https://localhost:8443/api
 ## Development
 
@@ -58,7 +58,7 @@ docker-compose -f backend/docker-compose.dev.yml up -d --build
 Display backend container logs
 
 ```
-docker-compose -f backend/docker-compose.dev.yml logs -f pwndoc-backend
+docker-compose -f backend/docker-compose.dev.yml logs -f pwndoc-ng-backend
 ```
 
 Stop/Start container
@@ -74,7 +74,7 @@ Remove containers
 docker-compose -f backend/docker-compose.dev.yml down
 ```
 
-Application is accessible through https://localhost:8081  
+Application is accessible through https://localhost:8081
 API is accessible through https://localhost:8081/api
 
 ## Tests
@@ -103,18 +103,18 @@ It's possible, even recommended, to regularly backup the `mongo-data` volume. It
 Find the location of the volume on the disk:
 
 ```
-sudo docker inspect pwndoc_mongo-data     
+sudo docker inspect pwndoc-ng_mongo-data
 [
     {
         "CreatedAt": "2022-09-18T19:11:42+02:00",
         "Driver": "local",
         "Labels": {
-            "com.docker.compose.project": "pwndoc",
+            "com.docker.compose.project": "pwndoc-ng",
             "com.docker.compose.version": "2.11.0",
             "com.docker.compose.volume": "mongo-data"
         },
-        "Mountpoint": "/var/lib/docker/volumes/pwndoc_mongo-data/_data",
-        "Name": "pwndoc_mongo-data",
+        "Mountpoint": "/var/lib/docker/volumes/pwndoc-ng_mongo-data/_data",
+        "Name": "pwndoc-ng_mongo-data",
         "Options": null,
         "Scope": "local"
     }
