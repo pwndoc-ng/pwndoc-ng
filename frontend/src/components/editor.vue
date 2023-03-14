@@ -669,6 +669,7 @@ export default {
           HTMLAttributes: {
             class: "custom-image",
           },
+          allowBase64: true
         }),
 
         Figure,
