@@ -2,7 +2,7 @@ version: '3'
 services:
   mongodb:
     image: mongo:4.2.15
-    container_name: mongo-pwndoc
+    container_name: mongo-pwndoc-ng
     volumes:
       - mongo-data:/data/db
     restart: always
@@ -13,10 +13,10 @@ services:
     networks:
       - backend
 
-  pwndoc-backend:
+  pwndoc-ng-backend:
     build: ./backend
-    image: yeln4ts/pwndoc:backend
-    container_name: pwndoc-backend
+    image: pwndoc-ng/pwndoc-ng:backend
+    container_name: pwndoc-ng-backend
     volumes:
       - ./backend/report-templates:/app/report-templates
       - ./backend/src/config:/app/src/config
@@ -29,13 +29,13 @@ services:
       - 4242:4242
     links:
       - mongodb
-    networks: 
+    networks:
       - backend
 
-  pwndoc-frontend:
+  pwndoc-ng-frontend:
     build: ./frontend
-    image: yeln4ts/pwndoc:frontend
-    container_name: pwndoc-frontend
+    image: pwndoc-ng/pwndoc-ng:frontend
+    container_name: pwndoc-ng-frontend
     restart: always
     ports:
       - 8443:8443

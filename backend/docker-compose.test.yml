@@ -1,11 +1,11 @@
 version: '3'
 services:
   backend-test:
-    image: yeln4ts/pwndoc:backend-test
+    image: pwndoc-ng/pwndoc-ng:backend-test
     build: 
       context: .
-      dockerfile:  Dockerfile.test
-    container_name: pwndoc-backend-test
+      dockerfile: Dockerfile.test
+    container_name: pwndoc-ng-backend-test
     volumes:
       - ./tests:/app/tests
       - ./src:/app/src

@@ -47,13 +47,13 @@ This fork includes pending PR and new feature such as:
 ## Demos
 
 ### Multi-User reporting
-![Shared Audit demo gif](https://raw.githubusercontent.com/pwndoc/pwndoc/master/demos/shared_audit_demo.gif)
+![Shared Audit demo gif](https://raw.githubusercontent.com/pwndoc-ng/pwndoc-ng/master/demos/shared_audit_demo.gif)
 
 ### Finding edition
-![Finding edit demo gif](https://raw.githubusercontent.com/pwndoc/pwndoc/master/demos/audit_finding_demo.gif)
+![Finding edit demo gif](https://raw.githubusercontent.com/pwndoc-ng/pwndoc-ng/master/demos/audit_finding_demo.gif)
 
 ### Vulnerability management workflow
-![Create and update demo gif](https://raw.githubusercontent.com/pwndoc/pwndoc/master/demos/create_and_update_finding.gif)
+![Create and update demo gif](https://raw.githubusercontent.com/pwndoc-ng/pwndoc-ng/master/demos/create_and_update_finding.gif)
 
 ## Contribute
 

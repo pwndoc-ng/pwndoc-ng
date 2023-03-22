@@ -1,8 +1,8 @@
 {
-  "name": "pwndoc-frontend",
+  "name": "pwndoc-ng-frontend",
   "version": "1.0.0",
-  "description": "pwndoc frontend",
-  "productName": "pwndoc",
+  "description": "pwndoc-ng frontend",
+  "productName": "pwndoc-ng",
   "cordovaId": "org.cordova.quasar.app",
   "author": "Stanley Hammer",
   "private": true,

@@ -3,7 +3,7 @@ services:
 
   mongodb:
     image: mongo:4.2.15
-    container_name: mongo-pwndoc-dev
+    container_name: mongo-pwndoc-ng-dev
     volumes:
       - ./mongo-data-dev:/data/db
     restart: always
@@ -14,12 +14,12 @@ services:
     networks:
       - backend
 
-  pwndoc-backend:
-    build: 
+  pwndoc-ng-backend:
+    build:
       context: .
-      dockerfile:  Dockerfile.dev
-    image: yeln4ts/pwndoc:backend-dev
-    container_name: pwndoc-backend-dev
+      dockerfile: Dockerfile.dev
+    image: pwndoc-ng/pwndoc-ng:backend-dev
+    container_name: pwndoc-ng-backend-dev
     volumes:
       - ./src:/app/src
       - ./ssl:/app/ssl
@@ -31,7 +31,7 @@ services:
       - 5252:5252
     links:
       - mongodb
-    networks: 
+    networks:
       - backend
 
 volumes:
