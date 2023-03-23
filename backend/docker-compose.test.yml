@@ -1,6 +1,6 @@
 version: '3'
 services:
-  mongodb:
+  mongodb-test:
     image: mongo:4.2.15
     container_name: mongo-pwndoc-test
     volumes:
@@ -23,7 +23,7 @@ services:
     environment:
       API_URL: https://localhost:4242
     depends_on:
-      - mongodb
+      - mongodb-test
     network_mode: host
 
 volumes:
