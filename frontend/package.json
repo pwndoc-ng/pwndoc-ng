@@ -9,7 +9,7 @@
   "scripts": {
     "build": "export NODE_OPTIONS=--openssl-legacy-provider && quasar build",
     "dev": "export NODE_OPTIONS=--openssl-legacy-provider && quasar dev",
-    "test": "echo \"No test specified\" && exit 0"
+    "test": "quasar --version && npm --version && echo \"No test specified\" && exit 0"
   },
   "dependencies": {
     "@hocuspocus/provider": "^1.0.0",
