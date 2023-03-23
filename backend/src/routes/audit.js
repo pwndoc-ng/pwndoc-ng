@@ -55,6 +55,11 @@ module.exports = function(app, io) {
             return;
         }
 
+        if (!utils.validFilename(req.body.language)) {
+            Response.BadParameters(res, 'Invalid characters for language');
+            return;
+        }
+
         var audit = {};
         // Required params
         audit.name = req.body.name;
@@ -179,7 +184,7 @@ module.exports = function(app, io) {
         }
         if (req.body.collaborators) update.collaborators = req.body.collaborators;
         if (req.body.reviewers) update.reviewers = req.body.reviewers;
-        if (req.body.language) update.language = req.body.language;
+        if (req.body.language && utils.validFilename(req.body.language)) update.language = req.body.language;
         if (req.body.scope && typeof(req.body.scope === "array")) {
             update.scope = req.body.scope.map(item => {return {name: item}});
         }
