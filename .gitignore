@@ -15,6 +15,7 @@ config.json
 report.json
 roles.json
 app-settings.json
+backend/src/config/config.json
 
 # Editor directories and files
 .idea
