@@ -11,6 +11,12 @@ module.exports = function () {
         expect(ooxml).toEqual(expected)
       })
 
+      it('Valid Latvian Filename', () => {
+        var filename = "Pažeidžiamumas 1"
+        var result = utils.validFilename(filename)
+        expect(result).toEqual(true)
+      })
+
       it('Text without tag', () => {
         var html = "Paragraph Text"
         var expected = `<w:p><w:r><w:t xml:space="preserve">Paragraph Text</w:t></w:r></w:p>`
