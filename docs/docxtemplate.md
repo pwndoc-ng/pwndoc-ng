@@ -1,6 +1,6 @@
 # Docx Template
 
-Pwndoc uses the nodejs library docxtemplater to generate a docx report. Specific documentation can be found on the official site documentation: https://docxtemplater.readthedocs.io/en/v3.1.0/tag_types.html
+Pwndoc-ng uses the nodejs library docxtemplater to generate a docx report. Specific documentation can be found on the official site documentation: https://docxtemplater.readthedocs.io/en/v3.1.0/tag_types.html
 
 Check the [Default Template](https://github.com/pwndoc-ng/pwndoc-ng/tree/master/backend/report-templates) for better understanding.
 
@@ -277,7 +277,7 @@ The *numbering.xml* file contains definitions of numbering lists.
 `<w:abstractNum w:abstractNumId=0>...</w:abstractNum>` tags represent the definition of a numbering with its different levels.
 `<w:num w:numId="1"><w:abstractNumId w:val="0" /></w:num>` tags associate the effective `Id` used in the document with the `abstract Id` of the definition.
 
-Pwndoc uses `numId="1"` for `bullet list` and `numId="2"` for `ordered list`. So the only thing to change in the file is the value of the abstractNumId associated with those numId.
+Pwndoc-ng uses `numId="1"` for `bullet list` and `numId="2"` for `ordered list`. So the only thing to change in the file is the value of the abstractNumId associated with those numId.
 
 If there is no abstractNum definitions, this means that no numbering has been used in the document: open the document with Word, add bullet and ordered list, save, delete bullet and ordered list, save.
 There should now be abstractNum definition for each one.

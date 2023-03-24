@@ -1,6 +1,6 @@
 # Vulnerabilities
 
-> Pwndoc can manage Vulnerabilities in order to simplify redaction of an Audit. They can be added when editing an Audit as a Finding.<br>
+> Pwndoc-ng can manage Vulnerabilities in order to simplify redaction of an Audit. They can be added when editing an Audit as a Finding.<br>
 > Each vulnerability can have multiple languages. 
 
 ## Create

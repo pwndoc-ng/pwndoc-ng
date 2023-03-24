@@ -1,6 +1,6 @@
 # Roles
 
-> Pwndoc can manage different user account roles to access different kind of data with some level of granularity<br>
+> Pwndoc-ng can manage different user account roles to access different kind of data with some level of granularity<br>
 > There are 2 builtins roles: user and admin. But additional custom roles can easily be added. 
 
 ## List of permissions
