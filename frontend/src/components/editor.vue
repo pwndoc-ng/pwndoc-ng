@@ -509,6 +509,30 @@
       </q-toolbar>
     </affix>
     <q-separator />
+     <bubble-menu
+      class="editor-bubble-menu"
+      :editor="editor"
+      :tippy-options="{ duration: 100 }"
+      v-if="editor"
+    >
+      <button @click="editor.chain().focus().toggleBold().run()" :class="{ 'is-active': editor.isActive('bold') }">
+        <q-icon name="format_bold" />
+      </button>
+      <button @click="editor.chain().focus().toggleItalic().run()" :class="{ 'is-active': editor.isActive('italic') }">
+        <q-icon name="format_italic" />
+      </button>
+      <button @click="editor.chain().focus().toggleStrike().run()" :class="{ 'is-active': editor.isActive('strike') }">
+        <q-icon name="format_strikethrough" />
+      </button>
+      <button :class="{ 'is-active': editor.isActive('code') }"   @click="editor.chain().focus().toggleCode().run()" >
+        <q-icon name="code" />
+      </button>
+      <button   @click="editor.isActive('link') ? editor.chain().focus().unsetLink().run() : setLink()" >
+        <q-icon :name="editor.isActive('link') ? 'mdi-link-off' : 'mdi-link' " />
+      </button>
+
+
+    </bubble-menu>
     <editor-content
       v-if="typeof diff === 'undefined' || !toggleDiff"
       class="editor__content q-pa-sm"
@@ -521,7 +545,7 @@
 </template>
 
 <script>
-import { Editor, EditorContent } from "@tiptap/vue-2";
+import { Editor, EditorContent, BubbleMenu } from "@tiptap/vue-2";
 //  Import extensions
 import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
@@ -581,6 +605,7 @@ export default {
   },
   components: {
     EditorContent,
+    BubbleMenu
   },
   data() {
     return {
@@ -1102,5 +1127,39 @@ pre .diffrem {
 }
 pre .diffadd {
   background-color: $green-6;
+}
+
+.editor-bubble-menu{
+   background: #333333;
+    color: white;
+    border-radius: 8px;
+    padding: 5px;
+    margin: -5px;
+    display: flex;
+}
+
+.editor-bubble-menu > button > i{
+  border-radius: 5px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #ffffff;
+}
+
+.editor-bubble-menu > button > i:hover{
+        background: #555555;
+        color: #ffffff;
+        cursor: pointer;
+}
+.editor-bubble-menu > .is-active > i {
+        background: #555555;
+        color: #ffffff;
+        cursor: pointer;
+}
+.editor-bubble-menu > button {
+  background: bottom;
+    border: none;
 }
 </style>
