@@ -2,19 +2,19 @@ version: '3'
 services:
   mongodb-test:
     image: mongo:4.2.15
-    container_name: mongo-pwndoc-test
+    container_name: mongo-pwndoc-ng-test
     volumes:
       - ./mongo-data-test:/data/db
     restart: always
     environment:
-      - MONGO_DB:pwndoc
+      - MONGO_DB:pwndoc-ng
     network_mode: host
 
   backend-test:
-    image: pwndoc-ng/pwndoc-ng:backend-test
+    image: yeln4ts/pwndoc-ng:backend-test
     build: 
       context: .
-      dockerfile: Dockerfile.test
+      dockerfile:  Dockerfile.test
     container_name: pwndoc-ng-backend-test
     volumes:
       - ./tests:/app/tests

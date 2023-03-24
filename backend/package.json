@@ -16,6 +16,7 @@
     "@babel/preset-env": "^7.10.2",
     "jest": "^26.0.1",
     "nodemon": "^1.19.4",
+    "npm": "^6.14.18",
     "supertest": "^6.3.3",
     "swagger-autogen": "^2.22.0"
   },
@@ -38,7 +39,7 @@
     "jsonwebtoken": "^8.1.0",
     "pizzip": "^3.1.4",
     "lodash": "^4.17.21",
-    "mongoose": "^5.7.7",
+    "mongoose": "^7.0.3",
     "otpauth": "^7.0.6",
     "qrcode": "^1.4.4",
     "socket.io": "^4.4.1",
