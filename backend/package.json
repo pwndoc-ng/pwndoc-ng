@@ -38,7 +38,7 @@
     "jsonwebtoken": "^8.1.0",
     "pizzip": "^3.1.4",
     "lodash": "^4.17.21",
-    "mongoose": "^5.7.7",
+    "mongoose": "^5.13.16",
     "otpauth": "^7.0.6",
     "qrcode": "^1.4.4",
     "socket.io": "^4.4.1",
