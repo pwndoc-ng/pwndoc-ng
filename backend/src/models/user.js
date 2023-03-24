@@ -245,7 +245,7 @@ UserSchema.statics.updateRefreshToken = function (refreshToken, userAgent) {
                 return row.save()
             }
             else if (row) {
-                reject({fn: 'Unauthorized', message: 'Account disabled'})
+                reject({fn: 'Unauthorized', message: 'Authentication Failed.'})
             }
             else
                 reject({fn: 'NotFound', message: 'Session not found'})
@@ -384,8 +384,15 @@ UserSchema.methods.getToken = function (userAgent) {
                 var refreshToken = jwt.sign({sessionId: null, userId: row._id}, auth.jwtRefreshSecret)
                 return User.updateRefreshToken(refreshToken, userAgent)
             }
-            else
-                throw({fn: 'Unauthorized', message: 'Invalid credentials'});
+            else {
+                if (!row) {
+                    // We compare two random strings to generate delay
+                    var randomHash = "$2b$10$" + [...Array(53)].map(() => Math.random().toString(36)[2]).join('');
+                    bcrypt.compareSync(user.password, randomHash);
+                }
+
+                throw({fn: 'Unauthorized', message: 'Authentication Failed.'});
+            }
         })
         .then(row => {
             resolve({token: row.token, refreshToken: row.refreshToken})
