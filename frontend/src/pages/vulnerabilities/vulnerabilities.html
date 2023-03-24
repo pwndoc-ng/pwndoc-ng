@@ -210,14 +210,14 @@
         <q-card-section>
             <q-field borderless :label="$t('description')" stack-label>
                 <template v-slot="control">
-                    <basic-editor :idUnique="currentVulnerability._id+'-description'" noAffix v-model="currentVulnerability.details[currentDetailsIndex].description" />
+                    <basic-editor :collab="false" :idUnique="currentVulnerability._id+'-description'" noAffix v-model="currentVulnerability.details[currentDetailsIndex].description" />
                 </template>
             </q-field>
         </q-card-section>
         <q-card-section>
             <q-field borderless :label="$t('observation')" stack-label>
                 <template v-slot="control">
-                    <basic-editor :idUnique="currentVulnerability._id+'-observation'" noAffix v-model="currentVulnerability.details[currentDetailsIndex].observation" />
+                    <basic-editor   :collab="false" :idUnique="currentVulnerability._id+'-observation'" noAffix v-model="currentVulnerability.details[currentDetailsIndex].observation" />
                 </template>
             </q-field>
         </q-card-section>
@@ -232,7 +232,7 @@
         <q-card-section>
             <q-field borderless :label="$t('remediation')" stack-label>
                 <template v-slot="control">
-                    <basic-editor :idUnique="currentVulnerability._id+'-remediation'" noAffix v-model="currentVulnerability.details[currentDetailsIndex].remediation" />
+                    <basic-editor  :collab="false" :idUnique="currentVulnerability._id+'-remediation'" noAffix v-model="currentVulnerability.details[currentDetailsIndex].remediation" />
                 </template>
             </q-field>
         </q-card-section>
@@ -274,6 +274,7 @@
         >
             <custom-fields 
             ref="customfields" 
+            :collab="false"
             v-model="currentVulnerability.details[currentDetailsIndex].customFields" 
             :category="currentVulnerability.category" 
             custom-element="QCardSection"

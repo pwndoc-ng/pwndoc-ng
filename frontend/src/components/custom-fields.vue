@@ -25,6 +25,7 @@
                         :idUnique="field.customField._id"
                         :diff="getTextDiffInCustomFields(field)"
                         :editable=false
+                        :collab="collab"
                         /> 
                         <basic-editor 
                         v-else
@@ -34,6 +35,7 @@
                         v-model="field.text" 
                         :noSync="noSyncEditor"
                         :editable="!readonly"
+                        :collab="collab"
                         /> 
                     </template>
 
@@ -238,6 +240,10 @@ export default {
         locale: {
             type: String,
             default: ''
+        },
+        collab: {
+            type: Boolean,
+            default: true
         }
     },
 

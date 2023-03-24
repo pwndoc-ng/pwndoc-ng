@@ -579,6 +579,10 @@ export default {
       type: Boolean,
       default: true,
     },
+    collab: {
+      type: Boolean,
+      default: true,
+    },
     idUnique: {
       type: String,
       default: '',
@@ -602,6 +606,7 @@ export default {
       type: Boolean,
       default: false,
     },
+
   },
   components: {
     EditorContent,
@@ -649,34 +654,10 @@ export default {
         this.fullId= this.$route.params.auditId+'-'+this.$route.params.findingId+'-'+this.ClassEditor
      }
 
-     this.provider = new HocuspocusProvider({
-      url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
-      name: this.$route.params.auditId ||  this.idUnique.replace('-', '/'),
-      document  : ydoc
-    })
-    this.provider.on('status', event => {
-      this.status = event.status
-    })
-    this.provider.on('synced', state => {
-      this.state=state.state
-    })
-    this.editor = new Editor({
-      editable: false,
-      extensions: [
+    let extensionEditor = [
         StarterKit,
         Highlight.configure({
           multicolor: true,
-        }),
-        Collaboration.configure({
-          document: ydoc,
-          field: this.fullId
-        }),
-        CollaborationCursor.configure({
-          provider: this.provider,
-          user: {
-            name:  this.username,
-            color:  this.stringToColour(this.username)
-          }
         }),
         Link.configure({
           protocols: ['ftp', 'mailto'],
@@ -696,11 +677,43 @@ export default {
           },
           allowBase64: true
         }),
-
         Figure,
-        //Caption,
-        //CustomImage,
-      ],
+      ]
+
+     if(this.collab){
+       this.provider = new HocuspocusProvider({
+        url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
+        name: this.$route.params.auditId ||  this.idUnique.replace('-', '/'),
+        document  : ydoc
+      })
+
+      this.provider.on('status', event => {
+        this.status = event.status
+      })
+      this.provider.on('synced', state => {
+        this.state=state.state
+      })
+      extensionEditor.push(Collaboration.configure({
+          document: ydoc,
+          field: this.fullId
+      }))
+      extensionEditor.push(CollaborationCursor.configure({
+          provider: this.provider,
+          user: {
+            name:  this.username,
+            color:  this.stringToColour(this.username)
+          }
+      }))
+
+    } else {
+      this.state=true
+      this.status = 'connected'
+
+    }
+
+    this.editor = new Editor({
+      editable: false,
+      extensions: extensionEditor ,
       onUpdate: () => {
         console.log("onUpdate");
         if(this.state && this.initialeDataUpdated && this.countChangeAfterUpdate>0 && this.countChangeAfterUpdate<this.countChange){
