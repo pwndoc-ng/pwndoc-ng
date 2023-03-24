@@ -8,7 +8,7 @@
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
     "prod": "NODE_ENV=prod nodemon src/app.js",
-    "test": "NODE_ENV=test jest tests/index.test.js",
+    "test": "NODE_ENV=test jest tests/index.test.js --testTimeout=10000 --forceExit",
     "swagger-autogen": "node ./swagger.js"
   },
   "devDependencies": {
@@ -19,6 +19,7 @@
     "jest": "^26.0.1",
     "nodemon": "^1.19.4",
     "npm": "^6.14.18",
+    "supertest": "^6.3.3",
     "swagger-autogen": "^2.22.0"
   },
   "dependencies": {
@@ -40,7 +41,7 @@
     "jsonwebtoken": "^8.1.0",
     "jszip": "^2.6.1",
     "lodash": "^4.17.21",
-    "mongoose": "^5.7.7",
+    "mongoose": "^7.0.3",
     "otpauth": "^7.0.6",
     "qrcode": "^1.4.4",
     "socket.io": "^4.4.1",
