@@ -1,6 +1,6 @@
 # Data
 
-> Pwndoc uses different kinds of data to improve and mutualize user experience. This allows to have reusable and customizable information across audits.
+> Pwndoc-ng uses different kinds of data to improve and mutualize user experience. This allows to have reusable and customizable information across audits.
 
 ![Data](_images/collaborators.png)
 
@@ -76,7 +76,7 @@ Custom Data represent a way to fully customize Audits and Vulnerabilities. They 
 
 ### Languages
 
-Pwndoc can handle multiple Languages when it comes to Custom Data or Vulnerabilities. It's one of the first things to create before being able to start an Audit.
+Pwndoc-ng can handle multiple Languages when it comes to Custom Data or Vulnerabilities. It's one of the first things to create before being able to start an Audit.
 
 A Language is defined by:
 

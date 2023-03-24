@@ -1,6 +1,6 @@
 # Installation
 
-> PwnDoc uses 3 containers: the backend, the frontend and the database.
+> PwnDocèng uses 3 containers: the backend, the frontend and the database.
 
 ## Production
 
@@ -43,6 +43,7 @@ docker-compose up -d --build
 
 Application is accessible through https://localhost:8443
 API is accessible through https://localhost:8443/api
+
 ## Development
 
 For development purposes, specific docker-compose file can be used in each folder (backend/frontend).
