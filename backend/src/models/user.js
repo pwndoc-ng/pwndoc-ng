@@ -95,6 +95,21 @@ UserSchema.statics.getAll = function () {
     });
 }
 
+// Get all users for download
+UserSchema.statics.export = () => {
+    return new Promise((resolve, reject) => {
+        var query = User.find();
+        query.select('username password firstname lastname email phone role totpEnabled enabled -_id')
+        query.exec()
+        .then((rows) => {
+            resolve(rows);
+        })
+        .catch((err) => {
+            reject(err);
+        })
+    });
+}
+
 // Get one user by its username
 UserSchema.statics.getByUsername = function (username) {
     return new Promise((resolve, reject) => {

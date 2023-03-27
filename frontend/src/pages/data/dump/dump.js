@@ -1,9 +1,16 @@
 import { Dialog, Notify } from 'quasar'
+import draggable from 'vuedraggable'
+import BasicEditor from 'components/editor';
+import CustomFields from 'components/custom-fields'
+
+import DataService from '@/services/data'
+import Utils from '@/services/utils'
 import Vue from 'vue'
 import YAML from 'js-yaml'
 
 import VulnerabilityService from '@/services/vulnerability'
 import UserService from '@/services/user'
+import TemplateService from '@/services/template'
 
 import { $t } from '@/boot/i18n'
 
@@ -12,6 +19,7 @@ export default {
         return {
             UserService: UserService,
             vulnerabilities: [],
+            selectedTab: "vulnerabilities",
         }
     },
 

@@ -73,7 +73,7 @@ export default {
             if (this.errors.name)
                 return;
 
-            CompanyService.createCompany(this.currentCompany)
+            CompanyService.createCompany([this.currentCompany])
             .then(() => {
                 this.getCompanies();
                 this.$refs.createModal.hide();

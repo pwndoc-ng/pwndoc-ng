@@ -114,6 +114,15 @@ module.exports = function(app) {
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
     });
+    
+    // Get users for export
+    app.get("/api/users/export", acl.hasPermission('users:read-all'), function(req, res) {
+        // #swagger.tags = ['User']
+
+        User.export()
+        .then(msg => Response.Ok(res, msg))
+        .catch(err => Response.Internal(res, err))
+    });
 
     // Get all reviewers
     app.get("/api/users/reviewers", acl.hasPermission('users:read'), function(req, res) {

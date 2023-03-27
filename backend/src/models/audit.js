@@ -105,6 +105,28 @@ AuditSchema.statics.getAudits = (isAdmin, userId, filters) => {
     })
 }
 
+// Get all audits for download
+/*
+AuditSchema.statics.export = () => {
+    return new Promise((resolve, reject) => {
+        var query = Audit.find()
+        query.populate('creator', 'username')
+        query.populate('collaborators', 'username')
+        query.populate('reviewers', 'username firstname lastname')
+        query.populate('approvals', 'username firstname lastname')
+        query.populate('company', 'name')
+        query.select('id name language creator collaborators company createdAt state')
+        query.exec()
+        .then((rows) => {
+            resolve(rows)
+        })
+        .catch((err) => {
+            reject(err)
+        })
+    });
+}
+*/
+
 // Get Audit with ID to generate report
 AuditSchema.statics.getAudit = (isAdmin, auditId, userId) => {
     return new Promise((resolve, reject) => {

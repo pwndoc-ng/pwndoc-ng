@@ -406,6 +406,39 @@ export default {
     deleteAllVulnerabilities: 'Delete All Vulnerabilities',
     deleteAllVulnerabilitiesInfo: `Delete all existing vulnerabilities.<br />
     <strong>This action is definitive!!</strong>`,
+    importCompanies: 'Import Companies',
+    importCompaniesInfo: `Import Companies from a .yml or .json file. (Serpico format accepted)<br />
+    This allows you to easily import a batch of companies templates.`,
+    importCompaniesOk: 'All <strong>{0}</strong> companies created',
+    importCompaniesAllExists: 'All <strong>{0}</strong> companies names already exist',
+    importCompaniesPartial: '<strong>{0}</strong> companies created<br /><strong>{1}</strong> companies name already exist',
+    exportCompanies: 'Export Companies',
+    exportCompaniesInfo: `Export Companies to yaml format. This export can easily be re-imported afterward`,
+    deleteAllCompanies: 'Delete All Companies',
+    deleteAllCompaniesInfo: `Delete all existing companies.<br />
+    <strong>This action is definitive!!</strong>`,
+    importClients: 'Import Clients',
+    importClientsInfo: `Import Clients from a .yml or .json file. (Serpico format accepted)<br />
+    This allows you to easily import a batch of clients templates.`,
+    importClientsOk: 'All <strong>{0}</strong> clients created',
+    importClientsAllExists: 'All <strong>{0}</strong> clients names already exist',
+    importClientsPartial: '<strong>{0}</strong> clients created<br /><strong>{1}</strong> clients name already exist',
+    exportClients: 'Export Clients',
+    exportClientsInfo: `Export Clients to yaml format. This export can easily be re-imported afterward`,
+    deleteAllClients: 'Delete All Clients',
+    deleteAllClientsInfo: `Delete all existing clients.<br />
+    <strong>This action is definitive!!</strong>`,
+    importCollaborators: 'Import Collaborators',
+    importCollaboratorsInfo: `Import Collaborators from a .yml or .json file. (Serpico format accepted)<br />
+    This allows you to easily import a batch of collaborators templates.`,
+    importCollaboratorsOk: 'All <strong>{0}</strong> collaborators created',
+    importCollaboratorsAllExists: 'All <strong>{0}</strong> collaborators names already exist',
+    importCollaboratorsPartial: '<strong>{0}</strong> collaborators created<br /><strong>{1}</strong> collaborators name already exist',
+    exportCollaborators: 'Export Collaborators',
+    exportCollaboratorsInfo: `Export Collaborators to yaml format. This export can easily be re-imported afterward`,
+    deleteAllCollaborators: 'Delete All Collaborators',
+    deleteAllCollaboratorsInfo: `Delete all existing collaborators.<br />
+    <strong>This action is definitive!!</strong>`,
     customSections: 'Custom Sections',
     listOfLanguages: 'List of Languages',
     editLanguages: 'Edit Languages',
