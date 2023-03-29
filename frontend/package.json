@@ -17,7 +17,7 @@
     "@tiptap/core": "^2.0.0-beta.182",
     "@tiptap/extension-bubble-menu": "^2.0.0-beta.220",
     "@tiptap/extension-collaboration": "^2.0.0-beta.209",
-    "@tiptap/extension-collaboration-cursor": "^2.0.0-beta.209",
+    "@tiptap/extension-collaboration-cursor": "^2.0.0",
     "@tiptap/extension-highlight": "^2.0.0-beta.35",
     "@tiptap/extension-image": "^2.0.0-beta.30",
     "@tiptap/extension-link": "^2.0.0-beta.220",
