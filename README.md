@@ -36,31 +36,49 @@ Those containers can be orchestrated within the `docker-compose.yml` by using [d
 ***For production usage: Make sure to change the certificates in `backend/ssl` folder and optionnaly to set the JWT secret in `backend/src/lib/auth.js` (`jwtSecret` and `jwtRefreshSecret` in `backend/src/config/config.json`) if you don't want to use random ones.***
 
 Build and run Docker containers
-```docker-compose up -d --build```
+```
+docker-compose up -d --build
+```
 
 Stop/Start containers
-```docker-compose stop```
-```docker-compose start```
+```
+docker-compose stop
+```
+```
+docker-compose start
+```
 
 Update PwnDoc-ng
-```docker-compose down && git pull && docker-compose up -d --build```
+```
+docker-compose down && git pull && docker-compose up -d --build
+```
 
 Remove containers
-```docker-compose down```
+```
+docker-compose down
+```
 
 #### Development
 For development purposes, specific docker-compose files can be used in each folder (`backend` and `frontend`).
 The source code can then be modified live and the application will automatically reload on changes.
 
 Build and run Docker containers
-```docker-compose -f backend/docker-compose.dev.yml up -d --build```
+```
+docker-compose -f backend/docker-compose.dev.yml up -d --build
+```
 
 Stop/Start containers
-```docker-compose -f backend/docker-compose.dev.yml stop```
-```docker-compose -f backend/docker-compose.dev.yml start```
+```
+docker-compose -f backend/docker-compose.dev.yml stop
+```
+```
+docker-compose -f backend/docker-compose.dev.yml start
+```
 
 Remove containers
-```docker-compose -f backend/docker-compose.dev.yml down```
+```
+docker-compose -f backend/docker-compose.dev.yml down
+```
 
 #### Tests
 ***Don't use it in production as it will delete the production database!***
@@ -90,9 +108,13 @@ Options:
 
 ### Debugging
 Display backend container logs - the default loaded `docker-compose.yml` is the one in the actual working directory
-```docker-compose logs -f pwndoc-ng-backend```
+```
+docker-compose logs -f pwndoc-ng-backend
+```
 If you want to debug a container from the development configuration, you have to provide the development file
-```docker-compose -f backend/docker-compose.dev.yml logs -f pwndoc-ng-backend```
+```
+docker-compose -f backend/docker-compose.dev.yml logs -f pwndoc-ng-backend
+```
 
 ## Documentation
 
