@@ -22,6 +22,78 @@ This fork includes pending PR and new feature such as:
 - Minor bumps
 ...
 
+
+## Quick Setup
+### Installation
+
+PwnDoc-ng uses 3 containers:
+  - backend (pwndoc-ng-backend)
+  - frontend (pwndoc-ng-frontend)
+  - database (mongo-pwndoc-ng)
+Those containers can be orchestrated within the `docker-compose.yml` by using [docker-compose](https://docs.docker.com/compose/).
+
+#### Production
+***For production usage: Make sure to change the certificates in `backend/ssl` folder and optionnaly to set the JWT secret in `backend/src/lib/auth.js` (`jwtSecret` and `jwtRefreshSecret` in `backend/src/config/config.json`) if you don't want to use random ones.***
+
+Build and run Docker containers
+```docker-compose up -d --build```
+
+Stop/Start containers
+```docker-compose stop```
+```docker-compose start```
+
+Update PwnDoc-ng
+```docker-compose down && git pull && docker-compose up -d --build```
+
+Remove containers
+```docker-compose down```
+
+#### Development
+For development purposes, specific docker-compose files can be used in each folder (`backend` and `frontend`).
+The source code can then be modified live and the application will automatically reload on changes.
+
+Build and run Docker containers
+```docker-compose -f backend/docker-compose.dev.yml up -d --build```
+
+Stop/Start containers
+```docker-compose -f backend/docker-compose.dev.yml stop```
+```docker-compose -f backend/docker-compose.dev.yml start```
+
+Remove containers
+```docker-compose -f backend/docker-compose.dev.yml down```
+
+#### Tests
+***Don't use it in production as it will delete the production database!***
+By now only backend tests have been written (it's a continuous work in progress).
+
+Test files are located in `backend/tests` using [Jest]() testing framework.
+
+Script `backend/tests/run_tests.sh` cat be used to launch tests:
+
+```
+Usage:        ./run_tests.sh -q|-f [-h, --help]
+
+Options:
+  -h, --help  Display help
+  -q          Run quick tests (No build)
+  -f          Run full tests (Build with no cache)
+```
+
+### API
+#### Production
+- the application: [https://localhost:8443](https://localhost:8443)
+- the API: [https://localhost:8443/api](https://localhost:8443/api)
+
+#### Development
+- the application: [https://localhost:8081](https://localhost:8081)
+- the API: [https://localhost:8081/api](https://localhost:8081/api)
+
+### Debugging
+Display backend container logs - the default loaded `docker-compose.yml` is the one in the actual working directory
+```docker-compose logs -f pwndoc-ng-backend```
+If you want to debug a container from the development configuration, you have to provide the development file
+```docker-compose -f backend/docker-compose.dev.yml logs -f pwndoc-ng-backend```
+
 ## Documentation
 
 - [Installation](https://pwndoc-ng.github.io/pwndoc-ng/#/installation)
