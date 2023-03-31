@@ -5,6 +5,10 @@ export default {
     return Vue.prototype.$axios.get(`clients`)
   },
 
+  exportClients: function() {
+    return Vue.prototype.$axios.get(`clients/export`)
+  },
+
   createClient: function(client) {
     return Vue.prototype.$axios.post('clients', client)
   },

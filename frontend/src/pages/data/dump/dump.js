@@ -9,6 +9,8 @@ import Vue from 'vue'
 import YAML from 'js-yaml'
 
 import VulnerabilityService from '@/services/vulnerability'
+import CompanyService from '@/services/company'
+import ClientService from '@/services/company'
 import UserService from '@/services/user'
 import TemplateService from '@/services/template'
 
@@ -266,6 +268,102 @@ export default {
                     })
                 })
             })
+        },
+        // Companies
+        
+        getCompanies: function() {
+            this.companies = [];
+            CompanyService.exportCompanies()
+            .then((data) => {
+                this.companies = data.data.datas;
+                this.downloadCompanies();
+            })
+            .catch((err) => {
+                Notify.create({
+                    message: err.response.data.datas,
+                    color: 'negative',
+                    textColor:'white',
+                    position: 'top-right'
+                })
+            })
+        },
+
+        downloadCompanies: function() {
+            var data = YAML.safeDump(this.companies);
+            var blob = new Blob([data], {type: 'application/yaml'});
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = "companies.yml";
+            document.body.appendChild(a);
+            a.click();
+            URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+        },
+
+        // Clients
+
+        getClients: function() {
+            this.clients = [];
+            ClientService.exportClients()
+            .then((data) => {
+                this.clients = data.data.datas;
+                this.downloadClients();
+            })
+            .catch((err) => {
+                Notify.create({
+                    message: err.response.data.datas,
+                    color: 'negative',
+                    textColor:'white',
+                    position: 'top-right'
+                })
+            })
+        },
+
+        downloadClients: function() {
+            var data = YAML.safeDump(this.clients);
+            var blob = new Blob([data], {type: 'application/yaml'});
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = "clients.yml";
+            document.body.appendChild(a);
+            a.click();
+            URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        },
+
+        // Users
+
+        getCollaborators: function() {
+            this.users = [];
+            UserService.exportUsers()
+            .then((data) => {
+                this.users = data.data.datas;
+                this.downloadUsers();
+            })
+            .catch((err) => {
+                Notify.create({
+                    message: err.response.data.datas,
+                    color: 'negative',
+                    textColor:'white',
+                    position: 'top-right'
+                })
+            })
+        },
+
+        downloadUsers: function() {
+            var data = YAML.safeDump(this.users);
+            var blob = new Blob([data], {type: 'application/yaml'});
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = "users.yml";
+            document.body.appendChild(a);
+            a.click();
+            URL.revokeObjectURL(url);
+            document.body.removeChild(a);
         }
     }
 }

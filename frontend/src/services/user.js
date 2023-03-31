@@ -94,6 +94,10 @@ export default {
         }
     },
 
+    exportUsers: function() {
+        return Vue.prototype.$axios.get(`users/export`)
+    },
+
     isAllowed(role) {
         return (this.user.roles && (this.user.roles.includes(role) || this.user.roles === '*'))
     },

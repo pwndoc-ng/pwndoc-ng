@@ -5,6 +5,10 @@ export default {
     return Vue.prototype.$axios.get(`companies`)
   },
 
+  exportCompanies: function() {
+    return Vue.prototype.$axios.get(`companies/export`)
+  },
+
   createCompany: function(company) {
     return Vue.prototype.$axios.post('companies', company)
   },
