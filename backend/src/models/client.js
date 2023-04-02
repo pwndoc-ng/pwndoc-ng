@@ -31,32 +31,52 @@ ClientSchema.statics.getAll = () => {
     });
 }
 
-// Create client
-ClientSchema.statics.create = (client, company) => {
-    return new Promise(async(resolve, reject) => {
-        if (company) {
-            var Company = mongoose.model("Company");
-            var query = Company.findOneAndUpdate({name: company}, {}, {upsert: true, new: true});
-            var companyRow = await query.exec()
-            if (companyRow) client.company = companyRow._id;
-        }
-        var query = new Client(client);
-        query.save(company)
-        .then((row) => {
-                resolve({
-                    _id: row._id,
-                    email: row.email,
-                    firstname: row.firstname,
-                    lastname: row.lastname,
-                    title: row.title,
-                    phone: row.phone,
-                    cell: row.cell,
-                    company: row.company
-                });
+
+// Get all clients for download
+ClientSchema.statics.export = () => {
+    return new Promise((resolve, reject) => {
+        var query = Client.find();
+        query.select('email lastname firstname phone cell title -_id')
+        query.exec()
+        .then((rows) => {
+            resolve(rows);
         })
         .catch((err) => {
-            if (err.code === 11000)
-                reject({fn: 'BadParameters', message: 'Client email already exists'});
+            reject(err);
+        })
+    });
+}
+
+// Create client
+ClientSchema.statics.create = (clients) => {
+    return new Promise(async(resolve, reject) => {
+        var clients_with_company = []
+        var company;
+        for (var i=0; i< clients.length; i++) {
+            company = clients[i][1]
+            if (company) {
+                var Company = mongoose.model("Company");
+                var query = Company.findOneAndUpdate({name: company}, {}, {upsert: true, new: true});
+                var companyRow = await query.exec()
+                if (companyRow) clients[i][0].company = companyRow._id;
+            }
+            clients_with_company.push(clients[i][0])
+        }
+        
+        Client.insertMany(clients_with_company, {ordered: false})
+        .then((rows) => {
+            resolve({created: rows.length, duplicates: 0});
+        })
+        .catch((err) => {
+            if (err.code === 11000) {
+                if (err.result.nInserted === 0)
+                    reject({fn: 'BadParameters', message: 'Client email already exists'});
+                else {
+                    var errorMessages = [] 
+                    err.writeErrors.forEach(e => errorMessages.push(e.errmsg || "no errmsg"))
+                    resolve({created: err.result.nInserted, duplicates: errorMessages});
+                }
+            }
             else
                 reject(err);
         })
@@ -85,6 +105,20 @@ ClientSchema.statics.update = (clientId, client, company) => {
                 reject({fn: 'BadParameters', message: 'Client email already exists'});
             else
                 reject(err);
+        })
+    });
+}
+
+// Delete all clients
+ClientSchema.statics.deleteAll = () => {
+    return new Promise((resolve, reject) => {
+        var query = Client.deleteMany();
+        query.exec()
+        .then(() => {
+            resolve('All clients deleted successfully');
+        })
+        .catch((err) => {
+            reject(err);
         })
     });
 }

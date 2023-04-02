@@ -13,24 +13,38 @@ module.exports = function(app) {
         .catch(err => Response.Internal(res, err))
     });
 
+    // Get companies for export
+    app.get("/api/companies/export", acl.hasPermission('companies:read'), function(req, res) {
+        // #swagger.tags = ['Company']
+
+        Company.export()
+        .then(msg => Response.Ok(res, msg))
+        .catch(err => Response.Internal(res, err))
+    });
+
     // Create company
     app.post("/api/companies", acl.hasPermission('companies:create'), function(req, res) {
         // #swagger.tags = ['Company']
 
-        if (!req.body.name) {
-            Response.BadParameters(res, 'Required paramters: name');
-            return;
+        var companies = [];
+        for (var i=0; i< req.body.length;i++) {
+            var cpny = req.body[i]
+
+            if (!cpny.name) {
+                Response.BadParameters(res, 'Required paramters: name');
+                return;
+            }
+
+            var company = {};
+            // Required parameters
+            company.name = cpny.name;
+
+            // Optional parameters
+            if (cpny.shortName) company.shortName = cpny.shortName;
+            if (cpny.logo) company.logo = cpny.logo;
+            companies.push(company)
         }
-
-        var company = {};
-        // Required parameters
-        company.name = req.body.name;
-
-        // Optional parameters
-        if (req.body.shortName) company.shortName = req.body.shortName;
-        if (req.body.logo) company.logo = req.body.logo;
-
-        Company.create(company)
+        Company.create(companies)
         .then(msg => Response.Created(res, msg))
         .catch(err => Response.Internal(res, err))
     });
@@ -56,6 +70,15 @@ module.exports = function(app) {
 
         Company.delete(req.params.id)
         .then(msg => Response.Ok(res, 'Company deleted successfully'))
+        .catch(err => Response.Internal(res, err))
+    });
+
+    // Delete companies
+    app.delete("/api/companies", acl.hasPermission('companies:delete'), function(req, res) {
+        // #swagger.tags = ['Company']
+
+        Company.deleteAll()
+        .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
     });
 }

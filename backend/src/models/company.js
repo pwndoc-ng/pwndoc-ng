@@ -27,17 +27,38 @@ CompanySchema.statics.getAll = () => {
     });
 }
 
-// Create company
-CompanySchema.statics.create = (company) => {
+// Get all companies for download
+CompanySchema.statics.export = () => {
     return new Promise((resolve, reject) => {
-        var query = new Company(company);
-        query.save(company)
-        .then((row) => {
-                resolve({_id: row._id, name: row.name});
+        var query = Company.find();
+        query.select('name shortName logo -_id')
+        query.exec()
+        .then((rows) => {
+            resolve(rows);
         })
         .catch((err) => {
-            if (err.code === 11000)
-                reject({fn: 'BadParameters', message: 'Company name already exists'});
+            reject(err);
+        })
+    });
+}
+
+// Create company
+CompanySchema.statics.create = (companies) => {
+    return new Promise((resolve, reject) => {
+        Company.insertMany(companies, {ordered: false})
+        .then((rows) => {
+            resolve({created: rows.length, duplicates: 0});
+        })
+        .catch((err) => {
+            if (err.code === 11000) {
+                if (err.result.nInserted === 0)
+                    reject({fn: 'BadParameters', message: 'Company name already exists'});
+                else {
+                    var errorMessages = [] 
+                    err.writeErrors.forEach(e => errorMessages.push(e.errmsg || "no errmsg"))
+                    resolve({created: err.result.nInserted, duplicates: errorMessages});
+                }
+            }
             else
                 reject(err);
         })
@@ -60,6 +81,20 @@ CompanySchema.statics.update = (companyId, company) => {
                 reject({fn: 'BadParameters', message: 'Company name already exists'});
             else
                 reject(err);
+        })
+    });
+}
+
+// Delete all clients
+CompanySchema.statics.deleteAll = () => {
+    return new Promise((resolve, reject) => {
+        var query = Company.deleteMany();
+        query.exec()
+        .then(() => {
+            resolve('All companies deleted successfully');
+        })
+        .catch((err) => {
+            reject(err);
         })
     });
 }

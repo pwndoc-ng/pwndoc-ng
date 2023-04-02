@@ -95,17 +95,17 @@ module.exports = function(request, app) {
           username: 'user',
           password: 'Password1',
           firstname: 'User',
-          lastname: 'Test',
+          lastname: 'Test',
           role: 'user'
         }
         var response = await request(app).post('/api/users')
           .set('Cookie', [
             `token=JWT ${userToken}`
           ])
-          .send(user)
+          .send([user])
 
         expect(response.status).toBe(201)
-
+        
         response = await request(app).post('/api/users/token').send(user)
         expect(response.status).toBe(200)
       })
@@ -115,13 +115,13 @@ module.exports = function(request, app) {
           username: 'tmpuser',
           password: 'Tmpuser1',
           firstname: 'Tmp',
-          lastname: 'User'
+          lastname: 'User'
         }
         var response = await request(app).post('/api/users')
           .set('Cookie', [
             `token=JWT ${userToken}`
           ])
-          .send(user)
+          .send([user])
 
         expect(response.status).toBe(201)
 
@@ -134,14 +134,14 @@ module.exports = function(request, app) {
           username: 'report',
           password: 'Report123',
           firstname: 'Report',
-          lastname: 'Admin',
+          lastname: 'Admin',
           role: 'report'
         }
         var response = await request(app).post('/api/users')
           .set('Cookie', [
             `token=JWT ${userToken}`
           ])
-          .send(user)
+          .send([user])
 
         expect(response.status).toBe(201)
 
@@ -154,14 +154,14 @@ module.exports = function(request, app) {
           username: 'reviewer',
           password: 'Reviewer123',
           firstname: 'reviewer',
-          lastname: 'reviewer',
+          lastname: 'reviewer',
           role: 'reviewer'
         }
         var response = await request(app).post('/api/users')
           .set('Cookie', [
             `token=JWT ${userToken}`
           ])
-          .send(user)
+          .send([user])
           
         expect(response.status).toBe(201)
 

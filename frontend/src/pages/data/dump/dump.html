@@ -1,86 +1,241 @@
 <div>
-<div class="row">
-    <div class="col-md-10 col-12 offset-md-1 q-mt-md">
-        <q-card>
-            <q-card-section class="q-py-xs bg-blue-grey-5 text-white">
-                <div class="text-h6">{{$t('nav.vulnerabilities')}}</div>
-            </q-card-section>
-            <q-separator />
-            <div v-if="UserService.isAllowed('vulnerabilities:create')">
-                <q-card-section>
-                    <div class="text-bold">{{$t('importVulnerabilities')}}</div>
-                </q-card-section>
-                <q-card-section>
-                    <div class="text-grey-8" v-html="$t('importVulnerabilitiesInfo')"></div>
-                </q-card-section>
-                <q-card-section>
-                    <input
-                    ref="importVulnerabilities"
-                    value=""
-                    type="file"
-                    multiple
-                    accept=".yml, .json"
-                    class="hidden"
-                    @change="importVulnerabilities($event.target.files)"
-                    />
-                    <q-btn 
-                    :label="$t('import')"
-                    color="secondary"
-                    flat
-                    class="bg-secondary text-white"
-                    @click="$refs.importVulnerabilities.click()"
-                    />
-                </q-card-section>
-                <q-separator />
-            </div>
-            <q-card-section>
-                <div class="text-bold">{{$t('exportVulnerabilities')}}</div>
-            </q-card-section>
-            <q-card-section>
-                    <div class="text-grey-8" v-html="$t('exportVulnerabilitiesInfo')"></div>
-                </q-card-section>
-                <q-card-section>
-                    <q-btn 
-                    :label="$t('export')"
-                    color="secondary"
-                    flat
-                    class="bg-secondary text-white"
-                    @click="getVulnerabilities"
-                    />
-                </q-card-section>
-                <q-separator />
-                <div v-if="UserService.isAllowed('vulnerabilities:delete-all')">
+    <q-tabs v-model="selectedTab" no-caps align="left" indicator-color="primary" active-bg-color="grey-3" class="bg-white full-width">
+        <q-tab name="vulnerabilities" default :label="$t('nav.vulnerabilities')" />
+        <q-tab name="companies" :label="$t('companies')" />
+        <q-tab name="collaborators" :label="$t('collaborators')" />
+    </q-tabs>
+    <div class="row">
+        <q-tab-panels v-model="selectedTab" class="bg-transparent col-md-10 col-12 offset-md-1 q-mt-md" @before-transition="Utils.syncEditors($refs)">
+            <q-tab-panel name="vulnerabilities">
+                <q-card>
                     <q-card-section>
-                        <div class="text-bold">{{$t('deleteAllVulnerabilities')}}</div>
+                        <div class="text-grey-8">{{$t('nav.vulnerabilities')}}</div>
                     </q-card-section>
+                    <q-card-section class="row">
+                        <div class="col-md-6 col-12" >
+                            <div class="text-bold">{{$t('importVulnerabilities')}}</div>
+                            <div class="text-grey-8" v-html="$t('importVulnerabilitiesInfo')"></div>
+                            <q-item>
+                                <input
+                                ref="importVulnerabilities"
+                                value=""
+                                type="file"
+                                multiple
+                                accept=".yml, .json"
+                                class="hidden"
+                                @change="importVulnerabilities($event.target.files)"
+                                />
+                                <q-btn 
+                                :label="$t('import')"
+                                color="secondary"
+                                flat
+                                class="bg-secondary text-white"
+                                @click="$refs.importVulnerabilities.click()"
+                                />
+                            </q-item>
+                        </div>
+                        <div class="col-md-6 col-12" >
+                            <div class="text-bold">{{$t('exportVulnerabilities')}}</div>
+                            <div class="text-grey-8" v-html="$t('exportVulnerabilitiesInfo')"></div>
+                            <q-item>
+                                <q-btn 
+                                :label="$t('export')"
+                                color="secondary"
+                                flat
+                                class="bg-secondary text-white"
+                                @click="getVulnerabilities"
+                                />
+                            </q-item>
+                        </div>
+                    </q-card-section>
+                    <q-card-section class="row">
+                        <div class="col-md-6 col-12" >
+                            <div class="text-bold">{{$t('deleteAllVulnerabilities')}}</div>
+                            <div class="text-grey-8" v-html="$t('deleteAllVulnerabilitiesInfo')"></div>
+                            <q-item>
+                                <q-btn 
+                                :label="$t('btn.deleteAll')"
+                                flat
+                                class="bg-negative text-white"
+                                @click="deleteAllVulnerabilities"
+                                />
+                            </q-item>
+                        </div>
+                    </q-card-section>
+                </q-card>
+            </q-tab-panel>
+            <q-tab-panel name="companies">
+                <q-card>
                     <q-card-section>
-                        <div class="text-grey-8" v-html="$t('deleteAllVulnerabilitiesInfo')"></div>
+                        <div class="text-grey-8">{{$t('companies')}}</div>
                     </q-card-section>
+                    <q-card-section class="row">
+                        <div class="col-md-6 col-12" >
+                            <div class="text-bold">{{$t('importCompanies')}}</div>
+                            <div class="text-grey-8" v-html="$t('importCompaniesInfo')"></div>
+                            <q-item>
+                                <input
+                                ref="importCompanies"
+                                value=""
+                                type="file"
+                                multiple
+                                accept=".yml, .json"
+                                class="hidden"
+                                @change="importCompanies($event.target.files)"
+                                />
+                                <q-btn 
+                                :label="$t('import')"
+                                color="secondary"
+                                flat
+                                class="bg-secondary text-white"
+                                @click="$refs.importCompanies.click()"
+                                />
+                            </q-item>
+                        </div>
+                        <div class="col-md-6 col-12" >
+                            <div class="text-bold">{{$t('exportCompanies')}}</div>
+                            <div class="text-grey-8" v-html="$t('exportCompaniesInfo')"></div>
+                            <q-item>
+                                <q-btn 
+                                :label="$t('export')"
+                                color="secondary"
+                                flat
+                                class="bg-secondary text-white"
+                                @click="getCompanies"
+                                />
+                            </q-item>
+                        </div>
+                    </q-card-section>
+                    <q-card-section class="row">
+                        <div class="col-md-6 col-12" >
+                            <div class="text-bold">{{$t('deleteAllCompanies')}}</div>
+                            <div class="text-grey-8" v-html="$t('deleteAllCompaniesInfo')"></div>
+                            <q-item>
+                                <q-btn 
+                                :label="$t('btn.deleteAll')"
+                                flat
+                                class="bg-negative text-white"
+                                @click="deleteAllCompanies"
+                                />
+                            </q-item>
+                        </div>
+                    </q-card-section>
+                </q-card>
+                <q-card class="mt-4">
                     <q-card-section>
-                        <q-btn 
-                        :label="$t('btn.deleteAll')"
-                        flat
-                        class="bg-negative text-white"
-                        @click="deleteAllVulnerabilities"
-                        />
+                        <div class="text-grey-8">{{$t('clients')}}</div>
                     </q-card-section>
-                </div>
-        </q-card>
-    </div>
-
-    <div class="col-md-10 col-12 offset-md-1 q-mt-md">
-        <q-card>
-            <q-card-section class="q-py-xs bg-blue-grey-5 text-white">
-                <div class="text-h6">{{$t('nav.audits')}}</div>
-            </q-card-section>
-            <q-separator />
-            <q-card-section>
-                TODO
-            </q-card-section>
-        </q-card>
+                    <q-card-section class="row">
+                        <div class="col-md-6 col-12" >
+                            <div class="text-bold">{{$t('importClients')}}</div>
+                            <div class="text-grey-8" v-html="$t('importClientsInfo')"></div>
+                            <q-item>
+                                <input
+                                ref="importClients"
+                                value=""
+                                type="file"
+                                multiple
+                                accept=".yml, .json"
+                                class="hidden"
+                                @change="importClients($event.target.files)"
+                                />
+                                <q-btn 
+                                :label="$t('import')"
+                                color="secondary"
+                                flat
+                                class="bg-secondary text-white"
+                                @click="$refs.importClients.click()"
+                                />
+                            </q-item>
+                        </div>
+                        <div class="col-md-6 col-12" >
+                            <div class="text-bold">{{$t('exportClients')}}</div>
+                            <div class="text-grey-8" v-html="$t('exportClientsInfo')"></div>
+                            <q-item>
+                                <q-btn 
+                                :label="$t('export')"
+                                color="secondary"
+                                flat
+                                class="bg-secondary text-white"
+                                @click="getClients"
+                                />
+                            </q-item>
+                        </div>
+                    </q-card-section>
+                    <q-card-section class="row">
+                        <div class="col-md-6 col-12" >
+                            <div class="text-bold">{{$t('deleteAllClients')}}</div>
+                            <div class="text-grey-8" v-html="$t('deleteAllClientsInfo')"></div>
+                            <q-item>
+                                <q-btn 
+                                :label="$t('btn.deleteAll')"
+                                flat
+                                class="bg-negative text-white"
+                                @click="deleteAllClients"
+                                />
+                            </q-item>
+                        </div>
+                    </q-card-section>
+                </q-card>
+            </q-tab-panel>
+            <q-tab-panel name="collaborators">
+                <q-card>
+                    <q-card-section>
+                        <div class="text-grey-8">{{$t('collaborators')}}</div>
+                    </q-card-section>
+                    <q-card-section class="row">
+                        <div class="col-md-6 col-12" >
+                            <div class="text-bold">{{$t('importCollaborators')}}</div>
+                            <div class="text-grey-8" v-html="$t('importCollaboratorsInfo')"></div>
+                            <q-item>
+                                <input
+                                ref="importCollaborators"
+                                value=""
+                                type="file"
+                                multiple
+                                accept=".yml, .json"
+                                class="hidden"
+                                @change="importCollaborators($event.target.files)"
+                                />
+                                <q-btn 
+                                :label="$t('import')"
+                                color="secondary"
+                                flat
+                                class="bg-secondary text-white"
+                                @click="$refs.importCollaborators.click()"
+                                />
+                            </q-item>
+                        </div>
+                        <div class="col-md-6 col-12" >
+                            <div class="text-bold">{{$t('exportCollaborators')}}</div>
+                            <div class="text-grey-8" v-html="$t('exportCollaboratorsInfo')"></div>
+                            <q-item>
+                                <q-btn 
+                                :label="$t('export')"
+                                color="secondary"
+                                flat
+                                class="bg-secondary text-white"
+                                @click="getCollaborators"
+                                />
+                            </q-item>
+                        </div>
+                    </q-card-section>
+                    <!--<q-card-section class="row">
+                        <div class="col-md-6 col-12" >
+                            <div class="text-bold">{{$t('deleteAllCollaborators')}}</div>
+                            <div class="text-grey-8" v-html="$t('deleteAllCollaboratorsInfo')"></div>
+                            <q-item>
+                                <q-btn 
+                                :label="$t('btn.deleteAll')"
+                                flat
+                                class="bg-negative text-white"
+                                @click="deleteAllCollaborators"
+                                />
+                            </q-item>
+                        </div>
+                    </q-card-section>-->
+                </q-card>
+            </q-tab-panel>
+        </q-tab-panels>
     </div>
 </div>
-
-
-</div>
-        

@@ -12,30 +12,46 @@ module.exports = function(app) {
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
     });
+    
+    // Get clients for export
+    app.get("/api/clients/export", acl.hasPermission('clients:read'), function(req, res) {
+        // #swagger.tags = ['Client']
 
-    // Create client
+        Client.export()
+        .then(msg => Response.Ok(res, msg))
+        .catch(err => Response.Internal(res, err))
+    });
+
+    // Create clients (array of clients)
     app.post("/api/clients", acl.hasPermission('clients:create'), function(req, res) {
         // #swagger.tags = ['Client']
 
-        if (!req.body.email) {
-            Response.BadParameters(res, 'Required parameters: email');
-            return;
+
+        var clients = [];
+        for (var i=0; i< req.body.length;i++) {
+            var bcli = req.body[i]
+
+            if (!bcli.email) {
+                Response.BadParameters(res, 'Required parameters: email');
+                return;
+            }
+
+            var client = {};
+            // Required parameters
+            client.email = bcli.email;
+
+            // Optional parameters
+            if (bcli.lastname) client.lastname = bcli.lastname;
+            if (bcli.firstname) client.firstname = bcli.firstname;
+            if (bcli.phone) client.phone = bcli.phone;
+            if (bcli.cell) client.cell = bcli.cell;
+            if (bcli.title) client.title = bcli.title;
+            var company = null;
+            if (bcli.company && bcli.company.name) company = bcli.company.name;
+
+            clients.push([client, company]);
         }
-
-        var client = {};
-        // Required parameters
-        client.email = req.body.email;
-
-        // Optional parameters
-        if (req.body.lastname) client.lastname = req.body.lastname;
-        if (req.body.firstname) client.firstname = req.body.firstname;
-        if (req.body.phone) client.phone = req.body.phone;
-        if (req.body.cell) client.cell = req.body.cell;
-        if (req.body.title) client.title = req.body.title;
-        var company = null;
-        if (req.body.company && req.body.company.name) company = req.body.company.name;
-
-        Client.create(client, company)
+        Client.create(clients)
         .then(msg => Response.Created(res, msg))
         .catch(err => Response.Internal(res, err))
     });
@@ -66,6 +82,15 @@ module.exports = function(app) {
 
         Client.delete(req.params.id)
         .then(msg => Response.Ok(res, 'Client deleted successfully'))
+        .catch(err => Response.Internal(res, err))
+    });
+
+    // Delete all clients
+    app.delete("/api/clients", acl.hasPermission('clients:delete'), function(req, res) {
+        // #swagger.tags = ['Client']
+
+        Client.deleteAll()
+        .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
     });
 }

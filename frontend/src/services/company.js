@@ -5,7 +5,11 @@ export default {
     return Vue.prototype.$axios.get(`companies`)
   },
 
-  createCompany: function(company) {
+  exportCompanies: function() {
+    return Vue.prototype.$axios.get(`companies/export`)
+  },
+
+  createCompanies: function(company) {
     return Vue.prototype.$axios.post('companies', company)
   },
 
@@ -15,5 +19,9 @@ export default {
 
   deleteCompany: function(companyId) {
     return Vue.prototype.$axios.delete(`companies/${companyId}`)
+  },
+
+  deleteAllCompanies: function() {
+    return Vue.prototype.$axios.delete(`companies`)
   }
 }

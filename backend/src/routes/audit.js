@@ -46,6 +46,19 @@ module.exports = function(app, io) {
         .catch(err => Response.Internal(res, err))
     });
 
+
+    
+    // Get clients for export
+    /*
+    app.get("/api/audits/export", acl.hasPermission('audits:read-all'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
+        Audit.export()
+        .then(msg => Response.Ok(res, msg))
+        .catch(err => Response.Internal(res, err))
+    });
+    */
+
     // Create audit with name, auditType, language provided
     app.post("/api/audits", acl.hasPermission('audits:create'), function(req, res) {
         // #swagger.tags = ['Audit']

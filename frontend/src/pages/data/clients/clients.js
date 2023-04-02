@@ -86,7 +86,7 @@ export default {
             if (this.errors.lastname || this.errors.firstname || this.errors.email)
                 return;
 
-            ClientService.createClient(this.currentClient)
+            ClientService.createClients([this.currentClient])
             .then(() => {
                 this.getClients();
                 this.$refs.createModal.hide();
