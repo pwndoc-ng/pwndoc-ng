@@ -72,4 +72,13 @@ module.exports = function(app) {
         .then(msg => Response.Ok(res, 'Company deleted successfully'))
         .catch(err => Response.Internal(res, err))
     });
+
+    // Delete companies
+    app.delete("/api/companies", acl.hasPermission('companies:delete'), function(req, res) {
+        // #swagger.tags = ['Company']
+
+        Company.deleteAll()
+        .then(msg => Response.Ok(res, msg))
+        .catch(err => Response.Internal(res, err))
+    });
 }

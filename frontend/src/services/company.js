@@ -19,5 +19,9 @@ export default {
 
   deleteCompany: function(companyId) {
     return Vue.prototype.$axios.delete(`companies/${companyId}`)
+  },
+
+  deleteAllCompanies: function() {
+    return Vue.prototype.$axios.delete(`companies`)
   }
 }

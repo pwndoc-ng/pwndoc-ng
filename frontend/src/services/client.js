@@ -19,5 +19,9 @@ export default {
 
   deleteClient: function(clientId) {
     return Vue.prototype.$axios.delete(`clients/${clientId}`)
+  },
+
+  deleteAllClients: function() {
+    return Vue.prototype.$axios.delete(`clients`)
   }
 }

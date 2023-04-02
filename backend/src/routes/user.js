@@ -354,5 +354,10 @@ module.exports = function(app) {
         })
         .catch(err => Response.Internal(res, err))
     });
+    app.delete("/api/users", acl.hasPermission('users:delete'), function(req, res) {
+        User.deleteAll()
+        .then(msg => Response.Ok(res, msg))
+        .catch(err => Response.Internal(res, err))
+    });
      */
 }

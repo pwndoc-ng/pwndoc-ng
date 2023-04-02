@@ -85,6 +85,20 @@ CompanySchema.statics.update = (companyId, company) => {
     });
 }
 
+// Delete all clients
+CompanySchema.statics.deleteAll = () => {
+    return new Promise((resolve, reject) => {
+        var query = Company.deleteMany();
+        query.exec()
+        .then(() => {
+            resolve('All companies deleted successfully');
+        })
+        .catch((err) => {
+            reject(err);
+        })
+    });
+}
+
 // Delete company
 CompanySchema.statics.delete = (companyId) => {
     return new Promise((resolve, reject) => {

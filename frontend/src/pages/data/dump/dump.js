@@ -384,6 +384,34 @@ export default {
             
         },
 
+        deleteAllCompanies: function() {
+            Dialog.create({
+                title: $t('msg.confirmSuppression'),
+                message: $t('msg.allCompaniesDeleteNotice'),
+                ok: {label: $t('btn.confirm'), color: 'negative'},
+                cancel: {label: $t('btn.cancel'), color: 'white'}
+            })
+            .onOk(() => {
+                CompanyService.deleteAllCompanies()
+                .then(() => {
+                    Notify.create({
+                        message: $t('msg.allCompaniesDeleteOk'),
+                        color: 'positive',
+                        textColor:'white',
+                        position: 'top-right'
+                    })
+                })
+                .catch((err) => {
+                    Notify.create({
+                        message: err.response.data.datas,
+                        color: 'negative',
+                        textColor: 'white',
+                        position: 'top-right'
+                    })
+                })
+            })
+        },
+
         // Clients
 
         getClients: function() {
@@ -495,6 +523,34 @@ export default {
             a.click();
             URL.revokeObjectURL(url);
             document.body.removeChild(a);
+        },
+
+        deleteAllClients: function() {
+            Dialog.create({
+                title: $t('msg.confirmSuppression'),
+                message: $t('msg.allClientsDeleteNotice'),
+                ok: {label: $t('btn.confirm'), color: 'negative'},
+                cancel: {label: $t('btn.cancel'), color: 'white'}
+            })
+            .onOk(() => {
+                ClientService.deleteAllClients()
+                .then(() => {
+                    Notify.create({
+                        message: $t('msg.allClientsDeleteOk'),
+                        color: 'positive',
+                        textColor:'white',
+                        position: 'top-right'
+                    })
+                })
+                .catch((err) => {
+                    Notify.create({
+                        message: err.response.data.datas,
+                        color: 'negative',
+                        textColor: 'white',
+                        position: 'top-right'
+                    })
+                })
+            })
         },
 
         // Users
@@ -609,6 +665,35 @@ export default {
             a.click();
             URL.revokeObjectURL(url);
             document.body.removeChild(a);
+        },
+
+        deleteAllUsers: function() {
+            Dialog.create({
+                title: $t('msg.confirmSuppression'),
+                message: $t('msg.allCollabDeleteNotice'),
+                ok: {label: $t('btn.confirm'), color: 'negative'},
+                cancel: {label: $t('btn.cancel'), color: 'white'}
+            })
+            .onOk(() => {
+                CollabService.deleteAllCollab()
+                .then(() => {
+                    Notify.create({
+                        message: $t('msg.allCollabDeleteOk'),
+                        color: 'positive',
+                        textColor:'white',
+                        position: 'top-right'
+                    })
+                })
+                .catch((err) => {
+                    Notify.create({
+                        message: err.response.data.datas,
+                        color: 'negative',
+                        textColor: 'white',
+                        position: 'top-right'
+                    })
+                })
+            })
         }
+        
     }
 }

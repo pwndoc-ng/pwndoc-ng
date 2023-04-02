@@ -15,5 +15,9 @@ export default {
 
   deleteCollab: function(collabId) {
     return Vue.prototype.$axios.delete(`users/${collabId}`)
+  },
+
+  deleteAllCollab: function() {
+    return Vue.prototype.$axios.delete(`users`)
   }
 }

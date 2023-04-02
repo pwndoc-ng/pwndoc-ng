@@ -84,4 +84,13 @@ module.exports = function(app) {
         .then(msg => Response.Ok(res, 'Client deleted successfully'))
         .catch(err => Response.Internal(res, err))
     });
+
+    // Delete all clients
+    app.delete("/api/clients", acl.hasPermission('clients:delete'), function(req, res) {
+        // #swagger.tags = ['Client']
+
+        Client.deleteAll()
+        .then(msg => Response.Ok(res, msg))
+        .catch(err => Response.Internal(res, err))
+    });
 }
