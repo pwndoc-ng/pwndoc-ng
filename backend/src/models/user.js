@@ -67,8 +67,15 @@ UserSchema.statics.create = function (users) {
     return new Promise(async(resolve, reject) => {
         hashed_users = []
         for (var i=0; i< users.length; i++) {
-            hash = bcrypt.hashSync(users[i].password, 10);
-            users[i].password = hash;
+            pwd = users[i].password
+            // Only hash password when it's not already hashed.
+            // Usefull to import users with hashed password (yml file).
+            if (pwd.length == 60 && pwd.startsWith("$2b$10$")) {
+                users[i].password = pwd;
+            } else {
+                hash = bcrypt.hashSync(pwd, 10);
+                users[i].password = hash;
+            }
         }
         
         User.insertMany(users, {ordered: false})
