@@ -50,7 +50,8 @@ ClientSchema.statics.export = () => {
 // Create client
 ClientSchema.statics.create = (clients) => {
     return new Promise(async(resolve, reject) => {
-        clients_with_company = []
+        var clients_with_company = []
+        var company;
         for (var i=0; i< clients.length; i++) {
             company = clients[i][1]
             if (company) {

@@ -255,7 +255,7 @@ module.exports = function(app) {
         User.getAll()
         .then(users => {
             if (users.length === 0)
-                User.create(user)
+                User.create([user])
                 .then(msg => {
                     var newUser = new User();
                     //Required params

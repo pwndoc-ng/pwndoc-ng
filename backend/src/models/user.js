@@ -65,16 +65,13 @@ var checkTotpToken = function(token, secret) {
 // Create user
 UserSchema.statics.create = function (users) {
     return new Promise(async(resolve, reject) => {
-        hashed_users = []
         for (var i=0; i< users.length; i++) {
-            pwd = users[i].password
             // Only hash password when it's not already hashed.
             // Usefull to import users with hashed password (yml file).
-            if (pwd.length == 60 && pwd.startsWith("$2b$10$")) {
-                users[i].password = pwd;
+            if (users[i].password.length == 60 && users[i].password.startsWith("$2b$10$")) {
+                continue;
             } else {
-                hash = bcrypt.hashSync(pwd, 10);
-                users[i].password = hash;
+                users[i].password = bcrypt.hashSync(users[i].password, 10);
             }
         }
         
