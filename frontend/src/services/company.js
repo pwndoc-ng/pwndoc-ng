@@ -9,7 +9,7 @@ export default {
     return Vue.prototype.$axios.get(`companies/export`)
   },
 
-  createCompany: function(company) {
+  createCompanies: function(company) {
     return Vue.prototype.$axios.post('companies', company)
   },
 

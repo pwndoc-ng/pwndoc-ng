@@ -10,8 +10,9 @@ import YAML from 'js-yaml'
 
 import VulnerabilityService from '@/services/vulnerability'
 import CompanyService from '@/services/company'
-import ClientService from '@/services/company'
+import ClientService from '@/services/client'
 import UserService from '@/services/user'
+import CollabService from '@/services/collaborator';
 import TemplateService from '@/services/template'
 
 import { $t } from '@/boot/i18n'
@@ -288,6 +289,87 @@ export default {
             })
         },
 
+        createCompanies: function() {
+            CompanyService.createCompanies(this.companies)
+            .then((data) => {
+                var message = "";
+                var color = "positive";
+                if (data.data.datas.duplicates === 0) {
+                    message = $t('importCompaniesOk',[data.data.datas.created]);
+                }
+                else if (data.data.datas.created === 0 && data.data.datas.duplicates > 0) {
+                    message = $t('importCompaniesAllExists',[data.data.datas.duplicates.length]);
+                    color = "negative";
+                }
+                else {
+                    message = $t('importCompaniesPartial',[data.data.datas.created,data.data.datas.duplicates.length]);
+                    color = "orange";
+                }
+                Notify.create({
+                    message: message,
+                    html: true,
+                    closeBtn: 'x',
+                    color: color,
+                    textColor:'white',
+                    position: 'top-right'
+                })
+            })
+            .catch((err) => {
+                Notify.create({
+                    message: err.response.data.datas,
+                    color: 'negative',
+                    textColor: 'white',
+                    position: 'top-right'
+                })
+            })
+        },
+
+        importCompanies: function(files) {
+            this.companies = [];
+            var pending = 0;
+            for (var i=0; i<files.length; i++) {
+                ((file) => {
+                    var fileReader = new FileReader();
+                    fileReader.onloadend = (e) => {
+                        var compFile;
+                        var ext = file.name.split('.').pop();
+                        if (ext === "yml") {
+                            try {
+                                compFile = YAML.safeLoad(fileReader.result);
+                                if (typeof compFile === 'object') {
+                                    if (Array.isArray(compFile)) {
+                                        this.companies = compFile;
+                                    }
+                                    else
+                                        this.companies.push(compFile);
+                                }
+                                else
+                                    throw new Error ($t('invalidYamlFormat'))
+                            }
+                            catch(err) {
+                                console.log(err);
+                                var errMsg = err;
+                                if (err.mark) errMsg = $t('err.parsingError2',[err.mark.line,err.mark.column]);                              
+                                Notify.create({
+                                    message: errMsg,
+                                    color: 'negative',
+                                    textColor: 'white',
+                                    position: 'top-right'
+                                })
+                                return;
+                            }
+                        }
+                        else
+                            console.log('Bad Extension')
+                        pending--;
+                        if (pending === 0) this.createCompanies();
+                    }
+                    pending++;
+                    fileReader.readAsText(file);
+                })(files[i])
+            }
+        },
+
         downloadCompanies: function() {
             var data = YAML.safeDump(this.companies);
             var blob = new Blob([data], {type: 'application/yaml'});
@@ -321,6 +403,87 @@ export default {
             })
         },
 
+        createClients: function() {
+            ClientService.createClients(this.clients)
+            .then((data) => {
+                var message = "";
+                var color = "positive";
+                if (data.data.datas.duplicates === 0) {
+                    message = $t('importClientsOk',[data.data.datas.created]);
+                }
+                else if (data.data.datas.created === 0 && data.data.datas.duplicates > 0) {
+                    message = $t('importClientsAllExists',[data.data.datas.duplicates.length]);
+                    color = "negative";
+                }
+                else {
+                    message = $t('importClientsPartial',[data.data.datas.created,data.data.datas.duplicates.length]);
+                    color = "orange";
+                }
+                Notify.create({
+                    message: message,
+                    html: true,
+                    closeBtn: 'x',
+                    color: color,
+                    textColor:'white',
+                    position: 'top-right'
+                })
+            })
+            .catch((err) => {
+                Notify.create({
+                    message: err.response.data.datas,
+                    color: 'negative',
+                    textColor: 'white',
+                    position: 'top-right'
+                })
+            })
+        },
+
+        importClients: function(files) {
+            this.clients = [];
+            var pending = 0;
+            for (var i=0; i<files.length; i++) {
+                ((file) => {
+                    var fileReader = new FileReader();
+                    fileReader.onloadend = (e) => {
+                        var cltsFile;
+                        var ext = file.name.split('.').pop();
+                        if (ext === "yml") {
+                            try {
+                                cltsFile = YAML.safeLoad(fileReader.result);
+                                if (typeof cltsFile === 'object') {
+                                    if (Array.isArray(cltsFile)) {
+                                        this.clients = cltsFile;
+                                    }
+                                    else
+                                        this.clients.push(cltsFile);
+                                }
+                                else
+                                    throw new Error ($t('invalidYamlFormat'))
+                            }
+                            catch(err) {
+                                console.log(err);
+                                var errMsg = err;
+                                if (err.mark) errMsg = $t('err.parsingError2',[err.mark.line,err.mark.column]);                              
+                                Notify.create({
+                                    message: errMsg,
+                                    color: 'negative',
+                                    textColor: 'white',
+                                    position: 'top-right'
+                                })
+                                return;
+                            }
+                        }
+                        else
+                            console.log('Bad Extension')
+                        pending--;
+                        if (pending === 0) this.createClients();
+                    }
+                    pending++;
+                    fileReader.readAsText(file);
+                })(files[i])
+            }
+        },
+
         downloadClients: function() {
             var data = YAML.safeDump(this.clients);
             var blob = new Blob([data], {type: 'application/yaml'});
@@ -351,6 +514,88 @@ export default {
                     position: 'top-right'
                 })
             })
+        },
+
+
+        createCollab: function() {
+            CollabService.createCollab(this.users)
+            .then((data) => {
+                var message = "";
+                var color = "positive";
+                if (data.data.datas.duplicates === 0) {
+                    message = $t('importCollaboratorsOk',[data.data.datas.created]);
+                }
+                else if (data.data.datas.created === 0 && data.data.datas.duplicates > 0) {
+                    message = $t('importCollaboratorsAllExists',[data.data.datas.duplicates.length]);
+                    color = "negative";
+                }
+                else {
+                    message = $t('importCollaboratorsPartial',[data.data.datas.created,data.data.datas.duplicates.length]);
+                    color = "orange";
+                }
+                Notify.create({
+                    message: message,
+                    html: true,
+                    closeBtn: 'x',
+                    color: color,
+                    textColor:'white',
+                    position: 'top-right'
+                })
+            })
+            .catch((err) => {
+                Notify.create({
+                    message: err.response.data.datas,
+                    color: 'negative',
+                    textColor: 'white',
+                    position: 'top-right'
+                })
+            })
+        },
+
+        importCollaborators: function(files) {
+            this.users = [];
+            var pending = 0;
+            for (var i=0; i<files.length; i++) {
+                ((file) => {
+                    var fileReader = new FileReader();
+                    fileReader.onloadend = (e) => {
+                        var cltsFile;
+                        var ext = file.name.split('.').pop();
+                        if (ext === "yml") {
+                            try {
+                                cltsFile = YAML.safeLoad(fileReader.result);
+                                if (typeof cltsFile === 'object') {
+                                    if (Array.isArray(cltsFile)) {
+                                        this.users = cltsFile;
+                                    }
+                                    else
+                                        this.users.push(cltsFile);
+                                }
+                                else
+                                    throw new Error ($t('invalidYamlFormat'))
+                            }
+                            catch(err) {
+                                console.log(err);
+                                var errMsg = err;
+                                if (err.mark) errMsg = $t('err.parsingError2',[err.mark.line,err.mark.column]);                              
+                                Notify.create({
+                                    message: errMsg,
+                                    color: 'negative',
+                                    textColor: 'white',
+                                    position: 'top-right'
+                                })
+                                return;
+                            }
+                        }
+                        else
+                            console.log('Bad Extension')
+                        pending--;
+                        if (pending === 0) this.createCollab();
+                    }
+                    pending++;
+                    fileReader.readAsText(file);
+                })(files[i])
+            }
         },
 
         downloadUsers: function() {

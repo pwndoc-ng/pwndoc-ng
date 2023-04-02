@@ -407,7 +407,7 @@ export default {
     deleteAllVulnerabilitiesInfo: `Delete all existing vulnerabilities.<br />
     <strong>This action is definitive!!</strong>`,
     importCompanies: 'Import Companies',
-    importCompaniesInfo: `Import Companies from a .yml or .json file. (Serpico format accepted)<br />
+    importCompaniesInfo: `Import Companies from a .yml or .json file.<br />
     This allows you to easily import a batch of companies templates.`,
     importCompaniesOk: 'All <strong>{0}</strong> companies created',
     importCompaniesAllExists: 'All <strong>{0}</strong> companies names already exist',
@@ -418,7 +418,7 @@ export default {
     deleteAllCompaniesInfo: `Delete all existing companies.<br />
     <strong>This action is definitive!!</strong>`,
     importClients: 'Import Clients',
-    importClientsInfo: `Import Clients from a .yml or .json file. (Serpico format accepted)<br />
+    importClientsInfo: `Import Clients from a .yml or .json file.<br />
     This allows you to easily import a batch of clients templates.`,
     importClientsOk: 'All <strong>{0}</strong> clients created',
     importClientsAllExists: 'All <strong>{0}</strong> clients names already exist',
@@ -429,7 +429,7 @@ export default {
     deleteAllClientsInfo: `Delete all existing clients.<br />
     <strong>This action is definitive!!</strong>`,
     importCollaborators: 'Import Collaborators',
-    importCollaboratorsInfo: `Import Collaborators from a .yml or .json file. (Serpico format accepted)<br />
+    importCollaboratorsInfo: `Import Collaborators from a .yml or .json file.<br />
     This allows you to easily import a batch of collaborators templates.`,
     importCollaboratorsOk: 'All <strong>{0}</strong> collaborators created',
     importCollaboratorsAllExists: 'All <strong>{0}</strong> collaborators names already exist',

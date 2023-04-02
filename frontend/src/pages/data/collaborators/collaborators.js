@@ -92,7 +92,7 @@ export default {
             if (this.errors.lastname || this.errors.firstname || this.errors.username || this.errors.password || !this.$refs.pwdCreateRef.validate())
                 return;
 
-            CollabService.createCollab(this.currentCollab)
+            CollabService.createCollab([this.currentCollab])
             .then(() => {
                 this.getCollabs();
                 this.$refs.createModal.hide();

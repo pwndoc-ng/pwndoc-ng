@@ -9,7 +9,7 @@ export default {
     return Vue.prototype.$axios.get(`clients/export`)
   },
 
-  createClient: function(client) {
+  createClients: function(client) {
     return Vue.prototype.$axios.post('clients', client)
   },
 
