@@ -12,7 +12,7 @@
     "swagger-autogen": "node ./swagger.js"
   },
   "devDependencies": {
-    "@babel/core": "^7.10.2",
+    "@babel/core": "^7.21.4",
     "@babel/preset-env": "^7.10.2",
     "jest": "^26.0.1",
     "nodemon": "^2.0.22",
