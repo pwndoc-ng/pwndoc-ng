@@ -118,7 +118,7 @@ export default {
     err: {
         notDefinedLanguage: 'Für diese Sprache nicht definiert',
         invalidYamlFormat: 'Ungültiges YAML-Format erkannt',
-        parsingError1: 'Parsingfehler: {0}',
+        parsingError1: 'Parsingfehler: {0}',
         parsingError2: 'Parsingfehler: Zeile {0}, Spalte: {1}',
         invalidJsonFormat: 'Ungültiges JSON-Format erkannt',
         jsonMustBeAnObject: 'JSON muss ein Objekt sein.',
@@ -313,7 +313,7 @@ export default {
     resultsPerPage: 'Ergebnisse pro Seite:',
     createAudit: 'Audit erstellen',
     name: 'Name',
-		shortName: 'Kurzname',
+    shortName: 'Kurzname',
     selectAssessment: 'Testtyp auswählen',
     selectLanguage: 'Sprache auswählen',
     participants: 'Teilnehmer',
@@ -541,6 +541,6 @@ export default {
     // Remediation
     remediationColorsComplexity: 'Sanierungskomplexitätsfarben',
     changeRemediationColorsDescriptionComplexity: 'Ändern Sie die im Bericht verwendeten Farben, um die unterschiedlichen Komplexitäten der Sanierung darzustellen',
-    changeRemediationColorsDescriptionPriority: 'Ändern Sie die im Bericht verwendeten Farben, um unterschiedliche Behebungsprioritäten darzustellen'
+    changeRemediationColorsDescriptionPriority: 'Ändern Sie die im Bericht verwendeten Farben, um unterschiedliche Behebungsprioritäten darzustellen',
     remediationColorsPriority: 'Farben für die Priorität der Behebung',
-  }
+}
