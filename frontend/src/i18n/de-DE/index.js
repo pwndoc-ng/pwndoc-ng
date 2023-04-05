@@ -26,6 +26,10 @@ export default {
         valid: 'Geprüft',
         new: 'Neu',
         updates: 'Aktualisierungen',
+        accountsEnabled: 'Aktivierte Benutzer',
+        accountsDisabled: 'Deaktivierte Benutzer',
+        accountEnabled: 'Benutzer aktiviert',
+        accountDisabled: 'Benutzer deaktiviert'
     },
     tooltip: {
         usersConnected: 'Benutzer im Audit:',
@@ -74,6 +78,7 @@ export default {
         passwordRequired: 'Passwort benötigt',
         currentPasswordRequired: 'Aktuelles Passwort benötigt',
         confirmPasswordDifferents: 'Neues Passwort und Passwort bestätigen sind unterschiedlich',
+        passwordComplexity: 'Passwort muss mindestens 8 Zeichen lang sein mit mindestens einem Großbuchstaben, einem Kleinbuchstaben und einer Nummer',
         collaboratorCreatedOk: 'Mitarbeiter erfolgreich erstellt',
         collaboratorUpdatedOk: 'Mitarbeiter erfolgreich aktualisiert',
         collaboratorDeletedOk: 'Mitarbeiter erfolgreich gelöscht',
@@ -87,6 +92,12 @@ export default {
         templateUpdatedOk: 'Vorlage erfolgreich aktualisiert',
         allVulnerabilitesDeleteNotice: 'Alle Schwachstellen werden endgültig gelöscht',
         allVulnerabilitesDeleteOk: 'Alle Schwachstellen wurden erfolgreich gelöscht',
+        allCompaniesDeleteNotice: 'Alle Unternehmen werden permanent gelöscht',
+        allCompaniesDeleteOk: 'Alle Unternehmen erfolgreich gelöscht',
+        allClientsDeleteNotice: 'Alle Kunden werden permanent gelöscht',
+        allClientsDeleteOk: 'Alle Kunden wurden erfolgreich gelöscht',
+        allUsersDeleteNotice: 'Alle Benutzer werden permanent gelöscht',
+        allUsersDeleteOk: 'Alle Benutzer wurden erfolgreich gelöscht',
         profileUpdateOk: 'Profil erfolgreich aktualisiert',
         settingsUpdatedOk: 'Einstellungen erfolgreich aktualisiert',
         revertingSettings: 'Einstellungen zurücksetzen !',
@@ -302,6 +313,7 @@ export default {
     resultsPerPage: 'Ergebnisse pro Seite:',
     createAudit: 'Audit erstellen',
     name: 'Name',
+		shortName: 'Kurzname',
     selectAssessment: 'Testtyp auswählen',
     selectLanguage: 'Sprache auswählen',
     participants: 'Teilnehmer',
@@ -400,6 +412,39 @@ export default {
     deleteAllVulnerabilities: 'Alle Schwachstellen löschen',
     deleteAllVulnerabilitiesInfo: `Löscht alle existierende Schwachstellen.<br />
     <strong>Diese Aktion ist unwiderruflich!!</strong>`,
+    importCompanies: 'Importiere Unternehmen',
+    importCompaniesInfo: `Importiere Unternehmen aus einer .yml Datei.<br />
+    Damit können Sie eine Liste an Unternehmensdaten auf einmal importieren.`,
+    importCompaniesOk: 'Alle <strong>{0}</strong> Unternehmen angelegt',
+    importCompaniesAllExists: 'Alle <strong>{0}</strong> Unternehmensnamen existieren bereits',
+    importCompaniesPartial: '<strong>{0}</strong> Unternehmen angelegt<br /><strong>{1}</strong> Unternehmennamen haben bereits existiert',
+    exportCompanies: 'Exportiere Unternehmen',
+    exportCompaniesInfo: `Exportiere Unternehmen im yaml-Format. Dieser Export kann später wieder importiert werden`,
+    deleteAllCompanies: 'Lösche alle Unternehmen',
+    deleteAllCompaniesInfo: `Lösche alle existierenden Unternehmen.<br />
+    <strong>Diese Entscheidung ist endgültig!!</strong>`,
+    importClients: 'Importiere Kunden',
+    importClientsInfo: `Importiere Kunden aus einer .yml Datei.<br />
+    Damit können Sie eine Liste an Kundendaten auf einmal importieren.`,
+    importClientsOk: 'Alle <strong>{0}</strong> Kunden importiert',
+    importClientsAllExists: 'Alle <strong>{0}</strong> Kundennamen existieren bereits',
+    importClientsPartial: '<strong>{0}</strong> Kunden angelegt<br /><strong>{1}</strong> Kundennamen existieren bereits',
+    exportClients: 'Exportiere Kunden',
+    exportClientsInfo: `Exportiere Kunden im yaml-Format. Dieser Export kann später wieder importiert werden`,
+    deleteAllClients: 'Lösche alle Kunden',
+    deleteAllClientsInfo: `Lösche alle existierenden Kunden.<br />
+    <strong>Diese Entscheidung ist endgültig!!</strong>`,
+    importCollaborators: 'Importiere Mitarbeiter',
+    importCollaboratorsInfo: `Importiere Mitarbeiter aus einer .yml Datei.<br />
+    Damit können Sie eine Liste an Miratbeiterdaten auf einmal importieren.`,
+    importCollaboratorsOk: 'Alle <strong>{0}</strong> Mitarbeiter wurden angelegt',
+    importCollaboratorsAllExists: 'Alle <strong>{0}</strong> Mitarbeiternamen existieren bereits',
+    importCollaboratorsPartial: '<strong>{0}</strong> Mitarbeiter angelegt<br /><strong>{1}</strong> Mitarbeiternamen existieren bereits',
+    exportCollaborators: 'Exportiere Mitarbeiter',
+    exportCollaboratorsInfo: `Exportiere Mitarbeiter im yaml-Format. Dieser Export kann später wieder importiert werden`,
+    deleteAllCollaborators: 'Lösche alle Mitarbeiter',
+    deleteAllCollaboratorsInfo: `Lösche alle existierenden Mitarbeiter.<br />
+    <strong>Diese Entscheidung ist endgültig!!</strong>`,
     customSections: 'Eigene Abschnitte',
     listOfLanguages: 'Liste der Sprachen',
     editLanguages: 'Sprache bearbeiten',
@@ -495,7 +540,7 @@ export default {
     captionsDescription: 'Fügt Beschriftungslabel hinzu, welche im Bericht genutzt werden (Standard ist \'Abbildung\')',
     // Remediation
     remediationColorsComplexity: 'Sanierungskomplexitätsfarben',
-    remediationColorsPriority: 'Farben für die Priorität der Behebung',
     changeRemediationColorsDescriptionComplexity: 'Ändern Sie die im Bericht verwendeten Farben, um die unterschiedlichen Komplexitäten der Sanierung darzustellen',
     changeRemediationColorsDescriptionPriority: 'Ändern Sie die im Bericht verwendeten Farben, um unterschiedliche Behebungsprioritäten darzustellen'
+    remediationColorsPriority: 'Farben für die Priorität der Behebung',
   }
