@@ -18,7 +18,7 @@
     "nodemon": "^2.0.22",
     "npm": "^9.6.4",
     "supertest": "^6.3.3",
-    "swagger-autogen": "^2.22.0"
+    "swagger-autogen": "^2.23.1"
   },
   "dependencies": {
     "@hocuspocus/server": "^1.1.2",
