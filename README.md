@@ -9,7 +9,6 @@ The main goal is to have more time to **Pwn** and less time to **Doc** by mutual
 | Template  | Generated document |
 | ------------- | ------------- |
 | ![t1](demos/t1.png)  | ![t2](demos/t2.png)
-  |
 
 
 ## What's New ?
