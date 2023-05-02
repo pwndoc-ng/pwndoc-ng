@@ -5,6 +5,13 @@
 PwnDoc-ng is a pentest reporting application making it simple and easy to write your findings and generate a customizable Docx report. It is based on original fork of [PwnDoc](https://github.com/pwndoc/pwndoc) work by [yeln4ts](https://github.com/yeln4ts).
 The main goal is to have more time to **Pwn** and less time to **Doc** by mutualizing data like vulnerabilities between users.
 
+
+| Template  | Generated document |
+| ------------- | ------------- |
+| ![t1](demos/t1.png)  | ![t2](demos/t2.png)
+  |
+
+
 ## What's New ?
 
 PwnDoc was originaly manage by its creator. After months of absence, an increase of issues and pending pull requests, we decided to open this maintained fork.
