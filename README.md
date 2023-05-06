@@ -6,7 +6,7 @@ PwnDoc-ng is a pentest reporting application making it simple and easy to write 
 The main goal is to have more time to **Pwn** and less time to **Doc** by mutualizing data like vulnerabilities between users.
 
 
-| Template  | Generated document |
+| Example Template  | Generated document |
 | ------------- | ------------- |
 | ![t1](demos/t1.png)  | ![t2](demos/t2.png)
 
