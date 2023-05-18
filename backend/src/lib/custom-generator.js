@@ -151,7 +151,7 @@ expressions.filters.convertDateRU = function(input, s) {
             return days[date.getUTCDay()] + " " + (day<10 ? '0'+day: day) + " " + monthsFull[month] + " " + year;
         }
         if (s === "short") {
-            return (day<10 ? '0'+day: day) + "/" + monthsShort[month] + "/" + year;
+            return (day<10 ? '0'+day: day) + "." + monthsShort[month] + "." + year;
         }
          if (s === "OnlyYear") {
             return year;
