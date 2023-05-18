@@ -31,7 +31,7 @@
     "Reasonable":"Razonable",
     "Confirmed":"Confirmado",
     "from {0} to {1}":"с {0} по {1}",
-    "on {0}":{0},
+    "on {0}":"{0}",
     "":"",
     "":""
 }
