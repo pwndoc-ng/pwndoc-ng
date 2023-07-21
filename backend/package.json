@@ -26,7 +26,7 @@
     "bcrypt": "^5.1.0",
     "body-parser": "^1.20.2",
     "cookie-parser": "^1.4.6",
-    "docx": "^7.0.0",
+    "docx": "^8.2.2",
     "docx-templates": "^4.11.1",
     "docxtemplater": "^3.36.1",
     "docxtemplater-image-module-pwndoc": "github:pwndoc-ng/docxtemplater-image-module-pwndoc",
