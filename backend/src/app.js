@@ -117,7 +117,8 @@ require('./routes/data')(app);
 require('./routes/image')(app);
 require('./routes/settings')(app);
 
-
+const { cronJobs } = require('./lib/cron');
+cronJobs();
 
 var hocus = require('@hocuspocus/server')
 var acl = require('./lib/auth').acl;
@@ -169,7 +170,6 @@ app.get("*", function(req, res) {
 })
 
 // Start server
-
 https.listen(config.port, config.host)
 
 module.exports = app;

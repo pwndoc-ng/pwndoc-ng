@@ -52,7 +52,15 @@ const SettingSchema = new Schema({
         private: {
             removeApprovalsUponUpdate: { type: Boolean, default: false }
         }
-    }
+    },
+    danger: { 
+      enabled: { type: Boolean, default: false },
+      public: {
+        nbdaydelete: { type: Number, default: 1, min: 1, max: 365, validate: [Number.isInteger, 'Invalid integer'] }
+        },
+        private: {
+        }
+     }
 }, {strict: true});
 
 // Get all settings
@@ -69,7 +77,7 @@ SettingSchema.statics.getAll = () => {
 };
 
 // Get public settings
-SettingSchema.statics.getPublic = () => {
+SettingSchema.statics.getPublic = async () => {
     return new Promise((resolve, reject) => {
         const query = Settings.findOne({});
         query.select('-_id report.enabled report.public reviews.enabled reviews.public');
