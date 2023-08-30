@@ -77,7 +77,7 @@ SettingSchema.statics.getAll = () => {
 };
 
 // Get public settings
-SettingSchema.statics.getPublic = async () => {
+SettingSchema.statics.getPublic = () => {
     return new Promise((resolve, reject) => {
         const query = Settings.findOne({});
         query.select('-_id report.enabled report.public reviews.enabled reviews.public');
