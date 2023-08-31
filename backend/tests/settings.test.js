@@ -114,7 +114,6 @@ module.exports = function(request, app) {
           .set('Cookie', [
             `token=JWT ${userToken}`
           ]);
-          console.log(response.body.datas)
           expect(response.status).toBe(200);
           expect(response.body.datas).toEqual(defaultPublicSettings);
       })
