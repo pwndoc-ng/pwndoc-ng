@@ -41,7 +41,13 @@ module.exports = function(request, app) {
             "minReviewers": 1,
           },
         },
-      }
+        "danger": { 
+          "enabled": false,
+          "public": {
+            "nbdaydelete": 1,
+            },
+         },
+      };
 
       const defaultSettings = {
         "report": {
@@ -85,6 +91,12 @@ module.exports = function(request, app) {
             "minReviewers": 1,
           },
         },
+        "danger": { 
+          "enabled": false,
+          "public": {
+            "nbdaydelete": 1,
+            },
+         },
       };
 
       it('Get settings', async () => {
@@ -102,7 +114,6 @@ module.exports = function(request, app) {
           .set('Cookie', [
             `token=JWT ${userToken}`
           ]);
-      
           expect(response.status).toBe(200);
           expect(response.body.datas).toEqual(defaultPublicSettings);
       })
@@ -151,7 +162,14 @@ module.exports = function(request, app) {
               "minReviewers": 2,
             },
           },
+          "danger": { 
+            "enabled": true,
+            "public": {
+              "nbdaydelete": 2,
+            },
+          },
         };
+        
         var response = await request(app).put('/api/settings')
           .set('Cookie', [
             `token=JWT ${userToken}`

@@ -263,7 +263,22 @@ AuditSchema.statics.create = (audit, userId) => {
     })
 }
 
-// Delete audit
+// Delete Outdated audit (Automation setting feature)
+AuditSchema.statics.deleteOutdatedReportAutomation = (days) => {
+    return new Promise((resolve, reject) => {
+        var deleteBefore = new Date(Date.now() -  86400000 * days); // 86400000 = 1 day | test 64000 = 1 min 
+        var query = Audit.deleteMany({createdAt:{"$lte": deleteBefore}})
+        query.exec()               
+        .then((data) => {
+            resolve(data)
+        })
+        .catch((err) => {
+            reject(err)
+        })
+    })
+}
+
+ // Delete audit
 AuditSchema.statics.delete = (isAdmin, auditId, userId) => {
     return new Promise((resolve, reject) => {
         var query = Audit.findOneAndRemove({_id: auditId})
