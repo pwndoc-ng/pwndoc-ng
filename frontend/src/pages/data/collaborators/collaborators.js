@@ -57,7 +57,6 @@ export default {
             idUpdate: '',
             // List of roles
             roles: [],
-            strongPassword: [Utils.strongPassword]
         }
     },
 
@@ -89,8 +88,8 @@ export default {
                 this.errors.firstname = $t('msg.firstnameRequired');
             if (!this.currentCollab.username)
                 this.errors.username = $t('msg.usernameRequired');
-            if (Utils.strongPassword(this.currentCollab.password) !== true)
-                this.errors.password = $t('msg.passwordRequired');
+            if (!Utils.strongPassword(this.currentCollab.password) !== true)
+                this.errors.password = $t('msg.passwordComplexity')
 
             if (this.errors.lastname || this.errors.firstname || this.errors.username || this.errors.password)
                 return;

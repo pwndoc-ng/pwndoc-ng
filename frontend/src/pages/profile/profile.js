@@ -111,12 +111,11 @@ export default {
                 this.errors.lastname = $t('msg.lastnameRequired');
             if (!this.user.currentPassword)
                 this.errors.currentPassword = $t('msg.currentPasswordRequired');
-            if (Utils.strongPassword(this.user.newPassword) !== true)
+            if (!Utils.strongPassword(this.user.newPassword))
                 this.errors.newPassword = $t('msg.passwordComplexity')
             if (this.user.newPassword !== this.user.confirmPassword)
                 this.errors.newPassword = $t('msg.confirmPasswordDifferents');
-            
-            
+        
             if (this.errors.username || this.errors.firstname || this.errors.lastname || this.errors.currentPassword || this.errors.newPassword)
                 return;
 
