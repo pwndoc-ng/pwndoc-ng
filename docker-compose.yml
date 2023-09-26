@@ -13,7 +13,7 @@ services:
     networks:
       - backend
 
-  pwndoc-ng-backend:
+  backend:
     build: ./backend
     image: pwndoc-ng/pwndoc-ng:backend
     container_name: pwndoc-ng-backend
@@ -32,7 +32,7 @@ services:
     networks:
       - backend
 
-  pwndoc-ng-frontend:
+  frontend:
     build: ./frontend
     image: pwndoc-ng/pwndoc-ng:frontend
     container_name: pwndoc-ng-frontend
