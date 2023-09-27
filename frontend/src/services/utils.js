@@ -244,8 +244,8 @@ export default {
   },
 
   strongPassword: function (value) {
-    var regExp = /(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}/;
-    if (regExp.test(value)) return true;
-    return $t("msg.passwordComplexity");
+    const regExp = /(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}/;
+    return regExp.test(value)
   },
+
 };

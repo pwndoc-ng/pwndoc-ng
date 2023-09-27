@@ -80,15 +80,13 @@ export default {
 
         createCollab: function() {
             this.cleanErrors();
-            console.log(`Utils.strongPassword(this.currentCollab.password) = ${Utils.strongPassword(this.currentCollab.password)}`)
-            console.log(`this.currentCollab.password = ${this.currentCollab.password}`)
             if (!this.currentCollab.lastname)
                 this.errors.lastname = $t('msg.lastnameRequired');
             if (!this.currentCollab.firstname)
                 this.errors.firstname = $t('msg.firstnameRequired');
             if (!this.currentCollab.username)
                 this.errors.username = $t('msg.usernameRequired');
-            if (!Utils.strongPassword(this.currentCollab.password) !== true)
+            if (!Utils.strongPassword(this.currentCollab.password))
                 this.errors.password = $t('msg.passwordComplexity')
 
             if (this.errors.lastname || this.errors.firstname || this.errors.username || this.errors.password)
@@ -123,8 +121,10 @@ export default {
                 this.errors.firstname = $t('msg.firstnameRequired');
             if (!this.currentCollab.username)
                 this.errors.username = $t('msg.usernameRequired');
+            if (!Utils.strongPassword(this.currentCollab.password))
+                this.errors.password = $t('msg.passwordComplexity')
 
-            if (this.errors.lastname || this.errors.firstname || this.errors.username || !this.$refs.pwdUpdateRef.validate())
+            if (this.errors.lastname || this.errors.firstname || this.errors.username || this.errors.password)
                 return;
             
             CollabService.updateCollab(this.idUpdate, this.currentCollab)
