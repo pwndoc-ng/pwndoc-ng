@@ -17,7 +17,7 @@
             "server": "mongo-pwndoc-ng",
             "port": "27017"
         },
-        "apidoc": false,
+        "apidoc": false
     },
     "test": {
         "port": 6262,
