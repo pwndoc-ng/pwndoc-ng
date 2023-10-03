@@ -33,10 +33,11 @@ export default {
             editVulnType: false,
 
             vulnCategories: [],
-            newVulnCat: {name: "", sortValue: "cvssScore", sortOrder: "desc", sortAuto: true},
+            newVulnCat: {name: "", sortValue: "cvssScoreAndTitle", sortOrder: "desc", sortAuto: true},
             editCategories: [],
             editCategory: false,
             sortValueOptions: [
+                {label: $t('cvssScoreAndTitle'), value: 'cvssScoreAndTitle'},
                 {label: $t('cvssScore'), value: 'cvssScore'},
                 {label: $t('cvssTemporalScore'), value: 'cvssTemporalScore'},
                 {label: $t('cvssEnvironmentalScore'), value: 'cvssEnvironmentalScore'},
@@ -437,6 +438,7 @@ export default {
 
         getSortOptions: function(category) {
             var options = [
+                {label: $t('cvssScoreAndTitle'), value: 'cvssScoreAndTitle'},
                 {label: $t('cvssScore'), value: 'cvssScore'},
                 {label: $t('cvssTemporalScore'), value: 'cvssTemporalScore'},
                 {label: $t('cvssEnvironmentalScore'), value: 'cvssEnvironmentalScore'},

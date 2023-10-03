@@ -10,6 +10,7 @@ import AuditService from '@/services/audit';
 import DataService from '@/services/data';
 import VulnService from '@/services/vulnerability';
 import Utils from '@/services/utils';
+import ImportAutomatorService from '@/services/import_automator';
 
 import { $t } from '@/boot/i18n'
 
@@ -174,6 +175,7 @@ export default {
                     return
                 }
                 
+                ImportAutomatorService.setFakeCVSS(this.finding, this.$parent.audit.language);
                 AuditService.updateFinding(this.auditId, this.findingId, this.finding)
                 .then(() => {
                     this.findingOrig = this.$_.cloneDeep(this.finding);

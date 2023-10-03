@@ -25,4 +25,4 @@ services:
 networks:
   backend:
     external:
-      name: backend_backend
+

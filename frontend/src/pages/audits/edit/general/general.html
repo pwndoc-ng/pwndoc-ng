@@ -179,7 +179,7 @@
                 </div>
             </q-card-section>
 
-            <q-card-section>
+            <q-card-section style="display:none;">
                 <textarea-array :label="$t('auditScope')" v-model="audit.scope" no-empty-line :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"/>
             </q-card-section>
             <q-expansion-item 

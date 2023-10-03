@@ -161,7 +161,7 @@
 											<q-item-section side v-if="!categoryFindings.sortOption.sortAuto && frontEndAuditState === AUDIT_VIEW_STATE.EDIT">
 												<q-icon name="mdi-arrow-split-horizontal" class="cursor-pointer handle" color="grey" />
 											</q-item-section>
-											<q-item-section side>
+											<q-item-section side class="tns-severity-icon">
 												<q-chip
 													class="text-white"
 													size="sm"
@@ -237,6 +237,7 @@ import AuditService from '@/services/audit';
 import UserService from '@/services/user';
 import DataService from '@/services/data';
 import Utils from '@/services/utils';
+import ImportAutomatorService from '@/services/import_automator';
 
 import { $t } from '@/boot/i18n';
 
@@ -350,6 +351,8 @@ export default {
 			},
 
 			getFindingSeverity: function(finding) {
+				ImportAutomatorService.setFakeCVSS(finding, this.audit.language);
+
 				let severity = "None"
 				let cvss = CVSS31.calculateCVSSFromVector(finding.cvssv3)
 				if (cvss.success) {
@@ -583,6 +586,7 @@ export default {
 
 			getSortOptions: function(category) {
 				var options = [
+					{label: $t('cvssScoreAndTitle'), value: 'cvssScoreAndTitle'},
 					{label: $t('cvssScore'), value: 'cvssScore'},
 					{label: $t('cvssTemporalScore'), value: 'cvssTemporalScore'},
 					{label: $t('cvssEnvironmentalScore'), value: 'cvssEnvironmentalScore'},
@@ -729,5 +733,11 @@ export default {
 .topButtonSection {
     padding-left: 0px!important;
 	padding-right: 0px!important;
+}
+</style>
+
+<style>
+.tns-severity-icon {
+	/* display: none; */
 }
 </style>
