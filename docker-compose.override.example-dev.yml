@@ -1,0 +1,62 @@
+version: '3'
+services:
+
+  mongodb:
+    image: mongo:4.2.15
+    container_name: mongo-pwndoc-ng
+    volumes:
+      - mongo-data-dev:/data/db
+    ports:
+      - 127.0.0.1:27017:27017
+    restart: always
+    environment:
+      - MONGO_DB:pwndoc
+
+  backend:
+    build:
+      context: ./backend/
+      dockerfile: Dockerfile.dev
+    container_name: pwndoc-ng-backend
+    entrypoint: ""
+    working_dir: "/app"
+    command: "npm run dev"
+    volumes:
+      - ./backend/:/app/
+    depends_on:
+      - mongodb
+    restart: always
+    links:
+      - mongodb
+
+  frontend-app:
+    build:
+      context: ./frontend/
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/ssl:/app/ssl
+      - ./frontend/public:/app/public
+      - ./frontend/.postcssrc.js:/app/.postcssrc.js
+      - ./frontend/babel.config.js:/app/babel.config.js
+      - ./frontend/quasar.conf.js:/app/quasar.conf.js
+      - ./frontend/package.json:/app/package.json
+      - ./frontend/package-lock.json:/app/package-lock.json
+    restart: always
+    networks:
+      - backend
+    links:
+      - backend
+
+  frontend:
+    image: nginx:stable-alpine
+    user: root
+    volumes:
+      - ./frontend/.docker/nginx.dev.conf:/etc/nginx/conf.d/default.conf
+      - ./frontend/ssl:/etc/nginx/ssl/
+    restart: always
+    links:
+      - frontend-app
+      - backend
+
+volumes:
+  mongo-data-dev:

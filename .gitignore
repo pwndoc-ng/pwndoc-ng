@@ -16,6 +16,7 @@ report.json
 roles.json
 app-settings.json
 backend/src/config/config.json
+docker-compose.override.yml
 
 # Editor directories and files
 .idea
