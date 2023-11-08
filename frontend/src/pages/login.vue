@@ -65,7 +65,6 @@
                     type="password"
                     for="password"
                     @keyup.enter="initUser()"
-                    :rules="strongPassword"
                     />
                 </q-card-section>
 
@@ -172,7 +171,6 @@ export default {
             step: 0,
             errors: {alert: "", username: "", password: "", firstname: "", lastname: ""},
             loginLoading: false,
-            strongPassword: [Utils.strongPassword]
         }
     },
 
@@ -215,8 +213,8 @@ export default {
             this.cleanErrors();
             if (!this.username)
                 this.errors.username = $t('msg.usernameRequired');
-            if (Utils.strongPassword(this.password) !== true)
-                this.errors.newPassword = $t('msg.passwordComplexity')
+            if (!Utils.strongPassword(this.password))
+                this.errors.password = $t('msg.passwordComplexity')
             if (!this.password)
                 this.errors.password = $t('msg.passwordRequired');
             if (!this.firstname)
@@ -224,7 +222,7 @@ export default {
             if (!this.lastname)
                 this.errors.lastname = $t('msg.lastnameRequired');
 
-            if (this.errors.username || this.errors.password || this.errors.firstname || this.errors.lastname || !this.$refs.pwdInitRef.validate())
+            if (this.errors.username || this.errors.password || this.errors.firstname || this.errors.lastname)
                 return;
 
             UserService.initUser(this.username, this.firstname, this.lastname, this.password)

@@ -189,7 +189,6 @@
             </q-card-section>
             <q-card-section>
                 <q-input
-                ref="pwdCreateRef"
                 v-model="currentCollab.password" 
                 :label="$t('password')+' *'"
                 type="password"
@@ -198,7 +197,6 @@
                 hide-bottom-space
                 @keyup.enter="createCollab()"
                 outlined
-                :rules="strongPassword"
                 />
             </q-card-section>
     
@@ -292,7 +290,9 @@
             <q-card-section>
                 <q-input 
                 ref="pwdUpdateRef"
-                v-model="currentCollab.password" 
+                v-model="currentCollab.password"
+                :error="!!errors.password" 
+                :error-message="errors.password"
                 :label="$t('password')" 
                 type="password"
                 @keyup.enter="updateCollab()"

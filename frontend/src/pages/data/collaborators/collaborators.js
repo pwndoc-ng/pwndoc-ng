@@ -41,7 +41,7 @@ export default {
             search: {username: '', firstname: '', lastname: '', role: '', email: '', enabled: true},
             customFilter: Utils.customFilter,
             // Errors messages
-            errors: {lastname: '', firstname: '', username: ''},
+            errors: {lastname: '', firstname: '', username: '', password: ''},
             // Collab to create or update
             currentCollab: {
                 lastname: '', 
@@ -50,13 +50,13 @@ export default {
                 role: '',
                 email: '',
                 phone: '',
+                password: '',
                 totpEnabled: false
             },
             // Username to identify collab to update
             idUpdate: '',
             // List of roles
             roles: [],
-            strongPassword: [Utils.strongPassword]
         }
     },
 
@@ -86,10 +86,10 @@ export default {
                 this.errors.firstname = $t('msg.firstnameRequired');
             if (!this.currentCollab.username)
                 this.errors.username = $t('msg.usernameRequired');
-            if (!this.currentCollab.password)
-                this.errors.password = $t('msg.passwordRequired');
+            if (!Utils.strongPassword(this.currentCollab.password))
+                this.errors.password = $t('msg.passwordComplexity')
 
-            if (this.errors.lastname || this.errors.firstname || this.errors.username || this.errors.password || !this.$refs.pwdCreateRef.validate())
+            if (this.errors.lastname || this.errors.firstname || this.errors.username || this.errors.password)
                 return;
 
             CollabService.createCollab([this.currentCollab])
@@ -121,8 +121,10 @@ export default {
                 this.errors.firstname = $t('msg.firstnameRequired');
             if (!this.currentCollab.username)
                 this.errors.username = $t('msg.usernameRequired');
+            if (!Utils.strongPassword(this.currentCollab.password))
+                this.errors.password = $t('msg.passwordComplexity')
 
-            if (this.errors.lastname || this.errors.firstname || this.errors.username || !this.$refs.pwdUpdateRef.validate())
+            if (this.errors.lastname || this.errors.firstname || this.errors.username || this.errors.password)
                 return;
             
             CollabService.updateCollab(this.idUpdate, this.currentCollab)
