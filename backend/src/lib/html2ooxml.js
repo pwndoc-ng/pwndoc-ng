@@ -57,14 +57,14 @@ function html2ooxml(html, style = "") {
           inTableRow = true;
         } else if (tag === "pre") {
           inCodeBlock = true;
-          cParagraph = new docx.Paragraph({style: "Code"});
+          cParagraph = new docx.Paragraph({ style: "Code" });
         } else if (tag === "br") {
-            if (inCodeBlock) {
-              paragraphs.push(cParagraph)
-              cParagraph = new docx.Paragraph({style: "Code"})
-            } else {
-              cParagraph.addChildElement(new docx.Run({break: 1}))
-            }
+          if (inCodeBlock) {
+            paragraphs.push(cParagraph)
+            cParagraph = new docx.Paragraph({ style: "Code" })
+          } else {
+            cParagraph.addChildElement(new docx.Run({ break: 1 }))
+          }
         } else if (tag === "b" || tag === "strong") {
           cRunProperties.bold = true;
         } else if (tag === "i" || tag === "em") {
@@ -91,9 +91,9 @@ function html2ooxml(html, style = "") {
               break;
           }
           cRunProperties.highlight = color;
-        } else if (tag ==="a") {
+        } else if (tag === "a") {
           cRunProperties.link = attribs.href;
-        }else if (tag === "br") {
+        } else if (tag === "br") {
           if (inCodeBlock) {
             paragraphs.push(cParagraph);
             cParagraph = new docx.Paragraph({ style: "Code" });
@@ -125,7 +125,7 @@ function html2ooxml(html, style = "") {
 
       ontext(text) {
         if (cRunProperties.link) {
-          cParagraph.addChildElement(new docx.TextRun({"text":`{_|link|_{${text}|-|${cRunProperties.link}}_|link|_}`, "style": "Hyperlink"}));
+          cParagraph.addChildElement(new docx.TextRun({ "text": `{_|link|_{${text}|-|${cRunProperties.link}}_|link|_}`, "style": "Hyperlink" }));
 
         } else if (text && cParagraph) {
           if (inTableCell) {
@@ -253,7 +253,7 @@ function html2ooxml(html, style = "") {
 
   let prepXml = doc.documentWrapper.document.body.prepForXml({});
   let filteredXml = prepXml["w:body"].filter((e) => {
-    return Object.keys(e)[0] === "w:p" || Object.keys(e)[0] === "w:tbl" ;
+    return Object.keys(e)[0] === "w:p" || Object.keys(e)[0] === "w:tbl";
   });
   let dataXml = xml(filteredXml);
   dataXml = dataXml.replace(/w:numId w:val="{2-0}"/g, 'w:numId w:val="2"'); // Replace numbering to have correct value
