@@ -36,7 +36,6 @@ export default {
         usersConnected: 'Users on the Audit:',
         editAudit: 'Edit Audit',
         downloadReport: 'Download Report',
-        downloadReportCsv: 'Download Report (CSV)',
         insertId: 'Add vulnerabilities ID',
         deleteAudit: 'Delete Audit',
         topButtonSection: {
