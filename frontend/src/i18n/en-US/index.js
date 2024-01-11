@@ -36,6 +36,8 @@ export default {
         usersConnected: 'Users on the Audit:',
         editAudit: 'Edit Audit',
         downloadReport: 'Download Report',
+        downloadReportCsv: 'Download Report (CSV)',
+        insertId: 'Add vulnerabilities ID',
         deleteAudit: 'Delete Audit',
         topButtonSection: {
             submitReview: 'Mark audit as ready for review',
@@ -359,6 +361,7 @@ export default {
     details: 'Details',
     completed: 'Completed',
     type: 'Type',
+    lastUpdated: 'Last Updated',
     description: 'Description',
     observation: 'Observation',
     references: 'References (One per line)',
