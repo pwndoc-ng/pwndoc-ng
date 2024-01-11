@@ -352,6 +352,7 @@ export default {
     details: '细节',
     completed: '已完成',
     type: '类型',
+    lastUpdated: '最后更新',
     description: '说明',
     observation: '观测',
     references: '参考资料（每条1行）',
