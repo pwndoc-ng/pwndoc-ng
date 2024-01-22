@@ -14,11 +14,13 @@ function html2ooxml(html, style = "") {
   let inCodeBlock = false;
   let inTable = false;
   let inTableRow = false;
+  let inTableCell = false;
   let cellHasText = false;
   let tmpAttribs = {};
   let tableHeader = false
   let tmpTable = [];
   let tmpCells = [];
+  let tmpCellContent = [];
   let parser = new htmlparser.Parser(
     {
       onopentag(tag, attribs) {
@@ -42,23 +44,27 @@ function html2ooxml(html, style = "") {
           inTable = true;
         } else if (tag === "td") {
           tmpAttribs = attribs;
+          inTableCell = true;
           cellHasText = false;
+          tmpCellContent = [];
         } else if (tag === "th") {
+          inTableCell = true;
           tableHeader = true;
           tmpAttribs = attribs;
+          tmpCellContent = [];
           cellHasText = false;
         } else if (tag === "tr") {
           inTableRow = true;
         } else if (tag === "pre") {
           inCodeBlock = true;
-          cParagraph = new docx.Paragraph({style: "Code"});
+          cParagraph = new docx.Paragraph({ style: "Code" });
         } else if (tag === "br") {
-            if (inCodeBlock) {
-              paragraphs.push(cParagraph)
-              cParagraph = new docx.Paragraph({style: "Code"})
-            } else {
-              cParagraph.addChildElement(new docx.Run({break: 1}))
-            }
+          if (inCodeBlock) {
+            paragraphs.push(cParagraph)
+            cParagraph = new docx.Paragraph({ style: "Code" })
+          } else {
+            cParagraph.addChildElement(new docx.Run({ break: 1 }))
+          }
         } else if (tag === "b" || tag === "strong") {
           cRunProperties.bold = true;
         } else if (tag === "i" || tag === "em") {
@@ -85,9 +91,9 @@ function html2ooxml(html, style = "") {
               break;
           }
           cRunProperties.highlight = color;
-        } else if (tag ==="a") {
+        } else if (tag === "a") {
           cRunProperties.link = attribs.href;
-        }else if (tag === "br") {
+        } else if (tag === "br") {
           if (inCodeBlock) {
             paragraphs.push(cParagraph);
             cParagraph = new docx.Paragraph({ style: "Code" });
@@ -118,21 +124,16 @@ function html2ooxml(html, style = "") {
       },
 
       ontext(text) {
-        if (text && inTableRow) {
-          cellHasText = true;
-          tmpCells.push({
-            text: text,
-            width: tmpAttribs.colwidth ? tmpAttribs.colwidth : "250",
-            header: tableHeader,
-          });
-        } else if(cRunProperties.link){
-          cParagraph.addChildElement(new docx.TextRun({"text":`{_|link|_{${text}|-|${cRunProperties.link}}_|link|_}`, "style": "Hyperlink"}));
+        if (cRunProperties.link) {
+          cParagraph.addChildElement(new docx.TextRun({ "text": `{_|link|_{${text}|-|${cRunProperties.link}}_|link|_}`, "style": "Hyperlink" }));
 
-        } else if (text && cParagraph && !inTable) {
+        } else if (text && cParagraph) {
+          if (inTableCell) {
+            cellHasText = true;
+          }
           cRunProperties.text = text;
           cParagraph.addChildElement(new docx.TextRun(cRunProperties));
-
-        } 
+        }
       },
 
       onclosetag(tag) {
@@ -152,9 +153,14 @@ function html2ooxml(html, style = "") {
             //"table",
             /* "tr",
             "th", */
-          ].includes(tag)
-        && !inTable) {
-          paragraphs.push(cParagraph);
+          ].includes(tag)) {
+
+          if (inTableCell) {
+            tmpCellContent.push(cParagraph)
+          } else {
+            paragraphs.push(cParagraph);
+          }
+
           cParagraph = null;
           cParagraphProperties = {};
           if (tag === "pre") inCodeBlock = false;
@@ -181,14 +187,15 @@ function html2ooxml(html, style = "") {
         } else if (tag === "a") {
           delete cRunProperties.link
         } else if (tag === "td" || tag === "th") {
-          if(cellHasText === false) {
-            tmpCells.push({
-              text: "",
-              width: tmpAttribs.colwidth ? tmpAttribs.colwidth : "250",
-              header: tableHeader,
-            });
-          }
+          tmpCells.push({
+            text: cellHasText === true ? tmpCellContent : "",
+            width: tmpAttribs.colwidth ? tmpAttribs.colwidth : "250",
+            header: tableHeader,
+          });
+
           tmpAttribs = {};
+          tmpCellContent = [];
+          inTableCell = false;
         } else if (tag === "table") {
           inTable = false;
           let tblRows = [];
@@ -204,7 +211,7 @@ function html2ooxml(html, style = "") {
                   size: Math.round(parseFloat(cell.width / widthTotal)),
                   type: "pct",
                 },
-                children: [new docx.Paragraph(cell.text)],
+                children: cell.text,
               }))
             });
 
@@ -246,7 +253,7 @@ function html2ooxml(html, style = "") {
 
   let prepXml = doc.documentWrapper.document.body.prepForXml({});
   let filteredXml = prepXml["w:body"].filter((e) => {
-    return Object.keys(e)[0] === "w:p" || Object.keys(e)[0] === "w:tbl" ;
+    return Object.keys(e)[0] === "w:p" || Object.keys(e)[0] === "w:tbl";
   });
   let dataXml = xml(filteredXml);
   dataXml = dataXml.replace(/w:numId w:val="{2-0}"/g, 'w:numId w:val="2"'); // Replace numbering to have correct value
