@@ -68,7 +68,7 @@
 
             <template v-slot:top-row="props">
                 <q-tr>
-                    <q-td style="width: 60%">
+                    <q-td style="width: 55%">
                         <q-input 
                         dense
                         :label="$t('search')"
@@ -78,7 +78,7 @@
                         outlined
                         />
                     </q-td>
-                    <q-td style="width: 20%">
+                    <q-td style="width: 15%">
                         <q-select 
                         dense
                         :label="$t('search')"
@@ -89,7 +89,7 @@
                         outlined
                         />
                     </q-td>
-                    <q-td style="width: 20%">
+                    <q-td style="width: 15%">
                         <q-select 
                         dense
                         :label="$t('search')"
@@ -99,6 +99,15 @@
                         options-sanitize
                         outlined
                         />
+                    </q-td>
+                    <q-td style="width: 15%">
+                        <q-input
+                        dense
+                        :label="$t('search')"
+                        v-model="search.updatedAt"
+                        outlined
+                        mask="##-##-####"
+                        >
                     </q-td>
                     <q-td></q-td>
                 </q-tr>
@@ -114,6 +123,9 @@
                     </q-td>
                     <q-td key="type" :props="props">
                         {{getDtType(props.row)}}
+                    </q-td>
+                    <q-td key="updatedAt" :props="props">
+                        {{getDtUpdatedAt(props.row)}}
                     </q-td>
                     <q-td key="action" :props="props" style="width:1px">
                         <q-btn v-if="UserService.isAllowed('vulnerabilities:update')" size="sm" flat color="primary" icon="fa fa-edit" @click="clone(props.row); (props.row.status === 2)?$refs.updatesModal.show():$refs.editModal.show()">

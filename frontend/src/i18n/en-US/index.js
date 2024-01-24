@@ -359,6 +359,7 @@ export default {
     details: 'Details',
     completed: 'Completed',
     type: 'Type',
+    lastUpdated: 'Last Updated',
     description: 'Description',
     observation: 'Observation',
     references: 'References (One per line)',
