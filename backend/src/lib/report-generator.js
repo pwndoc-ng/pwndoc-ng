@@ -24,6 +24,11 @@ async function generateDoc(audit) {
     translate.setLocale(audit.language)
     $t = translate.translate
 
+    // set the identifier of each vulnerability to the index of the array
+    audit.findings.forEach((finding, index) => {
+        finding.identifier = index + 1
+    })
+
     var settings = await Settings.getAll();
     var preppedAudit = await prepAuditData(audit, settings)
 
