@@ -28,7 +28,7 @@
     "@tiptap/extension-underline": "2.0.0-beta.196",
     "@tiptap/starter-kit": "^2.0.0-beta.220",
     "@tiptap/vue-2": "^2.0.0-beta.84",
-    "axios": "^0.18.1",
+    "axios": "^0.28.0",
     "core-js": "^3.9.0",
     "diff": "^4.0.2",
     "js-yaml": "^3.13.1",
