@@ -1,7 +1,7 @@
 const fs = require("fs");
 const env = process.env.NODE_ENV || 'dev'
 
-const jsonFile = '../config/config.json'
+const jsonFile = `${__dirname}/../config/config.json`
 const configJSON = require(jsonFile)
 
 let currentConfig = configJSON[env];
@@ -28,18 +28,19 @@ if (process.env.JWT_SECRET && process.env.JWT_REFRESH_SECRET) {
     }
 }
 
-if (!currentConfig.jwtSecret) {
-    configJSON[env].jwtSecret = require('crypto').randomBytes(32).toString('hex')
-    var configString = JSON.stringify(configJSON, null, 4)
-    fs.writeFileSync(jsonFile, configString)
-    currentConfig.jwtSecret = configJSON[env].jwtSecret
-}
+if (!currentConfig.jwtSecret || !currentConfig.jwtRefreshSecret) {
+    if (!currentConfig.jwtSecret) {
+        configJSON[env].jwtSecret = require('crypto').randomBytes(32).toString('hex')
+        currentConfig.jwtSecret = configJSON[env].jwtSecret
+    }
 
-if (!currentConfig.jwtRefreshSecret) {
-    configJSON[env].jwtRefreshSecret = require('crypto').randomBytes(32).toString('hex')
+    if (!currentConfig.jwtRefreshSecret) {
+        configJSON[env].jwtRefreshSecret = require('crypto').randomBytes(32).toString('hex')
+        currentConfig.jwtRefreshSecret = configJSON[env].jwtRefreshSecret
+    }
+
     var configString = JSON.stringify(configJSON, null, 4)
     fs.writeFileSync(jsonFile, configString)
-    currentConfig.jwtRefreshSecret = configJSON[env].jwtRefreshSecret
 }
 
 exports.config = currentConfig
