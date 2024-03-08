@@ -1,23 +1,11 @@
 // Dynamic generation of JWT Secret if not exist (different for each environnment)
-var fs = require('fs')
-var env = process.env.NODE_ENV || 'dev'
-var config = require('../config/config.json')
+const fs = require('fs')
+const config = require('./config-loader').config
 
-if (!config[env].jwtSecret) {
-    config[env].jwtSecret = require('crypto').randomBytes(32).toString('hex')
-    var configString = JSON.stringify(config, null, 4)
-    fs.writeFileSync(`${__basedir}/config/config.json`, configString)
-}
-if (!config[env].jwtRefreshSecret) {
-    config[env].jwtRefreshSecret = require('crypto').randomBytes(32).toString('hex')
-    var configString = JSON.stringify(config, null, 4)
-    fs.writeFileSync(`${__basedir}/config/config.json`, configString)
-}
-
-var jwtSecret = config[env].jwtSecret
+var jwtSecret = config.jwtSecret
 exports.jwtSecret = jwtSecret
 
-var jwtRefreshSecret = config[env].jwtRefreshSecret
+var jwtRefreshSecret = config.jwtRefreshSecret
 exports.jwtRefreshSecret = jwtRefreshSecret
 
 /*  ROLES LOGIC

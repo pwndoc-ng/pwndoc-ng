@@ -17,11 +17,9 @@ var utils = require('./lib/utils');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./config/swagger-output.json');
 
-
-
 // Get configuration
-var env = process.env.NODE_ENV || 'dev';
-var config = require('./config/config.json')[env];
+const config = require('./lib/config-loader').config;
+
 global.__basedir = __dirname;
 
 // Database connection

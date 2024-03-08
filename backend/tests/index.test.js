@@ -1,9 +1,7 @@
 const request = require("supertest");
+const config = require('../src/lib/config-loader').config;
+const mongoose = require('mongoose');
 
-var env = process.env.NODE_ENV || 'dev';
-var config = require('../src/config/config.json')[env];
-
-var mongoose = require('mongoose');
 mongoose.connect(`mongodb://${config.database.server}:${config.database.port}/${config.database.name}`, {});
 
 /* Clean the DB */
