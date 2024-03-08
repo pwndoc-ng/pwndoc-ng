@@ -1,6 +1,8 @@
 const fs = require("fs");
 const env = process.env.NODE_ENV || 'dev'
-const configJSON = require('../config/config.json')
+
+const jsonFile = '../config/config.json'
+const configJSON = require(jsonFile)
 
 let currentConfig = configJSON[env];
 if (process.env.JWT_SECRET && process.env.JWT_REFRESH_SECRET) {
@@ -29,14 +31,14 @@ if (process.env.JWT_SECRET && process.env.JWT_REFRESH_SECRET) {
 if (!currentConfig.jwtSecret) {
     configJSON[env].jwtSecret = require('crypto').randomBytes(32).toString('hex')
     var configString = JSON.stringify(configJSON, null, 4)
-    fs.writeFileSync(`${__basedir}/config/config.json`, configString)
+    fs.writeFileSync(jsonFile, configString)
     currentConfig.jwtSecret = configJSON[env].jwtSecret
 }
 
 if (!currentConfig.jwtRefreshSecret) {
     configJSON[env].jwtRefreshSecret = require('crypto').randomBytes(32).toString('hex')
     var configString = JSON.stringify(configJSON, null, 4)
-    fs.writeFileSync(`${__basedir}/config/config.json`, configString)
+    fs.writeFileSync(jsonFile, configString)
     currentConfig.jwtRefreshSecret = configJSON[env].jwtRefreshSecret
 }
 
