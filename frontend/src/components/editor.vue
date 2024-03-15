@@ -722,7 +722,6 @@ export default {
           this.countChange++
         }
         
-        if (this.noSync) return;
         this.updateHTML();
       },
       disableInputRules: true,
@@ -909,6 +908,7 @@ export default {
       return colour;
     },
     updateHTML() {
+      if (this.noSync) return;
       console.log("updateHTML");
       this.json = this.editor.getJSON();
       this.html = this.editor.getHTML();
