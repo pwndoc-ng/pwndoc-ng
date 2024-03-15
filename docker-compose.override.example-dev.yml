@@ -21,7 +21,13 @@ services:
     working_dir: "/app"
     command: "npm run dev"
     volumes:
-      - ./backend/:/app/
+      - ./backend/src/:/app/src/
+      - ./backend/report-templates/:/app/report-templates/
+      - ./backend/ssl/:/app/ssl/
+      - ./backend/tests/:/app/tests/
+      - ./backend/package.json:/app/package.json
+      - ./backend/package-lock.json:/app/package-lock.json
+      - ./backend/swagger.js:/app/swagger.js
     depends_on:
       - mongodb
     restart: always
@@ -42,8 +48,6 @@ services:
       - ./frontend/package.json:/app/package.json
       - ./frontend/package-lock.json:/app/package-lock.json
     restart: always
-    networks:
-      - backend
     links:
       - backend
 
@@ -54,6 +58,8 @@ services:
       - ./frontend/.docker/nginx.dev.conf:/etc/nginx/conf.d/default.conf
       - ./frontend/ssl:/etc/nginx/ssl/
     restart: always
+    ports:
+      - 8443:8443
     links:
       - frontend-app
       - backend
