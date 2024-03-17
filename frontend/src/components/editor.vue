@@ -731,8 +731,12 @@ export default {
     this.affixRelativeElement += "-" +  this.ClassEditor;
     //this.editor.setOptions({ editable: this.editable });
     this.editor.setEditable(this.editable && this.initialeDataUpdated);
+    
+    if (typeof this.value === "undefined") {
+      this.value = "";
+    }
+
     if (
-      typeof this.value === "undefined" ||
       this.value === this.editor.getHTML()
     ) {
       return;
