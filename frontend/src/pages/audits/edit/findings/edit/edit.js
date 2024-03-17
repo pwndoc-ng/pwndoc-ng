@@ -255,7 +255,7 @@ export default {
         },
 
         syncEditors: function() {
-            Utils.syncEditors(this.$refs)
+            Utils.syncEditors(this.$refs);
         },
 
         updateOrig: function() {
