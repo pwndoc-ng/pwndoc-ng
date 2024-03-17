@@ -30,6 +30,9 @@ services:
       - ./backend/swagger.js:/app/swagger.js
     depends_on:
       - mongodb
+#    environment:
+#      JWT_SECRET: "put sweet random values here"
+#      JWT_REFRESH_SECRET: "put sweet random values here"
     restart: always
     links:
       - mongodb
