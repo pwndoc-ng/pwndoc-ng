@@ -65,7 +65,7 @@ This fork includes pending PR and new feature such as:
 
 ### Developing with docker-compose
 
-Simply copy `docker-compose.override.example-dev.yml` to `docker-compose.override.yml` and run docker compose up!
+Simply copy `docker-compose-dev.yml` to `docker-compose.yml` and run docker compose up!
 
 ```bash
 cp docker-compose-dev.yml docker-compose.yml
