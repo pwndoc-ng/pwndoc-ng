@@ -45,7 +45,7 @@
     "yjs": "^13.5.44"
   },
   "devDependencies": {
-    "@quasar/app": "^2.4.3",
+    "@quasar/app": "^3.3.3",
     "@quasar/cli": "^1.4.0",
     "devtron": "^1.4.0",
     "electron": "^2.0.0",
