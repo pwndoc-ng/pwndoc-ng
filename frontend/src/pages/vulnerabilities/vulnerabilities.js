@@ -101,6 +101,9 @@ export default {
     },
 
     computed: {
+        lenCurrentTitle: function() {
+            return this.currentVulnerability.details[this.currentDetailsIndex].title.length
+        },
         vulnTypesLang: function() {
             return this.vulnTypes.filter(type => type.locale === this.currentLanguage);
         },
@@ -229,13 +232,15 @@ export default {
 
         updateVulnerability: function() {
             this.cleanErrors();
+
+
             var index = this.currentVulnerability.details.findIndex(obj => obj.title !== '');
             if (index < 0)
                 this.errors.title = $t('err.titleRequired');
             
             if (this.errors.title)
                 return;
-
+              
             VulnerabilityService.updateVulnerability(this.vulnerabilityId, this.currentVulnerability)
             .then(() => {
                 this.getVulnerabilities();
