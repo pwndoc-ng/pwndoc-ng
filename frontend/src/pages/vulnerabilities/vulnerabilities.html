@@ -821,7 +821,7 @@
                 <q-card-section class="card-section-merge">
                     <q-scroll-area class="full-height">
                         <q-list>
-                            <q-item tag="label" v-for="vuln of vulnerabilities" :key="vuln._id" v-if="getVulnTitleLocale(vuln, mergeLanguageRight) === 'undefined' && getVulnTitleLocale(vuln, mergeLanguageLeft) !== 'undefined'" dense class="q-pl-none">
+                            <q-item tag="label" v-for="vuln of vulnerabilities" :key="vuln._id" v-if="getVulnTitleLocale(vuln, mergeLanguageLeft) !== 'undefined'" dense class="q-pl-none">
                                     <q-item-section side top>
                                         <q-radio v-model="mergeVulnLeft" :val="vuln._id" />
                                     </q-item-section>
@@ -852,7 +852,7 @@
                 <q-card-section class="card-section-merge">
                     <q-scroll-area class="full-height">
                         <q-list>
-                            <q-item tag="label" v-for="vuln of vulnerabilities" :key="vuln._id" v-if="getVulnTitleLocale(vuln, mergeLanguageLeft) === 'undefined' && getVulnTitleLocale(vuln, mergeLanguageRight) !== 'undefined'" dense class="q-pl-none">
+                            <q-item tag="label" v-for="vuln of vulnerabilities" :key="vuln._id" v-if="getVulnTitleLocale(vuln, mergeLanguageRight) !== 'undefined'" dense class="q-pl-none">
                                     <q-item-section side top>
                                         <q-radio v-model="mergeVulnRight" :val="vuln._id" />
                                     </q-item-section>
