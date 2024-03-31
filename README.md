@@ -65,11 +65,8 @@ This fork includes pending PR and new feature such as:
 
 ### Developing with docker-compose
 
-Simply copy `docker-compose-dev.yml` to `docker-compose.yml` and run docker compose up!
-
 ```bash
-cp docker-compose-dev.yml docker-compose.yml
-docker compose up --build
+docker-compose -f docker-compose-dev.yml up
 ```
 
 Feel free to contribute :).
