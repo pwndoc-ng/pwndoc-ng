@@ -292,14 +292,17 @@ expressions.filters.lines = function(input) {
     }
 }
 
+
 // Creates a hyperlink: {@input | linkTo: 'https://example.com' | p}
 expressions.filters.linkTo = function(input, url) {
-    return '<w:r><w:fldChar w:fldCharType="begin"/></w:r>'
-        + '<w:r><w:instrText xml:space="preserve"> HYPERLINK "' + url + '" </w:instrText></w:r>'
-        + '<w:r><w:fldChar w:fldCharType="separate"/></w:r>'
-        + '<w:r><w:rPr><w:rStyle w:val="Hyperlink"/></w:rPr>'
-        + '<w:t>' + input + '</w:t>'
-        + '</w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>';
+    var encodedUrl = encodeURIComponent(url); // fix breaking word with special characters in reference
+    var encodedInput = encodeURIComponent(input); // fix breaking word with special characters in reference
+    return `<w:r><w:fldChar w:fldCharType="begin"/></w:r>
+        <w:r><w:instrText xml:space="preserve"> HYPERLINK "${encodedUrl}" </w:instrText></w:r>
+        <w:r><w:fldChar w:fldCharType="separate"/></w:r>
+        <w:r><w:rPr><w:rStyle w:val="Hyperlink"/></w:rPr>
+        <w:t>${encodedInput}</w:t>
+        </w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>`;
 }
 
 // Loop over the input object, providing acccess to its keys and values: {#findings | loopObject}{key}{value.title}{/findings | loopObject}
