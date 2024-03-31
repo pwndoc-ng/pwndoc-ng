@@ -1001,7 +1001,8 @@
                                         <template v-slot:control>
                                             <basic-editor 
                                             ref="basiceditor_custom" 
-                                            v-model="field.text[getFieldLocaleText(idx)].value" 
+                                            v-model="field.text[getFieldLocaleText(idx)].value"
+                                            :key="idx" 
                                             /> 
                                         </template>
 
@@ -1015,6 +1016,7 @@
                                     :label='field.label'
                                     stack-label
                                     v-model="field.text[getFieldLocaleText(idx)].value"
+                                    :key="idx"
                                     :hint="field.description"
                                     hide-bottom-space
                                     outlined
@@ -1029,6 +1031,7 @@
                                     :label="field.label"
                                     stack-label
                                     v-model="field.text[getFieldLocaleText(idx)].value"
+                                    :key="idx"
                                     :hint="field.description"
                                     hide-bottom-space
                                     outlined
@@ -1036,7 +1039,13 @@
                                         <template v-slot:append>
                                             <q-icon name="event" class="cursor-pointer">
                                             <q-popup-proxy ref="qDateProxy" transition-show="scale" transition-hide="scale">
-                                                <q-date first-day-of-week="1" mask="YYYY-MM-DD" v-model="field.text[getFieldLocaleText(idx)].value" @input="$refs.qDateProxy.forEach(e => e.hide())" />
+                                                <q-date
+                                                  first-day-of-week="1"
+                                                  mask="YYYY-MM-DD"
+                                                  v-model="field.text[getFieldLocaleText(idx)].value"
+                                                  :key="idx"
+                                                  @input="$refs.qDateProxy.forEach(e => e.hide())"
+                                                />
                                             </q-popup-proxy>
                                             </q-icon>
                                         </template>
@@ -1050,6 +1059,7 @@
                                     :label="field.label"
                                     stack-label
                                     v-model="field.text[getFieldLocaleText(idx)].value"
+                                    :key="idx"
                                     :hint="field.description"
                                     hide-bottom-space
                                     :options="field.options.filter(e => e.locale === cfLocale)"
@@ -1069,6 +1079,7 @@
                                     :label="field.label"
                                     stack-label
                                     v-model="field.text[getFieldLocaleText(idx)].value"
+                                    :key="idx"
                                     :hint="field.description"
                                     hide-bottom-space
                                     :options="field.options.filter(e => e.locale === cfLocale)"
@@ -1110,6 +1121,7 @@
                                             <q-option-group
                                             type="checkbox"
                                             v-model="field.text[getFieldLocaleText(idx)].value"
+                                            :key="idx"
                                             :options="getOptionsGroup(field.options)"
                                             />
                                         </template>
@@ -1130,10 +1142,11 @@
                                             <q-option-group
                                             type="radio"
                                             v-model="field.text[getFieldLocaleText(idx)].value"
+                                            :key="idx"
                                             :options="getOptionsGroup(field.options)"
                                             />
                                             <q-space />
-                                            <q-btn flat label="clear" @click="field.text[getFieldLocaleText(idx)].value = ''" />
+                                            <q-btn flat label="clear" @click="field.text[getFieldLocaleText(idx)].value = ''" :key="idx" />
                                         </template>
                                         <template v-slot:label>
                                             {{field.label}} <span v-if="field.required" class="text-red">*</span>
