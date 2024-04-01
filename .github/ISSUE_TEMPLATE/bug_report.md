@@ -1,9 +1,8 @@
-
 ---
 name: Bug report
 about: Create a report to help us improve
 title: ''
-labels: bug
+labels: ''
 assignees: ''
 
 ---
@@ -18,14 +17,11 @@ Steps to reproduce the behavior:
 3. Scroll down to '....'
 4. See error
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
-
 **Screenshots**
-If applicable, add screenshots to help explain your problem.
+Add screenshots to help explain your problem.
 
-**Environment (please complete the following information):**
- - Browser [e.g. chrome, safari, firefox]
+**Template**
+If the bug is triggered via the report generation add a simple template to trigger the bug
 
 **Additional context**
 Add any other context about the problem here.
