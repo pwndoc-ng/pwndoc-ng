@@ -116,7 +116,50 @@ expressions.filters.convertDateES = function(input, s) {
     }
 }
 
+// Convert input CVSS criteria into Russian: {input | criteriaRU}
+expressions.filters.criteriaRU = function(input) {
+    var pre = '<w:p><w:r><w:t>';
+    var post = '</w:t></w:r></w:p>';
+    var result = "Не определено"
 
+    if (input === "Network") result = "Сетевой"
+    else if (input === "Adjacent Network") result = "Смежная сеть"
+    else if (input === "Local") result = "Локальный"
+    else if (input === "Physical") result = "Физический"
+    else if (input === "Required") result = "Требуется"
+    else if (input === "Unchanged") result = "Не оказывает"
+    else if (input === "Changed") result = "Оказывает"
+    else if (input === "Critical") result = "Критический"
+    else if (input === "Medium") result = "Средний"
+    else if (input === "None") result = "Замечание"
+    else if (input === "Low") result = "Низкий"
+    else if (input === "High") result = "Высокий"
+
+    // return pre + result + post;
+    return result;
+}
+
+// Convert input date with parameter s (full,short): {input | convertDateRU: 's'}
+expressions.filters.convertDateRU = function(input, s) {
+    var date = new Date(input);
+    if (date !== "Invalid Date") {
+        var monthsFull = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+        var monthsShort = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
+        var days = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
+        var day = date.getUTCDate();
+        var month = date.getUTCMonth();
+        var year = date.getUTCFullYear();
+        if (s === "full") {
+            return days[date.getUTCDay()] + " " + (day<10 ? '0'+day: day) + " " + monthsFull[month] + " " + year;
+        }
+        if (s === "short") {
+            return (day<10 ? '0'+day: day) + "." + monthsShort[month] + "." + year;
+        }
+         if (s === "OnlyYear") {
+            return year;
+        }
+    }
+}
 
 exports.expressions = expressions
 
