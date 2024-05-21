@@ -196,6 +196,7 @@ export default {
           let textLocale = field.text.find((e) => e.locale === locale);
           if (textLocale) fieldText = textLocale.value;
         }
+
         for (var i = 0; i < objectFields.length; i++) {
           // Set corresponding text value
           var customFieldId = "";

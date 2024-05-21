@@ -494,9 +494,9 @@
         <q-separator
           vertical
           class="q-mx-sm"
-          v-if="diff !== undefined && (diff || value) && value !== diff"
+          v-if="diff !== undefined && (diff || computedValue) && computedValue !== diff"
         />
-        <div v-if="diff !== undefined && (diff || value) && value !== diff">
+        <div v-if="diff !== undefined && (diff || computedValue) && computedValue !== diff">
           <q-btn
             flat
             size="sm"
@@ -630,9 +630,6 @@ export default {
   },
 
   watch: {
-    async value(value) {
-      await this.updateInitialeValue(value)
-    },
     editable(value) {
       //this.editor.setOptions({ editable: this.editable });
       this.editor.setEditable(this.editable && this.initialeDataUpdated);
@@ -715,7 +712,6 @@ export default {
       editable: false,
       extensions: extensionEditor ,
       onUpdate: () => {
-        console.log("onUpdate");
         if(this.state && this.initialeDataUpdated && this.countChangeAfterUpdate>0 && this.countChangeAfterUpdate<this.countChange){
            this.$emit('editorchange') // need save only if sync is done
         } else {
@@ -732,16 +728,16 @@ export default {
     //this.editor.setOptions({ editable: this.editable });
     this.editor.setEditable(this.editable && this.initialeDataUpdated);
     
-    if (typeof this.value === "undefined") {
-      this.value = "";
+    if (typeof this.computedValue === "undefined") {
+      this.computedValue = "";
     }
 
     if (
-      this.value === this.editor.getHTML()
+      this.computedValue === this.editor.getHTML()
     ) {
       return;
     }
-    this.updateInitialeValue(this.value)
+    this.updateInitialeValue(this.computedValue)
   },
   async beforeDestroy() {
     while(1){
@@ -754,6 +750,15 @@ export default {
     this.editor.destroy();
   },
   computed: {
+    computedValue: {
+      get() {
+        return this.value
+      },
+      async set(newValue) {
+        await this.updateInitialeValue(newValue)
+        this.$emit('input', newValue)
+      }
+    },
     formatIcon: function () {
       if (this.editor.isActive("paragraph")) return "fa fa-paragraph";
       else return null;
@@ -780,7 +785,7 @@ export default {
             /([{}:;,.]|<p>|<\/p>|<pre><code>|<\/code><\/pre>|<[uo]l><li>.*<\/li><\/[uo]l>|\s+)/
           );
         };
-        var value = this.value || "";
+        var value = this.computedValue || "";
         var diff = HtmlDiff.diff(this.diff, value);
         diff.forEach((part) => {
           const diffclass = part.added
@@ -835,7 +840,6 @@ export default {
               break;
             } else {
               await this.sleep(500)
-              console.log('Wait websocket')
             }
           }
         }

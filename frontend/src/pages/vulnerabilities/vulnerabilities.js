@@ -153,7 +153,7 @@ export default {
          getCustomFields: function() {
             DataService.getCustomFields()
             .then((data) => {
-                this.customFields = data.data.datas
+                this.customFields = this.$_.cloneDeep(data.data.datas)
             })
             .catch((err) => {
                 console.log(err)
@@ -232,7 +232,6 @@ export default {
 
         updateVulnerability: function() {
             this.cleanErrors();
-
 
             var index = this.currentVulnerability.details.findIndex(obj => obj.title !== '');
             if (index < 0)
@@ -313,7 +312,6 @@ export default {
 
         clone: function(row) {
             this.cleanCurrentVulnerability();
-            
             this.currentVulnerability = this.$_.cloneDeep(row)
             this.setCurrentDetails();
             
@@ -374,13 +372,13 @@ export default {
                     references: [],
                     customFields: []
                 }
-                details.customFields = Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, [], this.currentLanguage)
+                details.customFields = this.$_.cloneDeep(Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, [], this.currentLanguage))
                 
                 this.currentVulnerability.details.push(details)
                 index = this.currentVulnerability.details.length - 1;
             }
             else {
-                this.currentVulnerability.details[index].customFields = Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, this.currentVulnerability.details[index].customFields, this.currentLanguage)
+                this.currentVulnerability.details[index].customFields = this.$_.cloneDeep(Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, this.currentVulnerability.details[index].customFields, this.currentLanguage))
             }
             this.currentDetailsIndex = index;
         },
@@ -517,7 +515,7 @@ export default {
             if (this.UserService.isAllowed('vulnerabilities:update') && row.status === 2)
                 this.$refs.updatesModal.show()
             else
-                this.$refs.editModal.show()
+              this.$refs.editModal.show()
         }
     }
 }
