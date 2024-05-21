@@ -276,7 +276,7 @@ export default {
             else if (value) {
                 for (var i=0; i<this.companies.length; i++) {
                     if (this.companies[i].name === value.company.name) {
-                        this.audit.company = this.companies[i];
+                        this.audit.company = this.$_.clone(this.companies[i]);
                         break;
                     }
                 }
