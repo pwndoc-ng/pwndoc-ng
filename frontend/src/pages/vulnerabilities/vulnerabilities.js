@@ -515,7 +515,7 @@ export default {
             if (this.UserService.isAllowed('vulnerabilities:update') && row.status === 2)
                 this.$refs.updatesModal.show()
             else
-              this.$refs.editModal.show()
+                this.$refs.editModal.show()
         }
     }
 }
