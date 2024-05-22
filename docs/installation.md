@@ -17,7 +17,7 @@ docker-compose up -d --build
 Display backend container logs
 
 ```
-docker-compose logs -f pwndoc-ng-backend
+docker-compose logs -f backend
 ```
 
 Stop/Start containers
