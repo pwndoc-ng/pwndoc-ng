@@ -292,7 +292,8 @@
             :key="currentDetailsIndex"
             :disabled="lenCurrentTitle === 0"
             :readonly="lenCurrentTitle === 0"
-            :category="currentVulnerability.category" 
+            :category="currentVulnerability.category"
+            :idUnique="currentDetailsIndex+currentVulnerability._id" 
             custom-element="QCardSection"
             display="vuln"
             :locale="currentLanguage"
@@ -455,10 +456,11 @@
         default-opened
         header-class="bg-blue-grey-5 text-white" 
         expand-icon-class="text-white">
-            <custom-fields 
+          <custom-fields
             ref="customfields" 
             v-model="currentVulnerability.details[currentDetailsIndex].customFields"
             :key="currentDetailsIndex"
+            :idUnique="currentDetailsIndex+currentVulnerability._id"
             :disabled="lenCurrentTitle === 0"
             :readonly="lenCurrentTitle === 0"
             custom-element="QCardSection"
@@ -605,7 +607,8 @@
                             <custom-fields 
                             ref="customfields" 
                             v-model="currentVulnerability.details[currentDetailsIndex].customFields"
-                            :key="currentDetailsIndex" 
+                            :key="currentDetailsIndex"
+                            :idUnique="currentDetailsIndex+currentVulnerability._id" 
                             :disabled="lenCurrentTitle === 0" :readonly="lenCurrentTitle === 0" 
                             custom-element="QCardSection"
                             :locale="currentLanguage"
@@ -794,7 +797,8 @@
                                 <div v-if="update.customFields">
                                     <custom-fields 
                                     ref="customfields" 
-                                    v-model="update.customFields" 
+                                    v-model="update.customFields"
+                                    :idUnique="currentDetailsIndex+currentVulnerability._id" 
                                     custom-element="QCardSection"
                                     :diff="currentVulnerability.details[currentDetailsIndex].customFields"
                                     :locale="currentLanguage"
