@@ -22,14 +22,14 @@
                         v-if="diff"
                         v-model="field.text"
                         v-on:editorchange="eventPropagation"
-                        :idUnique="field.customField._id"
+                        :idUnique="field.customField._id+'-custom-'+idUnique"
                         :diff="getTextDiffInCustomFields(field)"
                         :editable=false
                         :collab="collab"
                         /> 
                         <basic-editor 
                         v-else
-                        :idUnique="field.customField._id"
+                        :idUnique="field.customField._id+'-custom-'+idUnique"
                         v-on:editorchange="eventPropagation"
                         ref="basiceditor_custom" 
                         v-model="field.text" 
@@ -244,6 +244,10 @@ export default {
         collab: {
             type: Boolean,
             default: true
+        },
+        idUnique: {
+            type: String,
+            default: ''
         }
     },
 
