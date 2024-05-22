@@ -45,9 +45,10 @@
 
             <q-card-section>
                 <div class="row q-col-gutter-md">
-                    <q-select
+                  <q-select
                     class="col-md-6 col-12"
                     :label="$t('company')"
+                    ref="select_company"
                     v-model="audit.company"
                     :options="selectCompanies"
                     option-value="_id"
@@ -55,6 +56,7 @@
                     input-debounce="0"
                     @new-value="createSelectCompany"
                     @input="filterClients()"
+                    @clear="clearCompany"
                     @filter="filterSelectCompany"
                     clearable
                     options-sanitize
@@ -63,16 +65,20 @@
                     :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     />
                     <q-select
+                    ref="select_client"
                     class="col-md-6 col-12"
                     :label="$t('client')"
-                    stack-label
                     v-model="audit.client"
                     :options="selectClients"
                     option-value="email"
                     option-label="email"
+                    input-debounce="0"
+                    @clear="clearClient"
                     @input="setCompanyFromClient"
+                    @filter="filterSelectClient"
                     clearable
                     options-sanitize
+                    use-input
                     outlined 
                     :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                     />

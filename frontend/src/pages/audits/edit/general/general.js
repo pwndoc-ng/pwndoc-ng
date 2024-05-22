@@ -47,8 +47,10 @@ export default {
             auditOrig: {},
             // List of existing clients
             clients: [],
-            // List of filtered clients when company is selected
+            // List of filtered clients when searching in select
             selectClients: [],
+            // List of filtered clients when company is selected
+            selectClientsFromCompany: [],
             // List of existing Collaborators
             collaborators: [],
             // List of existing reviewers
@@ -259,13 +261,13 @@ export default {
         filterClients: function(step) {
             if (step !== 'init') this.audit.client = null // only reset client when company is updated
             if (this.audit.company && this.audit.company.name) {
-                this.selectClients = [];
+                this.selectClientsFromCompany = [];
                 this.clients.map(client => {
-                    if (client.company && client.company.name === this.audit.company.name) this.selectClients.push(client)
+                    if (client.company && client.company.name === this.audit.company.name) this.selectClientsFromCompany.push(client)
                 })
             }
             else
-                this.selectClients = this.$_.clone(this.clients);
+                this.selectClientsFromCompany = this.$_.clone(this.clients);
         },
 
         // Set Company when selecting client 
@@ -276,10 +278,12 @@ export default {
             else if (value) {
                 for (var i=0; i<this.companies.length; i++) {
                     if (this.companies[i].name === value.company.name) {
-                        this.audit.company = this.companies[i];
+                        this.audit.company = this.$_.clone(this.companies[i]);
                         break;
                     }
                 }
+            } else {
+              this.audit.client = null
             }
         },
 
@@ -290,7 +294,23 @@ export default {
             else
                 done(val, 'add-unique')
         },
-
+        filterSelectClient (val, update) {
+            if (val === '') {
+                update(() => this.selectClients = this.selectClientsFromCompany)
+                return
+              }
+            update(() => {
+                const needle = Utils.normalizeString(val)
+                this.selectClients = this.$_.clone(this.selectClientsFromCompany.filter(v => Utils.normalizeString(v.email).indexOf(needle) > -1))
+            })
+        },
+        clearClient() {
+            this.audit = this.$_.clone({...this.audit, client: null})
+            this.$refs.select_client.reset();
+        },
+        clearCompany() {
+            this.audit = this.$_.clone({...this.audit, company: null})
+        },
         filterSelectCompany (val, update) {
             if (val === '') {
                 update(() => this.selectCompanies = this.companies)
@@ -298,7 +318,7 @@ export default {
               }
             update(() => {
                 const needle = Utils.normalizeString(val)
-                this.selectCompanies = this.companies.filter(v => Utils.normalizeString(v.name).indexOf(needle) > -1)
+                this.selectCompanies = this.$_.clone(this.companies.filter(v => Utils.normalizeString(v.name).indexOf(needle) > -1))
             })
         }
     }
