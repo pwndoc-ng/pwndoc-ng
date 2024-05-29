@@ -925,7 +925,8 @@ async function prepAuditData(data, settings) {
         }
         if (section.text) // keep text for retrocompatibility
             formatSection.text = await splitHTMLParagraphs(section.text)
-        else if (section.customFields) {
+        // If only because section has "any" inside its text attribute and then skip the section.customFields
+        if (section.customFields) {
             for (field of section.customFields) {
                 var fieldType = field.customField.fieldType
                 var label = field.customField.label
