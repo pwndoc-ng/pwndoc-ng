@@ -300,14 +300,24 @@ expressions.filters.lines = function(input) {
 
 // Creates a hyperlink: {@input | linkTo: 'https://example.com' | p}
 expressions.filters.linkTo = function(input, url) {
-    var encodedUrl = encodeURIComponent(url); // fix breaking word with special characters in reference
-    var encodedInput = encodeURIComponent(input); // fix breaking word with special characters in reference
-    return `<w:r><w:fldChar w:fldCharType="begin"/></w:r>
-        <w:r><w:instrText xml:space="preserve"> HYPERLINK "${encodedUrl}" </w:instrText></w:r>
-        <w:r><w:fldChar w:fldCharType="separate"/></w:r>
-        <w:r><w:rPr><w:rStyle w:val="Hyperlink"/></w:rPr>
-        <w:t>${encodedInput}</w:t>
-        </w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>`;
+
+    // fix breaking word with special characters in reference
+    var entityencodedurl = url.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'); // encode to prevent xml issues
+    var entityencodedinput = input.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'); // encode to prevent xml issues
+    var encodedUrl = encodeURI(entityencodedurl); // encode the uri
+    var encodedInput = encodeURI(entityencodedinput); // encode the uri
+    
+    return `<w:r>
+    <w:fldChar w:fldCharType="begin"/></w:r><w:r>
+    <w:instrText xml:space="preserve"> HYPERLINK "${encodedUrl}" </w:instrText>
+</w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r>
+<w:r><w:rPr><w:rStyle w:val="Hyperlink"/>
+        <w:shd w:val="clear" w:color="auto" w:fill="auto"/> <!-- Remove any shading -->
+        <w:u w:val="single"/> <!-- Add underline -->
+        <w:color w:val="0000FF"/> <!-- Set text color to blue -->
+    </w:rPr><w:t>${encodedInput}</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/>
+</w:r>`;
+        
 }
 
 // Loop over the input object, providing acccess to its keys and values: {#findings | loopObject}{key}{value.title}{/findings | loopObject}
