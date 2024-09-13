@@ -1,6 +1,6 @@
 # Installation
 
-> PwnDocèng uses 3 containers: the backend, the frontend and the database.
+> PwnDoc-ng uses 3 containers: the backend, the frontend and the database.
 
 ## Production
 
