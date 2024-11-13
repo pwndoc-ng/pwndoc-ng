@@ -694,7 +694,6 @@
                                     <template v-slot="control">
                                         <basic-editor noAffix 
                                         v-model="update.description" 
-                                        :idUnique="currentVulnerability._id+'-description'"
                                         :diff="currentVulnerability.details[currentDetailsIndex].description || ''" 
                                         :editable=false />
                                     </template>
@@ -715,7 +714,6 @@
                                     <template v-slot="control">
                                         <basic-editor noAffix 
                                         v-model="update.observation"
-                                        :idUnique="currentVulnerability._id+'-observation'"
                                         :diff="currentVulnerability.details[currentDetailsIndex].observation || ''"
                                         :editable=false />
                                     </template>
@@ -744,7 +742,6 @@
                                     <template v-slot="control">
                                         <basic-editor noAffix 
                                         v-model="update.remediation" 
-                                        :idUnique="currentVulnerability._id+'-remediation'"
                                         :diff="currentVulnerability.details[currentDetailsIndex].remediation || ''"
                                         :editable=false />
                                     </template>
