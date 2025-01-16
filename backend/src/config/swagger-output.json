@@ -5,10 +5,10 @@
     "description": "",
     "version": "1.0.0"
   },
-  "host": "/",
+  "host": "localhost:8443",
   "basePath": "/",
   "schemes": [
-    "http"
+    "http","https"
   ],
   "paths": {
     "/api/audits": {
@@ -207,6 +207,16 @@
             }
           }
         ],
+        "responses": {}
+      }
+    },
+    "/api/audits/findings": {
+      "get": {
+        "tags": [
+          "Audit"
+        ],
+        "description": "",
+        "parameters": [],
         "responses": {}
       }
     },

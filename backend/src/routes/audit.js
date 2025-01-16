@@ -94,6 +94,14 @@ module.exports = function(app, io) {
     })
 
     /* ### AUDITS EDIT ### */
+    
+    // Get Audit and Findings in a single endpoint
+    app.get("/api/audits/findings", acl.hasPermission('audits:read'), function(req, res) {
+
+        Audit.getAllAuditFindings(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.decodedToken.id)
+        .then(msg => Response.Ok(res, msg))
+        .catch(err => Response.Internal(res, err))
+    });
 
     // Get Audit with ID
     app.get("/api/audits/:auditId", acl.hasPermission('audits:read'), function(req, res) {
