@@ -24,7 +24,7 @@ module.exports = function(app) {
             return;
         }
 
-        if (!utils.validFilename(req.body.name) || !utils.validFilename(req.body.ext)) {
+        if (!utils.validFilename(req.body.name) || !utils.validExtension(req.body.ext)) {
             Response.BadParameters(res, 'Bad name or ext format');
             return;
         }
@@ -51,7 +51,10 @@ module.exports = function(app) {
             Response.BadParameters(res, 'Bad name format');
             return;
         }
-
+        if (req.body.ext && !utils.validExtension(req.body.ext)) {
+            Response.BadParameters(res, 'Bad ext format');
+            return;
+        }
         var template = {};
         // Optional parameters
         if (req.body.name) template.name = req.body.name;
