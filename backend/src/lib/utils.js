@@ -6,6 +6,13 @@ function validFilename(filename) {
 }
 exports.validFilename = validFilename;
 
+function validExtension(ext) {
+  const regex = /^[a-zA-Z]+$/;
+    
+    return (regex.test(ext));
+}
+exports.validExtension = validExtension;
+
 // Escape XML special entities when using {@RawXML} in template generation
 function escapeXMLEntities(input) {
     var XML_CHAR_MAP = { '<': '&lt;', '>': '&gt;', '&': '&amp;'};
