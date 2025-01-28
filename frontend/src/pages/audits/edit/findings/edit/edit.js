@@ -27,8 +27,9 @@ export default {
             proofsTabVisited: false,
             detailsTabVisited: false,
             vulnTypes: [],
-            readyToSave:false,
-            needSave:false,
+            filteredVulnTypes: [], // Ajout de cette ligne
+            readyToSave: false,
+            needSave: false,
             AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE
         }
     },
@@ -109,16 +110,35 @@ export default {
         },
 
         // Get Vulnerabilities types
+
+        
         getVulnTypes: function() {
             DataService.getVulnerabilityTypes()
             .then((data) => {
                 this.vulnTypes = data.data.datas;
+                // Initialiser les types filtrés
+                this.filteredVulnTypes = this.vulnTypesLang;
             })
             .catch((err) => {
                 console.log(err)
             })
         },
-
+        filterType(val, update) {
+            if (val === '') {
+                // Si la recherche est vide, utiliser tous les types dans la langue actuelle
+                update(() => {
+                    this.filteredVulnTypes = this.vulnTypesLang;
+                })
+                return
+            }
+    
+            update(() => {
+                const needle = val.toLowerCase();
+                this.filteredVulnTypes = this.vulnTypesLang.filter(
+                    v => v.name.toLowerCase().includes(needle)
+                )
+            })
+        },
         // Get Finding
         getFinding: function() {
             AuditService.getFinding(this.auditId, this.findingId)

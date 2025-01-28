@@ -558,6 +558,7 @@ import Link from "@tiptap/extension-link";
 import CustomImage from "./editor-image";
 //import Caption from "./editor-caption";
 import { Figure } from "./figure";
+import { TriggerMenuExtension } from './internal-link';
 import {v4 as uuidv4} from 'uuid';
 import UserService from '@/services/user';
 import Collaboration from '@tiptap/extension-collaboration'
@@ -668,6 +669,7 @@ export default {
         TableRow,
         TableHeader,
         TableCell,
+        TriggerMenuExtension,
         Table.configure({
           resizable: true,
         }),
