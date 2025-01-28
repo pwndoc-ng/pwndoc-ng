@@ -288,8 +288,8 @@ export const TriggerMenuExtension = Extension.create({
         const index = optionElement ? optionElement.getAttribute('data-index') : 0;
         // Créer le lien au format texte cliquable
         const linkMark = state.schema.marks.link;
-        const linkText = atob(selectedOption); // Vous pouvez personnaliser le texte affiché
-        const linkUrl = atob(selectedOption); // L'URL sera la valeur de l'option
+        const linkText = decodeURI(selectedOption); // Vous pouvez personnaliser le texte affiché
+        const linkUrl = decodeURI(selectedOption); // L'URL sera la valeur de l'option
         
         // Insérer le texte du lien
         tr.insertText(linkText, deleteFrom);
@@ -328,9 +328,9 @@ export const TriggerMenuExtension = Extension.create({
           return '<div class="menu-separator"></div>';
         }
         return `
-          <div class="menu-option" data-value="${btoa(option.value)}" data-index="${index}">
+          <div class="menu-option" data-value="${encodeURI(option.value)}" data-index="${index}">
             <span class="icon">🎯</span>
-            ${option.value}
+            `+ String(option.value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');+`
             ${option.shortcut ? `<span class="shortcut">${option.shortcut}</span>` : ''}
           </div>
         `;
