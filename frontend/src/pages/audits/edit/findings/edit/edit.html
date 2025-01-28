@@ -41,15 +41,18 @@
                     class="col-md-4 col-12"
                     :label="$t('type')"
                     v-model="finding.vulnType" 
-                    :options="vulnTypesLang" 
+                    :options="filteredVulnTypes" 
                     option-value="name" 
                     option-label="name" 
+                    use-input
+                    input-debounce="0"
+                    @filter="filterType"
                     emit-value 
                     map-options
                     options-sanitize
                     outlined
                     :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                    />
+                />
                     <q-field class="col-md-12 basic-editor" borderless :label="$t('description')" stack-label>
                         <template v-slot="control">
                             <basic-editor ref="basiceditor_description" v-on:editorchange="readyToSave ? needSave=true : null" v-on:ready="readyToSave=true" idUnique="basiceditor_description"  noSync v-model="finding.description" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"/>
