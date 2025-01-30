@@ -26,6 +26,10 @@ This fork includes pending PR and new feature such as:
 - Remediation complexity color by @Syzik
 - Mongo-data volume from @noraj
 - Minor bumps
+- if you use `{@identifier | bookmarkCreate | p}` inside your template doc you can use shortcut `:::` inside editor to link other vuln with hyperlink
+
+  ![image](https://github.com/user-attachments/assets/7b4ab540-0044-414c-af70-9a6ae4c4c6da)
+
 ...
 
 ## Documentation
