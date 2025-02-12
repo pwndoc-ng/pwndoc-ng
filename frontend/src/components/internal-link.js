@@ -300,7 +300,14 @@ export const TriggerMenuExtension = Extension.create({
           deleteFrom + linkText.length,
           linkMark.create({ href: "#IDX_"+padIndex(parseInt(index)+1) })
         );
-        
+        tr.removeStoredMark(linkMark);
+        // Ajouter un espace après le lien
+        const spacePos = deleteFrom + linkText.length;
+        tr.insertText(' ', spacePos);
+        tr.setStoredMarks(nonLinkMarks);
+        // Déplacer le curseur après l'espace
+        const newPos = spacePos + 1;
+        tr.setSelection(state.selection.constructor.near(tr.doc.resolve(newPos)));
         view.dispatch(tr);
         closeMenu();
       }
