@@ -266,6 +266,7 @@ But in order to apply styles to the data from HTML editors, they must be defined
 | H6         | Heading6      |
 | code (<>)  | CodeChar      |
 | code block | Code          |
+| Hyperlink  | PwndocLink    |
 
 For `bullet list` and `ordered list` they must be correctly set in the *numbering.xml* file of the Docx Template.
 
@@ -489,7 +490,7 @@ Takes a multilines input strings (either raw or simple HTML paragraphs) and retu
 
 ### linkTo
 
-Takes a text to display and a URL to generate a hyperlink.
+Takes a text to display and a URL to generate a hyperlink. To apply a custom style to hyperlinks, add a style named "PwndocLink" in word templates.
 
 > Use in template document
 >```
@@ -521,7 +522,7 @@ Lowercases input.
 
 Creates a clickable "mailto:" link, assumes that input is an email address if no other address has been provided as parameter.
 
-The character style "Hyperlink" is applied to the generated hyperlink.
+The character style "PwndocLink" is applied to the generated hyperlink.
 
 > Use in template document
 >```
