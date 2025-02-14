@@ -5,12 +5,14 @@
 </template>
 
 <script>
+import { defineComponent } from 'vue';
+
 import Breadcrumb from 'components/breadcrumb'
 
-export default {
-    components: {
-        Breadcrumb
-    }
-}
+export default defineComponent({
+  components: {
+      Breadcrumb
+  },
+});
 </script>
 

@@ -12,8 +12,8 @@ export default {
             // Companies list
             companies: [],
             // Loading state
-            loading: true,
             // Datatable headers
+            rows:[],
             dtHeaders: [
                 {name: 'name', label: $t('name'), field: 'name', align: 'left', sortable: true},
                 {name: 'shortName', label: $t('shortName'), field: 'shortName', align: 'left', sortable: true},
@@ -44,7 +44,8 @@ export default {
                 logo: ''
             },
             // Name for update
-            idUpdate: ''
+            idUpdate: '',
+            loading:false
         }
     },
 
@@ -64,7 +65,18 @@ export default {
                 console.log(err)
             })
         },
-            
+        isBase64Image(logo) {
+            return typeof logo === 'string' && logo.startsWith('data:image');
+          },
+        
+          // Ajoute le préfixe si ce n'est pas déjà le cas
+          getImageSrc(logo) {
+            if (this.isBase64Image(logo)) {
+              return logo;
+            }
+            // Adapte en fonction du format réel de ton image (png, jpeg, etc.)
+            return `data:image/png;base64,${logo}`;
+          },
         createCompany: function() {
             this.cleanErrors();
             if (!this.currentCompany.name)

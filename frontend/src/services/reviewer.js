@@ -1,7 +1,6 @@
-import Vue from 'vue'
-
+import { api } from 'boot/axios'
 export default {
   getReviewers: function() {
-    return Vue.prototype.$axios.get(`users/reviewers`)
+    return  api.get(`users/reviewers`)
   }
 }

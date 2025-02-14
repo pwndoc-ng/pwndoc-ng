@@ -1,6 +1,11 @@
 <div>
-    <breadcrumb buttons :title="`${$parent.audit.name} (${$parent.audit.auditType || 'Audit Type not set'})`" :state="parentState" :approvals="parentApprovals">
-    <div slot="buttons" v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT">
+    <breadcrumb
+    buttons
+    :title="audit ? `${audit.name} (${audit.auditType || 'Audit Type not set'})` : 'Loading...'"
+    :state="parentState"
+    :approvals="parentApprovals"
+  >
+      <div slot="buttons" v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT">
         <q-btn-dropdown 
         class="q-mr-sm"
         :label="$t('import')"
@@ -88,7 +93,7 @@
         :title="`${currentHost.ip} (${currentHost.hostname})`"
         :data="currentHost.services"
         :columns="dtHostHeaders"
-        :pagination.sync="hostPagination"
+        :v-model:pagination="hostPagination"
         row-key="port"
         />
     </div>

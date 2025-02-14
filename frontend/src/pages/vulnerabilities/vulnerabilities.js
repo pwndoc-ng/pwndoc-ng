@@ -19,8 +19,10 @@ export default {
             UserService: UserService,
             // Vulnerabilities list
             vulnerabilities: [],
+            currentDetailsIndex:0,
             // Loading state
             loading: true,
+            rows:[],
             // Datatable headers
             dtHeaders: [
                 { name: 'title', label: $t('title'), field: 'title', align: 'left', sortable: true },

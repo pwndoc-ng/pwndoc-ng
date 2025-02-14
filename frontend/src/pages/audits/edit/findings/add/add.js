@@ -17,12 +17,29 @@ export default {
     },
     data: () => {
         return {
-            finding: {},
+            finding: {
+                title: '',
+                vulnType: '',
+                description: '',
+                observation: '',
+                references: [],
+                status: 1, // 1 = En cours, 0 = Terminé (à adapter selon tes valeurs)
+                customFields: [],
+                poc: '',
+                scope: '',
+                cvssv3: '',
+                remediationComplexity: null,
+                priority: null,
+                remediation: ''
+              },
             findingTitle: '',
+            pagesNumber:10,
             // List of vulnerabilities from knowledge base
             vulnerabilities: [],
+            
+
             // Loading state
-            loading: true,
+            loading: false,
             // Headers for vulnerabilities datatable
             dtVulnHeaders: [
                 {name: 'title', label: $t('title'), field: row => row.detail.title, align: 'left', sortable: true},
@@ -34,7 +51,13 @@ export default {
             vulnPagination: {
                 page: 1,
                 rowsPerPage: 25,
-                sortBy: 'title'
+                sortBy: 'title',
+                pagesNumber: 1
+            },
+            pagination: {
+                page: 1,
+                rowsPerPage: 25,
+                pagesNumber: 1  // Ajoutez cette ligne
             },
             rowsPerPageOptions: [
                 {label:'25', value:25},
@@ -42,7 +65,7 @@ export default {
                 {label:'100', value:100},
                 {label:'All', value:0}
             ],
-            filteredRowsCount: 0,
+     
             // Search filter
             search: {title: '', vulnType: '', category: ''},
             
@@ -53,7 +76,23 @@ export default {
 
             // Vulnerability categories
             vulnCategories: [],
-
+            audit: {
+                creator: {},
+                name: "",
+                auditType: "",
+                client: {},
+                company: {},
+                collaborators: [],
+                reviewers: [],
+                date: "",
+                date_start: "",
+                date_end: "",
+                scope: [],
+                language: "",
+                template: "",
+                customFields: [],
+                approvals: []
+            },
             htmlEncode: Utils.htmlEncode,
             AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE
         }
@@ -66,8 +105,8 @@ export default {
     mounted: function() {
         this.auditId = this.$route.params.auditId;
         this.getLanguages();
-        this.dtLanguage = this.$parent.audit.language;
-        this.getVulnerabilities();
+        this.dtLanguage = this.audit.language;
+        this.getAudit();
         this.getVulnerabilityCategories()
 
         this.$socket.emit('menu', {menu: 'addFindings', room: this.auditId});
@@ -81,10 +120,14 @@ export default {
         },
 
         vulnTypeOptions: function() {
-            return this.$_.uniq(this.$_.map(this.vulnerabilities, vuln => {
-                return vuln.detail.vulnType || $t('undefined')
-            }))
-        }
+            return this.$_.uniq(
+              this.vulnerabilities.map(vuln => vuln.detail?.vulnType || $t('undefined'))
+            );
+          },
+          filteredVulnerabilities() {
+            if (!this.dtLanguage) return this.vulnerabilities; // Si aucune langue sélectionnée, affiche tout
+            return this.vulnerabilities.filter(vuln => vuln.locale === this.dtLanguage);
+          }    
     },
 
     methods: {
@@ -111,7 +154,17 @@ export default {
                 console.log(err)
             })
         },
-
+        getAudit: function() {
+            AuditService.getAudit(this.auditId)
+                .then((data) => {
+                    this.audit = data.data.datas;
+                    this.dtLanguage=this.audit.language;
+                    this.getVulnerabilities();
+                })
+                .catch((err) => {
+                    console.log(err);
+                });
+        },
         // Get available vulnerability categories
         getVulnerabilityCategories: function() {
             DataService.getVulnerabilityCategories()
@@ -131,22 +184,29 @@ export default {
                 return row.details[index].title;         
         },
 
-        customFilter: function(rows, terms, cols, getCellValue) {
+        customFilter(rows, terms, cols, getCellValue) {
             var result = rows && rows.filter(row => {
-                var title = (row.detail.title || $t('err.notDefinedLanguage')).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-                var type = (row.detail.vulnType || $t('undefined')).toLowerCase()
-                var category = (row.category || $t('noCategory')).toLowerCase()
-                var termTitle = (terms.title || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-                var termCategory = (terms.category || "").toLowerCase()
-                var termVulnType = (terms.vulnType || "").toLowerCase()
-                return title.indexOf(termTitle) > -1 && 
-                type.indexOf(termVulnType) > -1 &&
-                category.indexOf(termCategory) > -1
-            })
-            this.filteredRowsCount = result.length
-            this.filteredRows = result
+              if (!row.detail || !row.detail.title) return false;
+          
+              const title = row.detail.title.toLowerCase();
+              const category = row.category ? row.category.toLowerCase() : '';
+              const vulnType = row.detail.vulnType ? row.detail.vulnType.toLowerCase() : '';
+          
+              const searchTitle = terms.title ? terms.title.toLowerCase() : '';
+              const searchCategory = terms.category ? terms.category.toLowerCase() : '';
+              const searchVulnType = terms.vulnType ? terms.vulnType.toLowerCase() : '';
+          
+              return title.includes(searchTitle)
+                && category.includes(searchCategory)
+                && vulnType.includes(searchVulnType);
+            });
+            this.filteredRowsCount = result.length;
             return result;
-        },
+          },
+
+          
+          
+
 
         addFindingFromVuln: function(vuln) {
             var finding = null;
@@ -162,7 +222,7 @@ export default {
                     references: vuln.detail.references,
                     cvssv3: vuln.cvssv3,
                     category: vuln.category,
-                    customFields: Utils.filterCustomFields('finding', vuln.category, this.$parent.customFields, vuln.detail.customFields, this.$parent.audit.language)
+                    customFields: Utils.filterCustomFields('finding', vuln.category, this.$parent.customFields, vuln.detail.customFields, this.audit.language)
                 };
             }
 
@@ -202,7 +262,7 @@ export default {
                     references: [],
                     cvssv3: "",
                     category: category.name,
-                    customFields: Utils.filterCustomFields('finding', category.name, this.$parent.customFields, [], this.$parent.audit.language)
+                    customFields: Utils.filterCustomFields('finding', category.name, this.$parent.customFields, [], this.audit.language)
                 };
             }
             else if (this.findingTitle){
@@ -216,7 +276,7 @@ export default {
                     priority: "",
                     references: [],
                     cvssv3: "",
-                    customFields: Utils.filterCustomFields('finding', '', this.$parent.customFields, [], this.$parent.audit.language)
+                    customFields: Utils.filterCustomFields('finding', '', this.$parent.customFields, [], this.audit.language)
                 };
             }
 

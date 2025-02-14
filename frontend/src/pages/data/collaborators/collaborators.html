@@ -2,16 +2,19 @@
     <div class="row">
         <div class="col-md-10 col-12 offset-md-1 q-mt-md">
             <q-table
-                class="sticky-header-table"
-                :columns="dtHeaders"
-                :data="collabs"
-                :filter="search"
-                :filter-method="customFilter"
-                :pagination.sync="pagination"
-                row-key="username"
-                :loading="loading"
-                @row-dblclick="dblClick"
-            >
+            class="sticky-header-table"
+            :columns="dtHeaders"
+            :rows="collabs"
+            :filter="search"
+            :filter-method="customFilter"
+            v-model:pagination="pagination"
+            row-key="username"
+            :loading="loading"
+            @row-dblclick="dblClick"
+          >
+            <template v-slot:loading>
+              <q-inner-loading showing color="primary" />
+            </template>
                 <template v-slot:top>
                     <q-toggle 
                     :label="(search.enabled)? $t('btn.accountsEnabled'): $t('btn.accountsDisabled')" 
@@ -80,11 +83,28 @@
                     </q-tr>
                 </template>
 
-                <q-td slot="body-cell-action" slot-scope="props" style="width:1px">
-                    <q-btn v-if="UserService.isAllowed('users:update')" size="sm" flat color="primary" icon="fa fa-edit" @click="clone(props.row); $refs.editModal.show()">
-                        <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">Edit</q-tooltip>
-                    </q-btn>
-                </q-td>  
+                <template v-slot:body-cell-action="props">
+                    <q-td :props="props" style="width: 1px">
+                      <q-btn
+                        v-if="UserService.isAllowed('users:update')"
+                        size="sm"
+                        flat
+                        color="primary"
+                        icon="fa fa-edit"
+                        @click="clone(props.row); $refs.editModal.show()"
+                      >
+                        <q-tooltip
+                          anchor="bottom middle"
+                          self="center left"
+                          :delay="500"
+                          content-class="text-bold"
+                        >
+                          Edit
+                        </q-tooltip>
+                      </q-btn>
+                    </q-td>
+                  </template>
+                  
 
                 <template v-slot:bottom="scope">
                     <span v-if="collabs.length === 1">1 {{$t('quantifier')}}{{$t('collatorator')}}</span>                

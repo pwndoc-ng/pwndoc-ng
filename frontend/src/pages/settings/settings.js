@@ -11,8 +11,8 @@ export default {
         return {
             loading: true,
             UserService: UserService,
-            settings: {},
-            settingsOrig : {},
+            settings: {danger:{enabled:false,public:{nbdaydelete: 0}},reviews:{enabled:false}},
+            settingsOrig : {danger:{enabled:false},reviews:{enabled:false}},
             canEdit: false
         }
     },
@@ -60,7 +60,14 @@ export default {
         getSettings: function() {
             SettingsService.getSettings()
             .then((data) => {
-                this.settings = data.data.datas;
+                this.settings = this.$_.merge(
+                    {
+                      danger: { enabled: false, public:{nbdaydelete: 0}},
+                      reviews: { enabled: false, public: { minReviewers: 1 } }
+                    },
+                    data.data.datas
+                  );
+                  
                 this.settingsOrig = this.$_.cloneDeep(this.settings);
                 this.loading = false
             })

@@ -1,6 +1,6 @@
-import Lodash from 'lodash'
 import { boot } from 'quasar/wrappers'
+import Sticky from 'vue3-sticky-directive'
 
 export default boot(({ app }) => {
-  app.config.globalProperties.$_ = Lodash
+  app.use(Sticky)
 })

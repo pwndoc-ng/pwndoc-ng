@@ -1,30 +1,31 @@
-import Vue from "vue";
-import { Dark } from "quasar";
-
-const DarkModeSwitcher = {
-    install: function(Vue) {
-        Vue.prototype.toggleDarkMode = function() {
-            updateDarkMode(!Dark.isActive);
-        }
-    }
-};
-Vue.use(DarkModeSwitcher);
+import { Dark } from 'quasar'
 
 function updateDarkMode(dark = null) {
-    // using !! to convert it to a boolean is ok in this case,
-    // because we are checking, if the key exists
-    let darkmode = !!localStorage.getItem("darkmodeEnabled") || false;
-    if(dark != null) {
-        // set mode
-        darkmode = dark;
-    }
-    
-    Dark.set(darkmode);
-    if(darkmode) {
-      localStorage.setItem("darkmodeEnabled", "y");
-    } else {
-      localStorage.removeItem("darkmodeEnabled");
-    }
+  let darkmode = !!localStorage.getItem('darkmodeEnabled') || false
+
+  if (dark !== null) {
+    darkmode = dark
+  }
+
+  Dark.set(darkmode)
+
+  if (darkmode) {
+    localStorage.setItem('darkmodeEnabled', 'y')
+  } else {
+    localStorage.removeItem('darkmodeEnabled')
+  }
 }
 
-updateDarkMode();
+// Met à jour dès le chargement
+updateDarkMode()
+
+export default ({ app }) => {
+  // Définir les propriétés globales
+  app.config.globalProperties.$toggleDarkMode = () => {
+    updateDarkMode(!Dark.isActive)
+  }
+
+  app.config.globalProperties.$updateDarkMode = updateDarkMode
+}
+
+export { updateDarkMode }

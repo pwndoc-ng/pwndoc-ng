@@ -146,6 +146,10 @@ export default {
         },
 
         updateScopeHosts: function(scope) {
+            if (!this.selectedTargets[scope.name]) {
+                console.error(`Scope "${scope.name}" not found in selectedTargets.`);
+                return;
+            }
             for (var i=0; i<this.selectedTargets[scope.name].length; i++) {
                 scope.hosts.push(this.selectedTargets[scope.name][i].host);
             }

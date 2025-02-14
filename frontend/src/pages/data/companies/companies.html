@@ -4,10 +4,10 @@
         <q-table
             class="sticky-header-table"
             :columns="dtHeaders"
-            :data="companies"
+            :rows="companies"
             :filter="search"
             :filter-method="customFilter"
-            :pagination.sync="pagination"
+            v-model:pagination="pagination"
             row-key="name"
             :loading="loading"
             @row-dblclick="dblClick"
@@ -39,18 +39,55 @@
                 </q-tr>
             </template>
 
-            <q-td slot="body-cell-logo" slot-scope="props">
-                <img v-if="props.row.logo" :src="props.row.logo" style="max-height:42px; max-width:42px" />
-            </q-td>
+            <template v-slot:body-cell-logo="props">
+                <q-td :props="props">
+                  <img
+                    v-if="props.row.logo && isBase64Image(props.row.logo)"
+                    :src="getImageSrc(props.row.logo)"
+                    style="max-height: 42px; max-width: 42px"
+                    alt="Company logo"
+                  />
+                  <span v-else>{{ props.row.logo }}</span>
+                </q-td>
+              </template>
 
-            <q-td slot="body-cell-action" slot-scope="props" style="width:1px">
-                <q-btn size="sm" flat color="primary" icon="fa fa-edit" @click="clone(props.row); $refs.editModal.show()">
-                    <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.edit')}}</q-tooltip>
-                </q-btn>
-                <q-btn size="sm" flat color="negative" icon="fa fa-trash" @click="confirmDeleteCompany(props.row)">
-                    <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.delete')}}</q-tooltip>
-                </q-btn>
-            </q-td>
+              <template v-slot:body-cell-action="props">
+                <q-td :props="props" style="width: 1px">
+                  <q-btn
+                    size="sm"
+                    flat
+                    color="primary"
+                    icon="fa fa-edit"
+                    @click="clone(props.row); $refs.editModal.show()"
+                  >
+                    <q-tooltip
+                      anchor="bottom middle"
+                      self="center left"
+                      :delay="500"
+                      content-class="text-bold"
+                    >
+                      {{ $t('tooltip.edit') }}
+                    </q-tooltip>
+                  </q-btn>
+                  <q-btn
+                    size="sm"
+                    flat
+                    color="negative"
+                    icon="fa fa-trash"
+                    @click="confirmDeleteCompany(props.row)"
+                  >
+                    <q-tooltip
+                      anchor="bottom middle"
+                      self="center left"
+                      :delay="500"
+                      content-class="text-bold"
+                    >
+                      {{ $t('tooltip.delete') }}
+                    </q-tooltip>
+                  </q-btn>
+                </q-td>
+              </template>
+              
 
             <template v-slot:bottom="scope">
                 <span v-if="companies.length === 1">1 {{$t('quantifier')}}{{$t('company')}}</span>                

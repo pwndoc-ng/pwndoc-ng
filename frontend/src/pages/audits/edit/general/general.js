@@ -1,3 +1,4 @@
+import { nextTick } from 'vue';
 import { Notify, Dialog } from 'quasar';
 
 import Breadcrumb from 'components/breadcrumb';
@@ -141,7 +142,7 @@ export default {
         // Save Audit
         updateAuditGeneral: function() {
             Utils.syncEditors(this.$refs)
-            this.$nextTick(() => {
+            nextTick(() => {
                 if (this.$refs.customfields && this.$refs.customfields.requiredFieldsEmpty()) {
                     Notify.create({
                         message: $t('msg.fieldRequired'),

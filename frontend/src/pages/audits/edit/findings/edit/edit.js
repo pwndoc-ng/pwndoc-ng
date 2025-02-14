@@ -1,3 +1,4 @@
+import { nextTick } from 'vue';
 import { Notify, Dialog } from 'quasar';
 
 import BasicEditor from 'components/editor';
@@ -15,13 +16,29 @@ import { $t } from '@/boot/i18n'
 
 export default {
     props: {
+        audit: Object,
         frontEndAuditState: Number,
         parentState: String,
         parentApprovals: Array
     },
     data: () => {
         return {
-            finding: {},
+            finding: {
+                title: '',
+                vulnType: '',
+                description: '',
+                observation: '',
+                references: [],
+                status: 1,
+                customFields: [],
+                poc: '',
+                scope: '',
+                cvssv3: '',
+                remediationComplexity: null,
+                priority: null,
+                remediation: ''
+              },
+            localAudit:{language:""},
             findingOrig: {},
             selectedTab: "definition",
             proofsTabVisited: false,
@@ -46,6 +63,8 @@ export default {
         this.auditId = this.$route.params.auditId;
         this.findingId = this.$route.params.findingId;
         this.getFinding();
+        this.getAudit();
+
         this.getVulnTypes();
 
         this.$socket.emit('menu', {menu: 'editFinding', finding: this.findingId, room: this.auditId});
@@ -92,7 +111,7 @@ export default {
 
     computed: {
         vulnTypesLang: function() {
-            return this.vulnTypes.filter(type => type.locale === this.$parent.audit.language);
+            return this.vulnTypes.filter(type => type.locale === this.localAudit.language);
         },
 
         screenshotsSize: function() {
@@ -111,6 +130,15 @@ export default {
 
         // Get Vulnerabilities types
 
+        getAudit: function() {
+            AuditService.getAudit(this.auditId)
+                .then((data) => {
+                    this.localAudit = data.data.datas;
+                })
+                .catch((err) => {
+                    console.log(err);
+                });
+        },
         
         getVulnTypes: function() {
             DataService.getVulnerabilityTypes()
@@ -125,19 +153,18 @@ export default {
         },
         filterType(val, update) {
             if (val === '') {
-                // Si la recherche est vide, utiliser tous les types dans la langue actuelle
-                update(() => {
-                    this.filteredVulnTypes = this.vulnTypesLang;
-                })
-                return
+              update(() => {
+                this.filteredVulnTypes = this.vulnTypesLang || [];
+              });
+              return;
             }
-    
+          
             update(() => {
-                const needle = val.toLowerCase();
-                this.filteredVulnTypes = this.vulnTypesLang.filter(
-                    v => v.name.toLowerCase().includes(needle)
-                )
-            })
+              const needle = val.toLowerCase();
+              this.filteredVulnTypes = (this.vulnTypesLang || []).filter(
+                v => v.name.toLowerCase().includes(needle)
+              );
+            });
         },
         // Get Finding
         getFinding: function() {
@@ -147,9 +174,9 @@ export default {
                 if (this.finding.customFields && // For retrocompatibility with customField reference instead of object
                     this.finding.customFields.length > 0 && 
                     typeof (this.finding.customFields[0].customField) === 'string') 
-                    this.finding.customFields = Utils.filterCustomFields('finding', this.finding.category, this.$parent.customFields, this.finding.customFields, this.$parent.audit.language)
+                    this.finding.customFields = Utils.filterCustomFields('finding', this.finding.category, this.$parent.customFields, this.finding.customFields, this.localAudit.language)
                 if (this.finding.paragraphs.length > 0 && !this.finding.poc)
-                    this.finding.poc = this.convertParagraphsToHTML(this.finding.paragraphs)
+                    this.finding.poc = this.convertParagraphsToHTML(this.finding.paragraphs) || '';
 
                 this.$nextTick(() => {
                     Utils.syncEditors(this.$refs)
@@ -165,6 +192,7 @@ export default {
                     this.$router.push({name: '404', params: {error: err.response.data.datas}})
             })
         },
+        
 
         // For retro compatibility with old paragraphs
         convertParagraphsToHTML: function(paragraphs) {
@@ -183,7 +211,7 @@ export default {
         // Update Finding
         updateFinding: function() {
             Utils.syncEditors(this.$refs)
-            this.$nextTick(() => {
+            nextTick(() => {
                 if (this.$refs.customfields && this.$refs.customfields.requiredFieldsEmpty()) {
                     Notify.create({
                         message: $t('msg.fieldRequired'),
@@ -233,13 +261,13 @@ export default {
                         position: 'top-right'
                     })
                     this.findingOrig = this.finding
-                    var currentIndex = this.$parent.audit.findings.findIndex(e => e._id === this.findingId)
-                    if (this.$parent.audit.findings.length === 1)
-                        this.$router.push(`/audits/${this.$parent.auditId}/findings/add`)
-                    else if (currentIndex === this.$parent.audit.findings.length - 1)
-                        this.$router.push(`/audits/${this.$parent.auditId}/findings/${this.$parent.audit.findings[currentIndex - 1]._id}`)
+                    var currentIndex = this.audit.findings.findIndex(e => e._id === this.findingId)
+                    if (this.audit.findings.length === 1)
+                        this.$router.push(`/audits/${this.auditId}/findings/add`)
+                    else if (currentIndex === this.audit.findings.length - 1)
+                        this.$router.push(`/audits/${this.auditId}/findings/${this.audit.findings[currentIndex - 1]._id}`)
                     else
-                        this.$router.push(`/audits/${this.$parent.auditId}/findings/${this.$parent.audit.findings[currentIndex + 1]._id}`)
+                        this.$router.push(`/audits/${this.auditId}/findings/${this.audit.findings[currentIndex + 1]._id}`)
                 })
                 .catch((err) => {
                     Notify.create({
@@ -255,7 +283,7 @@ export default {
          // Backup Finding to vulnerability database
         backupFinding: function() {
             Utils.syncEditors(this.$refs)
-            VulnService.backupFinding(this.$parent.audit.language, this.finding)
+            VulnService.backupFinding(this.audit.language|| '', this.finding)
             .then((data) => {
                 Notify.create({
                     message: data.data.datas,
@@ -280,8 +308,11 @@ export default {
 
         updateOrig: function() {
             if (this.selectedTab === 'proofs' && !this.proofsTabVisited){
+                if (this.finding.poc === null || this.finding.poc === undefined) {
+                    this.finding.poc = '';
+                  }
                 Utils.syncEditors(this.$refs)
-                this.findingOrig.poc = this.finding.poc
+                this.findingOrig.poc = this.finding.poc || ''
                 this.proofsTabVisited = true
             }
             else if (this.selectedTab === 'details' && !this.detailsTabVisited){

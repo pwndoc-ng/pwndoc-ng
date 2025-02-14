@@ -1,5 +1,5 @@
 import { Dialog, Notify } from 'quasar'
-import Vue from 'vue'
+import Vue, { nextTick } from 'vue';
 
 import UserService from '@/services/user'
 import Utils from '@/services/utils'
@@ -48,7 +48,7 @@ export default {
                 })
             }
             else if (!this.totpEnabled && this.user.totpEnabled) {
-                this.$nextTick(() => {this.$refs.totpDisableInput.focus()})
+                nextTick(() => {this.$refs.totpDisableInput.focus()})
             }
             else {
                 this.totpQrcode = "";
@@ -111,10 +111,12 @@ export default {
                 this.errors.lastname = $t('msg.lastnameRequired');
             if (!this.user.currentPassword)
                 this.errors.currentPassword = $t('msg.currentPasswordRequired');
-            if (!Utils.strongPassword(this.user.newPassword))
-                this.errors.newPassword = $t('msg.passwordComplexity')
-            if (this.user.newPassword !== this.user.confirmPassword)
-                this.errors.newPassword = $t('msg.confirmPasswordDifferents');
+            if (this.user.newPassword || this.user.confirmPassword) {
+                if (!Utils.strongPassword(this.user.newPassword))
+                    this.errors.newPassword = $t('msg.passwordComplexity');
+                if (this.user.newPassword !== this.user.confirmPassword)
+                    this.errors.newPassword = $t('msg.confirmPasswordDifferents');
+            }
         
             if (this.errors.username || this.errors.firstname || this.errors.lastname || this.errors.currentPassword || this.errors.newPassword)
                 return;

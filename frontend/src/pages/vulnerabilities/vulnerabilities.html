@@ -5,18 +5,18 @@
     </div>
     <div v-else class="col-md-8 col-12 offset-md-2 q-mt-md">
         <q-table
-            class="sticky-header-table"
-            :columns="dtHeaders"
-            :data="computedVulnerabilities"
-            :filter="search"
-            :filter-method="customFilter"
-            :pagination.sync="pagination"
-            :sort-method="customSort"
-            separator="none"
-            row-key="_id"
-            :loading="loading"
-            @row-dblclick="dblClick"
-        >
+        class="sticky-header-table"
+        :columns="dtHeaders"
+        :rows="vulnerabilities"
+        :filter="search"
+        :filter-method="customFilter"
+        v-model:pagination="pagination"
+        :sort-method="customSort"
+        separator="none"
+        row-key="_id"
+        :loading="loading"
+        @row-dblclick="dblClick"
+      >
             <template v-slot:top>
                 <q-select 
                 class="col-md-2"
@@ -223,14 +223,14 @@
         <q-card-section>
             <q-field borderless :label="$t('description')" stack-label>
                 <template v-slot="control">
-                    <basic-editor :collab="false" :idUnique="currentVulnerability._id+'-description'" noAffix v-model="currentVulnerability.details[currentDetailsIndex].description" :key="currentDetailsIndex" :disabled="lenCurrentTitle === 0" :editable="lenCurrentTitle > 0" />
+                    <basic-editor :collab="false" :idUnique="currentVulnerability._id+'-description'"  v-sticky="{ top: 10 }" v-model="currentVulnerability.details[currentDetailsIndex].description" :key="currentDetailsIndex" :disabled="lenCurrentTitle === 0" :editable="lenCurrentTitle > 0" />
                 </template>
             </q-field>
         </q-card-section>
         <q-card-section>
             <q-field borderless :label="$t('observation')" stack-label>
                 <template v-slot="control">
-                    <basic-editor   :collab="false" :idUnique="currentVulnerability._id+'-observation'" noAffix v-model="currentVulnerability.details[currentDetailsIndex].observation" :key="currentDetailsIndex" :disabled="lenCurrentTitle === 0"  :editable="lenCurrentTitle > 0" />
+                    <basic-editor   :collab="false" :idUnique="currentVulnerability._id+'-observation'"  v-sticky="{ top: 10 }" v-model="currentVulnerability.details[currentDetailsIndex].observation" :key="currentDetailsIndex" :disabled="lenCurrentTitle === 0"  :editable="lenCurrentTitle > 0" />
                 </template>
             </q-field>
         </q-card-section>
@@ -245,7 +245,7 @@
         <q-card-section>
             <q-field borderless :label="$t('remediation')" stack-label>
                 <template v-slot="control">
-                    <basic-editor  :collab="false" :idUnique="currentVulnerability._id+'-remediation'" noAffix v-model="currentVulnerability.details[currentDetailsIndex].remediation" :key="currentDetailsIndex" :disabled="lenCurrentTitle === 0" :editable="lenCurrentTitle > 0" />
+                    <basic-editor  :collab="false" :idUnique="currentVulnerability._id+'-remediation'"  v-sticky="{ top: 10 }" v-model="currentVulnerability.details[currentDetailsIndex].remediation" :key="currentDetailsIndex" :disabled="lenCurrentTitle === 0" :editable="lenCurrentTitle > 0" />
                 </template>
             </q-field>
         </q-card-section>
@@ -394,7 +394,7 @@
             <q-field borderless :label="$t('description')" stack-label class="basic-editor">
                 <template v-slot="control">
                     <basic-editor :idUnique="currentVulnerability._id+'-description'"
-                     noAffix v-model="currentVulnerability.details[currentDetailsIndex].description" :key="currentDetailsIndex" :disabled="lenCurrentTitle === 0" :editable="lenCurrentTitle > 0" 
+                      v-sticky="{ top: 10 }" v-model="currentVulnerability.details[currentDetailsIndex].description" :key="currentDetailsIndex" :disabled="lenCurrentTitle === 0" :editable="lenCurrentTitle > 0" 
                     />
                 </template>
             </q-field>
@@ -402,7 +402,7 @@
         <q-card-section>
             <q-field borderless :label="$t('observation')" stack-label class="basic-editor">
                 <template v-slot="control">
-                    <basic-editor :idUnique="currentVulnerability._id+'-observation'"   noAffix v-model="currentVulnerability.details[currentDetailsIndex].observation" :key="currentDetailsIndex"  :disabled="lenCurrentTitle === 0" :editable="lenCurrentTitle > 0" />
+                    <basic-editor :idUnique="currentVulnerability._id+'-observation'"    v-sticky="{ top: 10 }" v-model="currentVulnerability.details[currentDetailsIndex].observation" :key="currentDetailsIndex"  :disabled="lenCurrentTitle === 0" :editable="lenCurrentTitle > 0" />
                 </template>
             </q-field>
         </q-card-section>
@@ -417,7 +417,7 @@
         <q-card-section>
             <q-field borderless :label="$t('remediation')" stack-label class="basic-editor">
                 <template v-slot="control">
-                    <basic-editor :idUnique="currentVulnerability._id+'-remediation'"   noAffix v-model="currentVulnerability.details[currentDetailsIndex].remediation" :key="currentDetailsIndex" :disabled="lenCurrentTitle === 0" :editable="lenCurrentTitle > 0" />
+                    <basic-editor :idUnique="currentVulnerability._id+'-remediation'"    v-sticky="{ top: 10 }" v-model="currentVulnerability.details[currentDetailsIndex].remediation" :key="currentDetailsIndex" :disabled="lenCurrentTitle === 0" :editable="lenCurrentTitle > 0" />
                 </template>
             </q-field>
         </q-card-section>
@@ -546,14 +546,14 @@
                     <q-card-section>
                         <q-field borderless :label="$t('description')" stack-label class="basic-editor">
                             <template v-slot="control">
-                                <basic-editor noAffix :idUnique="currentVulnerability._id+'-description'"  v-model="currentVulnerability.details[currentDetailsIndex].description" :key="currentDetailsIndex" :disabled="lenCurrentTitle === 0" :editable="lenCurrentTitle > 0"  />
+                                <basic-editor  v-sticky="{ top: 10 }" :idUnique="currentVulnerability._id+'-description'"  v-model="currentVulnerability.details[currentDetailsIndex].description" :key="currentDetailsIndex" :disabled="lenCurrentTitle === 0" :editable="lenCurrentTitle > 0"  />
                             </template>
                         </q-field>
                     </q-card-section>
                     <q-card-section>
                         <q-field borderless :label="$t('observation')" stack-label class="basic-editor">
                             <template v-slot="control">
-                                <basic-editor noAffix :idUnique="currentVulnerability._id+'-observation'"  v-model="currentVulnerability.details[currentDetailsIndex].observation" :key="currentDetailsIndex" :disabled="lenCurrentTitle === 0" :editable="lenCurrentTitle > 0" />
+                                <basic-editor  v-sticky="{ top: 10 }" :idUnique="currentVulnerability._id+'-observation'"  v-model="currentVulnerability.details[currentDetailsIndex].observation" :key="currentDetailsIndex" :disabled="lenCurrentTitle === 0" :editable="lenCurrentTitle > 0" />
                             </template>
                         </q-field>
                     </q-card-section>
@@ -566,7 +566,7 @@
                     <q-card-section>
                         <q-field borderless :label="$t('remediation')" stack-label class="basic-editor">
                             <template v-slot="control">
-                                <basic-editor noAffix :idUnique="currentVulnerability._id+'-remediation'" v-model="currentVulnerability.details[currentDetailsIndex].remediation" :key="currentDetailsIndex" :disabled="lenCurrentTitle === 0" :editable="lenCurrentTitle > 0" />
+                                <basic-editor  v-sticky="{ top: 10 }" :idUnique="currentVulnerability._id+'-remediation'" v-model="currentVulnerability.details[currentDetailsIndex].remediation" :key="currentDetailsIndex" :disabled="lenCurrentTitle === 0" :editable="lenCurrentTitle > 0" />
                             </template>
                         </q-field>
                     </q-card-section>
@@ -633,11 +633,11 @@
                         indicator-color="primary"
                         class="bg-blue-grey-2"
                         >
-                            <q-tab v-for="update of vulnUpdates" :key="update._id" :name="update._id" :label="update.creator.username" @click="currentLanguage = update.locale" />
+                            <q-tab v-for="update in vulnUpdates" :key="update._id" :name="update._id" :label="update.creator.username" @click="currentLanguage = update.locale" />
                         </q-tabs>
                     </q-card-section>
                     <q-tab-panels v-model="currentUpdate">
-                        <q-tab-panel v-for="update of vulnUpdates" :key="update._id" :name="update._id" class="q-pa-none">
+                        <q-tab-panel v-for="update in vulnUpdates" :key="update._id" :name="update._id" class="q-pa-none">
                             <q-card-section class="row q-col-gutter-md q-pt-none">
                                 <q-input
                                 :label="$t('title')+' *'"
@@ -692,7 +692,7 @@
                                 class="basic-editor"
                                 readonly>
                                     <template v-slot="control">
-                                        <basic-editor noAffix 
+                                        <basic-editor  v-sticky="{ top: 10 }" 
                                         v-model="update.description" 
                                         :idUnique="currentVulnerability._id+'-description'"
                                         :diff="currentVulnerability.details[currentDetailsIndex].description || ''" 
@@ -713,7 +713,7 @@
                                 class="basic-editor"
                                 readonly>
                                     <template v-slot="control">
-                                        <basic-editor noAffix 
+                                        <basic-editor  v-sticky="{ top: 10 }" 
                                         v-model="update.observation"
                                         :idUnique="currentVulnerability._id+'-observation'"
                                         :diff="currentVulnerability.details[currentDetailsIndex].observation || ''"
@@ -742,7 +742,7 @@
                                 class="basic-editor"
                                 readonly>
                                     <template v-slot="control">
-                                        <basic-editor noAffix 
+                                        <basic-editor  v-sticky="{ top: 10 }" 
                                         v-model="update.remediation" 
                                         :idUnique="currentVulnerability._id+'-remediation'"
                                         :diff="currentVulnerability.details[currentDetailsIndex].remediation || ''"

@@ -7,11 +7,7 @@
     :class="affixRelativeElement"
     :style="editable ? '' : 'border: 1px dashed lightgrey'"
   >
-    <affix
-      :relative-element-selector="'.' + affixRelativeElement"
-      :enabled="!noAffix"
-      class="bg-white"
-    >
+  <div v-sticky="{ zIndex: 10, stickyTop: 50 }" class="bg-white">
       <q-toolbar class="editor-toolbar">
         <div v-if="toolbar.indexOf('format') !== -1">
           <q-tooltip :delay="500" content-class="text-bold"
@@ -494,9 +490,9 @@
         <q-separator
           vertical
           class="q-mx-sm"
-          v-if="diff !== undefined && (diff || value) && value !== diff"
+          v-if="diff !== undefined && (diff || modelValue) && modelValue !== diff"
         />
-        <div v-if="diff !== undefined && (diff || value) && value !== diff">
+        <div v-if="diff !== undefined && (diff || modelValue) && modelValue !== diff">
           <q-btn
             flat
             size="sm"
@@ -507,7 +503,7 @@
           />
         </div>
       </q-toolbar>
-    </affix>
+    </div>
     <q-separator />
      <bubble-menu
       class="editor-bubble-menu"
@@ -545,7 +541,9 @@
 </template>
 
 <script>
-import { Editor, EditorContent, BubbleMenu } from "@tiptap/vue-2";
+import { defineComponent } from 'vue';
+
+import { Editor, EditorContent, BubbleMenu } from "@tiptap/vue-3";
 //  Import extensions
 import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
@@ -572,10 +570,12 @@ const Diff = require("diff");
 import Utils from "@/services/utils";
 import ImageService from "@/services/image";
 
-export default {
+export default defineComponent({
+  emits: ['editorchange', 'ready', 'update:modelValue'],
   name: "BasicEditor",
+
   props: {
-    value: String,
+    modelValue: String,
     editable: {
       type: Boolean,
       default: true,
@@ -609,10 +609,12 @@ export default {
     },
 
   },
+
   components: {
     EditorContent,
     BubbleMenu
   },
+
   data() {
     return {
       editor: null,
@@ -631,7 +633,7 @@ export default {
   },
 
   watch: {
-    async value(value) {
+    async modelValue(value) {
       await this.updateInitialeValue(value)
     },
     editable(value) {
@@ -641,7 +643,9 @@ export default {
   },
 
   mounted() {
-     
+    if (this.modelValue === undefined || this.modelValue === null) {
+      this.$emit('update:modelValue', '');
+    }
      const ydoc = new Y.Doc()
      if(this.idUnique == '') {
       this.ClassEditor = uuidv4()
@@ -684,7 +688,7 @@ export default {
 
      if(this.collab){
        this.provider = new HocuspocusProvider({
-        url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
+        url: `wss://127.0.0.1:8443/collab/`,
         name: this.$route.params.auditId ||  this.idUnique.replace('-', '/'),
         document  : ydoc
       })
@@ -734,18 +738,19 @@ export default {
     //this.editor.setOptions({ editable: this.editable });
     this.editor.setEditable(this.editable && this.initialeDataUpdated);
     
-    if (typeof this.value === "undefined") {
-      this.value = "";
+    if (typeof this.modelValue === "undefined") {
+      this.modelValue = "";
     }
 
     if (
-      this.value === this.editor.getHTML()
+      this.modelValue === this.editor.getHTML()
     ) {
       return;
     }
-    this.updateInitialeValue(this.value)
+    this.updateInitialeValue(this.modelValue)
   },
-  async beforeDestroy() {
+
+  async beforeUnmount() {
     while(1){
       if(this.state==1 && this.status=='connected') break;
       else await this.sleep(100)
@@ -755,6 +760,7 @@ export default {
     }
     this.editor.destroy();
   },
+
   computed: {
     formatIcon: function () {
       if (this.editor.isActive("paragraph")) return "fa fa-paragraph";
@@ -782,7 +788,7 @@ export default {
             /([{}:;,.]|<p>|<\/p>|<pre><code>|<\/code><\/pre>|<[uo]l><li>.*<\/li><\/[uo]l>|\s+)/
           );
         };
-        var value = this.value || "";
+        var value = this.modelValue || "";
         var diff = HtmlDiff.diff(this.diff, value);
         diff.forEach((part) => {
           const diffclass = part.added
@@ -813,7 +819,6 @@ export default {
     },
   },
 
- 
   methods: {
     async updateInitialeValue(value){
     if( typeof this.$route.params.auditId == 'undefined' && (this.idUnique.split('-')[0]=="undefined" || this.idUnique.split('-') == ""  )&& this.initialeDataUpdated==false){
@@ -928,15 +933,13 @@ export default {
       ) {
         this.html = "";
       }
-      this.$emit("input", this.html);
+      this.$emit('update:modelValue', this.html);
     },
   },
-};
+});
 </script>
 
 <style lang="scss">
-
-
 .collaboration-cursor__caret {
   position: relative;
   margin-left: -1px;

@@ -1,19 +1,26 @@
-import Settings from '@/services/settings';
+import { boot } from 'quasar/wrappers'
+import Settings from '@/services/settings'
 
-export default async ({ Vue }) => {
-    Vue.prototype.$settings = {};
+export default boot(async ({ app }) => {
+  const settingsData = {}
 
+  try {
+    const response = await Settings.getPublicSettings()
+    Object.assign(settingsData, response.data.datas)
+  } catch (err) {
+    console.error('Failed to load settings:', err)
+  }
+
+  // Ajout de la méthode `refresh`
+  settingsData.refresh = async () => {
     try {
-        Vue.prototype.$settings = (await Settings.getPublicSettings()).data.datas;
-    } catch(err) {}
-    
-    Vue.prototype.$settings.refresh = async () => {
-        let newSettings = {};
-
-        try {
-            newSettings = (await Settings.getPublicSettings()).data.datas;
-        } catch(err) {}
-
-        Vue.prototype.$settings = { ...newSettings, refresh: Vue.prototype.$settings.refresh };
+      const response = await Settings.getPublicSettings()
+      Object.assign(settingsData, response.data.datas)
+    } catch (err) {
+      console.error('Failed to refresh settings:', err)
     }
-}
+  }
+
+  // Ajoute `$settings` dans l'app (Vue 3)
+  app.config.globalProperties.$settings = settingsData
+})

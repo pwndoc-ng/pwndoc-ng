@@ -18,7 +18,7 @@
             <q-item-section>{{$t('nav.vulnerabilities')}}</q-item-section>
             </q-item>
 
-            <q-item to='/data' active-class="text-green">
+            <q-item to='/data/collaborators' active-class="text-green">
             <q-item-section avatar style="min-width:0" class="q-pr-sm">
                 <q-icon name="fa fa-database" />
             </q-item-section>
@@ -59,22 +59,29 @@
 </template>
 
 <script>
+import { defineComponent } from 'vue';
+import { updateDarkMode } from '@/boot/darkmode'
+import { Dark } from 'quasar'
 import UserService from '@/services/user';
 
-export default {
+export default defineComponent({
   name: 'LayoutHome',
+
   data () {
     return {
       userService: UserService
     }
   },
 
-    methods: {
-        logout: function() {
-            UserService.destroyToken();
-        }
+  methods: {
+      logout: function() {
+          UserService.destroyToken();
+      },
+      toggleDarkMode() {
+      updateDarkMode(!Dark.isActive)
     }
-}
+  },
+});
 </script>
 
 <style lang="stylus" scoped>

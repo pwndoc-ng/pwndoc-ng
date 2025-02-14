@@ -24,6 +24,7 @@ export default {
             companies: [],
             // Languages availbable
             languages: [],
+        
             // Datatable headers
             dtHeaders: [
                 {name: 'name', label: $t('name'), field: 'name', align: 'left', sortable: true},
@@ -41,8 +42,11 @@ export default {
                 page: 1,
                 rowsPerPage: 25,
                 sortBy: 'date',
-                descending: true
+                descending: true,
+                pagesNumber: 1
             },
+
+            
             rowsPerPageOptions: [
                 {label:'25', value:25},
                 {label:'50', value:50},
@@ -117,6 +121,7 @@ export default {
             AuditService.getAudits({findingTitle: this.search.finding})
             .then((data) => {
                 this.audits = data.data.datas
+      
                 this.loading = false
             })
             .catch((err) => {

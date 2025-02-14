@@ -23,31 +23,33 @@
 </template>
 
 <script>
+import { defineComponent } from 'vue';
 
-export default {
-    name: 'audit-state-icon',
-    props: {
-        approvals: Array,
-        state: String,
-        size: {
-            type: String,
-            default: "11px"
-        }
-    },
+export default defineComponent({
+  name: 'audit-state-icon',
 
-    data() {
-        return {}
-    },
+  props: {
+      approvals: Array,
+      state: String,
+      size: {
+          type: String,
+          default: "11px"
+      }
+  },
 
-    methods: {
-        getApprovalCount() {
-            if(this.approvals) return this.approvals.length;
-            else return -1;
-        },
+  data() {
+      return {}
+  },
 
-        getMinReviewers() {
-            return this.$settings.reviews.public.minReviewers;
-        }
-    }
-}
+  methods: {
+      getApprovalCount() {
+          if(this.approvals) return this.approvals.length;
+          else return -1;
+      },
+
+      getMinReviewers() {
+          return this.$settings.reviews.public.minReviewers;
+      }
+  },
+});
 </script>
