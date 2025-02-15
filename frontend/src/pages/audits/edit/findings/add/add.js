@@ -37,6 +37,7 @@ export default {
             // List of vulnerabilities from knowledge base
             vulnerabilities: [],
             
+            filteredRowsCount: 0,
 
             // Loading state
             loading: false,
@@ -290,6 +291,7 @@ export default {
                         textColor:'white',
                         position: 'top-right'
                     })
+  
                 })
                 .catch((err) => {
                     Notify.create({

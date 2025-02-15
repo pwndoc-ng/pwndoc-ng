@@ -131,6 +131,7 @@ export default {
 
         createAudit: function() {
             this.cleanErrors();
+            this.currentAudit.auditType = this.currentAudit.auditType.name;
             if (!this.currentAudit.name)
                 this.errors.name = "Name required";
             if (!this.currentAudit.language)
@@ -145,7 +146,7 @@ export default {
             AuditService.createAudit(this.currentAudit)
             .then((response) => {
                 this.showCreateModal = false;
-
+                this.getAudits();
                 this.$router.push("/audits/" + response.data.datas.audit._id)
             })
             .catch((err) => {
