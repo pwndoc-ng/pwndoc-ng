@@ -760,7 +760,6 @@ export default defineComponent({
       editable: false,
       extensions: extensionEditor ,
       onUpdate: () => {
-        console.log("onUpdate");
         if(this.state && this.initialeDataUpdated && this.countChangeAfterUpdate>0 && this.countChangeAfterUpdate<this.countChange){
            this.$emit('editorchange') // need save only if sync is done
         } else {
@@ -1009,8 +1008,6 @@ export default defineComponent({
     },
     updateHTML() {
       if (!this.initialeDataUpdated) return;
-      
-      console.log("updateHTML");
       this.json = this.editor.getJSON();
       this.html = this.editor.getHTML();
       this.html = this.highlightAllCodeBlocks(this.html);
