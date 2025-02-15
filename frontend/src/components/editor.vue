@@ -543,8 +543,9 @@
 <script>
 import { defineComponent } from 'vue';
 
-import { Editor, EditorContent, BubbleMenu } from "@tiptap/vue-3";
+import { Editor, EditorContent, BubbleMenu, VueNodeViewRenderer  } from "@tiptap/vue-3";
 //  Import extensions
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
 import StarterKit from "@tiptap/starter-kit";
@@ -563,6 +564,24 @@ import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
+
+
+import css from 'highlight.js/lib/languages/css'
+import js from 'highlight.js/lib/languages/javascript'
+import ts from 'highlight.js/lib/languages/typescript'
+import html from 'highlight.js/lib/languages/xml'
+import CodeBlockComponent from './CodeBlockComponent.vue'
+
+import { all, createLowlight } from 'lowlight'
+
+// create a lowlight instance
+const lowlight = createLowlight(all)
+
+// you can also register languages
+lowlight.register('html', html)
+lowlight.register('css', css)
+lowlight.register('js', js)
+lowlight.register('ts', ts)
 
 
 const Diff = require("diff");
@@ -669,6 +688,13 @@ export default defineComponent({
              linkOnPaste: false,
               openOnClick: false,
         }),
+        CodeBlockLowlight
+          .extend({
+            addNodeView() {
+              return VueNodeViewRenderer(CodeBlockComponent)
+            },
+          })
+          .configure({ lowlight }),
         Underline,
         TableRow,
         TableHeader,
@@ -685,19 +711,22 @@ export default defineComponent({
         }),
         Figure,
       ]
-
      if(this.collab){
+
        this.provider = new HocuspocusProvider({
-        url: `wss://127.0.0.1:8443/collab/`,
+        url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
+        //url:"wss://127.0.0.1:8443/collab/",
         name: this.$route.params.auditId ||  this.idUnique.replace('-', '/'),
         document  : ydoc
       })
 
       this.provider.on('status', event => {
         this.status = event.status
+        console.log('status',event.status)
       })
       this.provider.on('synced', state => {
         this.state=state.state
+        console.log('ok',state.state)
       })
       extensionEditor.push(Collaboration.configure({
           document: ydoc,
@@ -940,6 +969,83 @@ export default defineComponent({
 </script>
 
 <style lang="scss">
+
+.tiptap {
+  :first-child {
+    margin-top: 0;
+  }
+
+  pre {
+    background: var(--black);
+    border-radius: 0.5rem;
+    color: var(--white);
+    font-family: 'JetBrainsMono', monospace;
+    margin: 1.5rem 0;
+    padding: 0.75rem 1rem;
+
+    code {
+      background: none;
+      color: inherit;
+      font-size: 0.8rem;
+      padding: 0;
+    }
+
+    /* Code styling */
+    .hljs-comment,
+    .hljs-quote {
+      color: #616161;
+    }
+
+    .hljs-variable,
+    .hljs-template-variable,
+    .hljs-attribute,
+    .hljs-tag,
+    .hljs-name,
+    .hljs-regexp,
+    .hljs-link,
+    .hljs-name,
+    .hljs-selector-id,
+    .hljs-selector-class {
+      color: #f98181;
+    }
+
+    .hljs-number,
+    .hljs-meta,
+    .hljs-built_in,
+    .hljs-builtin-name,
+    .hljs-literal,
+    .hljs-type,
+    .hljs-params {
+      color: #fbbc88;
+    }
+
+    .hljs-string,
+    .hljs-symbol,
+    .hljs-bullet {
+      color: #b9f18d;
+    }
+
+    .hljs-title,
+    .hljs-section {
+      color: #faf594;
+    }
+
+    .hljs-keyword,
+    .hljs-selector-tag {
+      color: #70cff8;
+    }
+
+    .hljs-emphasis {
+      font-style: italic;
+    }
+
+    .hljs-strong {
+      font-weight: 700;
+    }
+  }
+}
+
+
 .collaboration-cursor__caret {
   position: relative;
   margin-left: -1px;
