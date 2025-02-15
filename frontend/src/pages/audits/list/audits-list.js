@@ -24,7 +24,7 @@ export default {
             companies: [],
             // Languages availbable
             languages: [],
-        
+            showCreateModal: false,
             // Datatable headers
             dtHeaders: [
                 {name: 'name', label: $t('name'), field: 'name', align: 'left', sortable: true},
@@ -144,7 +144,8 @@ export default {
 
             AuditService.createAudit(this.currentAudit)
             .then((response) => {
-                this.$refs.createModal.hide();
+                this.showCreateModal = false;
+
                 this.$router.push("/audits/" + response.data.datas.audit._id)
             })
             .catch((err) => {

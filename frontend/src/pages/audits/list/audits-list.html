@@ -41,12 +41,62 @@
               <q-toggle v-if="$settings.reviews.enabled && (UserService.isAllowed('audits:review') || UserService.isAllowed('audits:review-all'))" :label="$t('awaitingMyReview')" v-model="displayReadyForReview" />
               <q-space />
               <q-btn 
-                color="secondary"
-                unelevated
-                :label="$t('newAudit')"
-                no-caps
-                @click="cleanCurrentAudit(); $refs.createModal.show()"
-              />
+              color="secondary"
+              unelevated
+              :label="$t('newAudit')"
+              no-caps
+              @click="cleanCurrentAudit(); showCreateModal = true;"
+            />
+            <q-dialog v-model="showCreateModal">
+                <q-card style="min-width: 400px">
+                  <q-card-section>
+                    <div class="text-h6">{{ $t('newAudit') }}</div>
+                  </q-card-section>
+              
+                  <q-card-section>
+                    <q-input
+                      v-model="currentAudit.name"
+                      :label="$t('name')"
+                      :error="!!errors.name"
+                      :error-message="errors.name"
+                      outlined
+                    />
+              
+                    <q-select
+                      v-model="currentAudit.language"
+                      :label="$t('language')"
+                      :options="languages"
+                      option-value="locale"
+                      option-label="language"
+                      emit-value
+                      map-options
+                      :error="!!errors.language"
+                      :error-message="errors.language"
+                      outlined
+                      class="q-mt-md"
+                    />
+              
+                    <q-select
+                      v-model="currentAudit.auditType"
+                      :label="$t('auditType')"
+                      :options="auditTypes"
+                      option-value="_id"
+                      option-label="name"
+                      emit-value
+                      map-options
+                      :error="!!errors.auditType"
+                      :error-message="errors.auditType"
+                      outlined
+                      class="q-mt-md"
+                    />
+                  </q-card-section>
+              
+                  <q-card-actions align="right">
+                    <q-btn flat label="Annuler" color="primary" v-close-popup />
+                    <q-btn color="secondary" label="Créer" @click="createAudit" />
+                  </q-card-actions>
+                </q-card>
+              </q-dialog>
             </template>
   
             <template v-slot:body-cell-language="{ row }">
@@ -114,3 +164,5 @@
       </div>
     </div>
   </template>
+
+  
