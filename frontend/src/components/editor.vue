@@ -568,8 +568,12 @@ import * as Y from 'yjs'
 
 import css from 'highlight.js/lib/languages/css'
 import js from 'highlight.js/lib/languages/javascript'
+import http from 'highlight.js/lib/languages/http'
 import ts from 'highlight.js/lib/languages/typescript'
 import html from 'highlight.js/lib/languages/xml'
+import bash from 'highlight.js/lib/languages/bash';
+import sql from 'highlight.js/lib/languages/sql';
+import json from 'highlight.js/lib/languages/json';
 import CodeBlockComponent from './CodeBlockComponent.vue'
 
 import { all, createLowlight } from 'lowlight'
@@ -580,8 +584,12 @@ const lowlight = createLowlight(all)
 // you can also register languages
 lowlight.register('html', html)
 lowlight.register('css', css)
-lowlight.register('js', js)
+lowlight.register('javascripts', js)
 lowlight.register('ts', ts)
+lowlight.register('http', http)
+lowlight.register('bash', bash);
+lowlight.register('sql', sql);
+lowlight.register('json', json);
 
 
 const Diff = require("diff");
@@ -716,8 +724,8 @@ export default defineComponent({
      if(this.collab){
 
        this.provider = new HocuspocusProvider({
-        url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
-        //url:"wss://127.0.0.1:8443/collab/",
+        //url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
+        url:"wss://127.0.0.1:8443/collab/",
         name: this.$route.params.auditId ||  this.idUnique.replace('-', '/'),
         document  : ydoc
       })
@@ -950,12 +958,62 @@ export default defineComponent({
       }
       return colour;
     },
+    highlightAllCodeBlocks(html) {
+      if (!html) return '';
+
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+
+      doc.querySelectorAll('pre code').forEach((codeBlock) => {
+        const langClass = codeBlock.className.match(/language-([a-zA-Z0-9-]+)/);
+        const lang = langClass ? langClass[1] : 'plaintext';
+        const originalCode = codeBlock.textContent;
+
+        try {
+          const highlighted = lowlight.highlight(lang, originalCode);
+          const tempDiv = document.createElement('div');
+          highlighted.children.forEach((node) => {
+            tempDiv.appendChild(this.convertLowlightNodeToHtml(node));
+          });
+          codeBlock.innerHTML = tempDiv.innerHTML;
+        } catch (e) {
+          console.warn(`Highlighting failed for ${lang}, fallback to plaintext`, e);
+          codeBlock.textContent = originalCode;
+        }
+      });
+
+      return doc.body.innerHTML;
+    },
+    convertLowlightNodeToHtml(node) {
+      if (node.type === 'text') {
+        return document.createTextNode(node.value);
+      } else if (node.type === 'element') {
+        const el = document.createElement(node.tagName);
+        if (node.properties) {
+          Object.entries(node.properties).forEach(([key, value]) => {
+            if (key === 'className') {
+              el.className = value.join(' ');
+            } else {
+              el.setAttribute(key, value);
+            }
+          });
+        }
+        if (node.children) {
+          node.children.forEach((child) => {
+            el.appendChild(this.convertLowlightNodeToHtml(child));
+          });
+        }
+        return el;
+      }
+      return document.createTextNode('');
+    },
     updateHTML() {
       if (!this.initialeDataUpdated) return;
       
       console.log("updateHTML");
       this.json = this.editor.getJSON();
       this.html = this.editor.getHTML();
+      this.html = this.highlightAllCodeBlocks(this.html);
       if (
         Array.isArray(this.json.content) &&
         this.json.content.length === 1 &&
