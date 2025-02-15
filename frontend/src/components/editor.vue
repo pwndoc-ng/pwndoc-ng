@@ -679,7 +679,9 @@ export default defineComponent({
      }
 
     let extensionEditor = [
-        StarterKit,
+        StarterKit.configure({
+          codeBlock: false, // Désactive le codeBlock standard pour mettre le code block highlight
+        }),
         Highlight.configure({
           multicolor: true,
         }),

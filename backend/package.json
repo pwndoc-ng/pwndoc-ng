@@ -21,7 +21,7 @@
     "swagger-autogen": "^2.23.1"
   },
   "dependencies": {
-    "@hocuspocus/server": "^1.1.2",
+    "@hocuspocus/server": "^2.15.2",
     "angular-expressions": "^1.4.3",
     "bcrypt": "^5.1.0",
     "body-parser": "^1.20.2",
@@ -43,7 +43,7 @@
     "otpauth": "^7.0.6",
     "pizzip": "^3.1.4",
     "qrcode": "^1.5.1",
-    "socket.io": "^4.6.1",
+    "socket.io": "^4.8.1",
     "swagger-ui-express": "^4.6.0",
     "winston": "^2.3.1",
     "xml": "^1.0.1"
