@@ -17,6 +17,7 @@ export default {
             // Companies list
             companies: [],
             // Datatable headers
+            rows:[],
             dtHeaders: [
                 {name: 'firstname', label: $t('firstname'), field: 'firstname', align: 'left', sortable: true},
                 {name: 'lastname', label: $t('lastname'), field: 'lastname', align: 'left', sortable: true},
@@ -67,6 +68,7 @@ export default {
             ClientService.getClients()
             .then((data) => {
                 this.clients = data.data.datas
+                this.rows = data.data.datas
                 this.loading = false
             })
             .catch((err) => {

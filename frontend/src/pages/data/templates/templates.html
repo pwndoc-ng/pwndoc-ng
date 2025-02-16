@@ -4,10 +4,10 @@
         <q-table
             class="sticky-header-table"
             :columns="dtHeaders"
-            :data="templates"
+            :rows="templates"
             :filter="search"
             :filter-method="customFilter"
-            :pagination.sync="pagination"
+            :v-model:pagination="pagination"
             row-key="name"
             :loading="loading"
             @row-dblclick="dblClick"
@@ -48,17 +48,48 @@
                 </q-tr>
             </template>
 
-            <q-td slot="body-cell-action" slot-scope="props" style="width:1px">
-                <q-btn v-if="UserService.isAllowed('templates:update')" size="sm" flat color="primary" icon="fa fa-edit" @click="clone(props.row); $refs.editModal.show()">
-                    <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.edit')}}</q-tooltip>
-                </q-btn>
-                <q-btn size="sm" flat color="info" icon="fa fa-download" @click="downloadTemplate(props.row)">
-                    <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.download')}}</q-tooltip>
-                </q-btn>
-                <q-btn v-if="UserService.isAllowed('templates:delete')" size="sm" flat color="negative" icon="fa fa-trash" @click="confirmDeleteTemplate(props.row)">
-                    <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.delete')}}</q-tooltip>
-                </q-btn>
-            </q-td>
+            <template v-slot:body-cell-action="props">
+                <q-td :props="props" style="width: 1px">
+                  <q-btn
+                    v-if="UserService.isAllowed('templates:update')"
+                    size="sm"
+                    flat
+                    color="primary"
+                    icon="fa fa-edit"
+                    @click="clone(props.row); $refs.editModal.show()"
+                  >
+                    <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">
+                      {{ $t('tooltip.edit') }}
+                    </q-tooltip>
+                  </q-btn>
+              
+                  <q-btn
+                    size="sm"
+                    flat
+                    color="info"
+                    icon="fa fa-download"
+                    @click="downloadTemplate(props.row)"
+                  >
+                    <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">
+                      {{ $t('tooltip.download') }}
+                    </q-tooltip>
+                  </q-btn>
+              
+                  <q-btn
+                    v-if="UserService.isAllowed('templates:delete')"
+                    size="sm"
+                    flat
+                    color="negative"
+                    icon="fa fa-trash"
+                    @click="confirmDeleteTemplate(props.row)"
+                  >
+                    <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">
+                      {{ $t('tooltip.delete') }}
+                    </q-tooltip>
+                  </q-btn>
+                </q-td>
+              </template>
+              
             
             <template v-slot:bottom="scope">
                 <span v-if="templates.length === 1">1 {{$t('quantifier')}}{{$t('template')}}</span>                

@@ -27,43 +27,44 @@
 </template>
 
 <script>
+import { defineComponent } from 'vue';
+
 import AuditStateIcon from 'components/audit-state-icon';
 
-export default {
-    name: 'breadcrumb',
-    props: ['buttons', 'title', 'approvals', 'state'],
+export default defineComponent({
+  name: 'breadcrumb',
+  props: ['buttons', 'title', 'approvals', 'state'],
 
-    components: {
-        AuditStateIcon
-    },
+  components: {
+      AuditStateIcon
+  },
 
-    data: function() {
-        return {
-            bread: [],
-            last: 0
-        }
-    },
+  data: function() {
+      return {
+          bread: [],
+          last: 0
+      }
+  },
 
-    created: function() {
-        this.initBreadcrumb();
-    },
+  created: function() {
+      this.initBreadcrumb();
+  },
 
-    methods: {
-        initBreadcrumb: function() {
-            var breadArray = this.$route.matched;
-            breadArray.forEach((element) => {
-                var entry = {};
-                if (element.meta.breadcrumb) {
-                    entry.name = element.meta.breadcrumb;
-                    entry.path = (element.path === "") ? "/" : element.path;
-                    this.bread.push(entry);
-                }
-            });
-            this.last = this.bread.length - 1;
-        }
-    }
-}
-
+  methods: {
+      initBreadcrumb: function() {
+          var breadArray = this.$route.matched;
+          breadArray.forEach((element) => {
+              var entry = {};
+              if (element.meta.breadcrumb) {
+                  entry.name = element.meta.breadcrumb;
+                  entry.path = (element.path === "") ? "/" : element.path;
+                  this.bread.push(entry);
+              }
+          });
+          this.last = this.bread.length - 1;
+      }
+  },
+});
 </script>
 
 <style lang="stylus" scoped>

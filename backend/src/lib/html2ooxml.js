@@ -2,6 +2,58 @@ let docx = require("docx");
 let xml = require("xml");
 let htmlparser = require("htmlparser2");
 
+const HIGHLIGHT_COLOR_MAP = {
+  'hljs-keyword': '#569CD6', // Bleu vif
+  'hljs-built_in': '#DCDCAA', // Jaune clair
+  'hljs-type': '#4EC9B0', // Vert turquoise
+  'hljs-literal': '#569CD6', // Bleu vif
+  'hljs-number': '#B5CEA8', // Vert pâle
+  'hljs-regexp': '#D16969', // Rouge clair
+  'hljs-string': '#CE9178', // Orange pâle
+  'hljs-subst': '#D4D4D4', // Gris clair
+  'hljs-symbol': '#569CD6', // Bleu vif
+  'hljs-class': '#4EC9B0', // Vert turquoise
+  'hljs-function': '#DCDCAA', // Jaune clair
+  'hljs-title': '#DCDCAA', // Jaune clair
+  'hljs-params': '#9CDCFE', // Bleu clair
+  'hljs-comment': '#6A9955', // Vert foncé
+  'hljs-doctag': '#C586C0', // Violet
+  'hljs-meta': '#D4D4D4', // Gris clair
+  'hljs-meta-keyword': '#569CD6', // Bleu vif
+  'hljs-meta-string': '#CE9178', // Orange pâle
+  'hljs-section': '#DCDCAA', // Jaune clair
+  'hljs-tag': '#569CD6', // Bleu vif
+  'hljs-name': '#9CDCFE', // Bleu clair
+  'hljs-attribute': '#9CDCFE', // Bleu clair
+  'hljs-variable': '#9CDCFE', // Bleu clair
+  'hljs-template-variable': '#9CDCFE', // Bleu clair
+  'hljs-builtin-name': '#DCDCAA', // Jaune clair
+  'hljs-bullet': '#D7BA7D', // Beige
+  'hljs-code': '#D4D4D4', // Gris clair
+  'hljs-emphasis': '#D4D4D4', // Gris clair
+  'hljs-strong': '#D4D4D4', // Gris clair
+  'hljs-formula': '#D4D4D4', // Gris clair
+  'hljs-link': '#569CD6', // Bleu vif
+  'hljs-operator': '#D4D4D4', // Gris clair
+  'hljs-punctuation': '#D4D4D4', // Gris clair
+  'hljs-selector-tag': '#569CD6', // Bleu vif
+  'hljs-selector-id': '#DCDCAA', // Jaune clair
+  'hljs-selector-class': '#9CDCFE', // Bleu clair
+  'hljs-selector-attr': '#CE9178', // Orange pâle
+  'hljs-selector-pseudo': '#CE9178', // Orange pâle
+  'hljs-addition': '#B5CEA8', // Vert pâle
+  'hljs-deletion': '#D16969', // Rouge clair
+  'hljs-char': '#CE9178', // Orange pâle
+  'hljs-selector': '#DCDCAA', // Jaune clair
+  'hljs-template-tag': '#569CD6', // Bleu vif
+  'hljs-template-variable': '#9CDCFE', // Bleu clair
+  'hljs-root': '#D4D4D4', // Gris clair
+  'hljs-brace': '#D4D4D4', // Gris clair
+};
+
+
+
+
 function html2ooxml(html, style = "") {
   if (html === "") return html;
   if (!html.match(/^<.+>/)) html = `<p>${html}</p>`;
@@ -84,6 +136,11 @@ function html2ooxml(html, style = "") {
           case 'em':
             cRunProperties.italics = true;
             break;
+          case 'span':
+            if (inCodeBlock && attribs.class) {
+              cRunProperties.color = HIGHLIGHT_COLOR_MAP[attribs.class] || '#000000';
+            }
+            break; 
           case 'u':
             cRunProperties.underline = {};
             break;
@@ -148,7 +205,13 @@ function html2ooxml(html, style = "") {
       ontext(text) {
         if (cRunProperties.link) {
           cParagraph.addChildElement(new docx.TextRun({ "text": `{_|link|_{${text}|-|${cRunProperties.link}}_|link|_}`, "style": "PwndocLink" }));
-
+        } else  if (inCodeBlock) {
+          cParagraph.addChildElement(
+            new docx.TextRun({
+              text,
+              color: cRunProperties.color || '#000000',
+            })
+          );
         } else if (text && cParagraph) {
           if (inTableCell) {
             cellHasText = true;
@@ -185,9 +248,18 @@ function html2ooxml(html, style = "") {
 
           cParagraph = null;
           cParagraphProperties = {};
-          if (tag === "pre") inCodeBlock = false;
-        } else if (tag === "b" || tag === "strong") {
+        if (tag === "b" || tag === "strong") {
           delete cRunProperties.bold;
+        }else if (tag === "pre") {
+          inCodeBlock = false;
+          if (cParagraph) {
+            paragraphs.push(cParagraph);
+          }
+          cParagraph = null;
+        }else if (tag === "span") {
+          if (inCodeBlock) {
+            delete cRunProperties.color;
+          }
         } else if (tag === "i" || tag === "em") {
           delete cRunProperties.italics;
         } else if (tag === "u") {
@@ -257,7 +329,7 @@ function html2ooxml(html, style = "") {
           tmpTable = [];
           tmpCells = [];
         }
-      },
+      }},
 
       onend() {
         doc.addSection({

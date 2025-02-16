@@ -17,6 +17,7 @@ export default {
             // Loading state
             loading: true,
             // Datatable headers
+
             dtHeaders: [
                 {name: 'username', label: $t('username'), field: 'username', align: 'left', sortable: true},
                 {name: 'firstname', label: $t('firstname'), field: 'firstname', align: 'left', sortable: true},
@@ -152,6 +153,7 @@ export default {
             DataService.getRoles()
             .then((data) => {
                 this.roles = data.data.datas
+           
             })
             .catch((err) => {
                 console.log(err)

@@ -28,12 +28,17 @@
   </node-view-wrapper>
 </template>
 <script>
-import { NodeViewWrapper, nodeViewProps } from "@tiptap/vue-2";
-export default {
+import { defineComponent } from 'vue';
+
+import { NodeViewWrapper, nodeViewProps } from "@tiptap/vue-3";
+export default defineComponent({
   components: {
     NodeViewWrapper,
   },
-  props: nodeViewProps, //["node", "updateAttrs", "view", "getPos", "selected"],
+
+  //["node", "updateAttrs", "view", "getPos", "selected"],
+  props: nodeViewProps,
+
   computed: {
     src: {
       get() {
@@ -64,6 +69,7 @@ export default {
       },
     },
   },
+
   methods: {
     selectImage() {
       console.log("selectImage");
@@ -79,5 +85,5 @@ export default {
       this.editor.view.dispatch(selection); //tr);
     },
   },
-};
+});
 </script>

@@ -24,25 +24,29 @@ export default {
             companies: [],
             // Languages availbable
             languages: [],
+            showCreateModal: false,
             // Datatable headers
             dtHeaders: [
-                {name: 'name', label: $t('name'), field: 'name', align: 'left', sortable: true},
-                {name: 'language', label: $t('language'), field: 'language', align: 'left', sortable: true},
-                {name: 'company', label: $t('company'), field: row => (row.company)?row.company.name:'', align: 'left', sortable: true},
-                {name: 'users', label: $t('participants'), align: 'left', sortable: true},
-                {name: 'date', label: $t('date'), field: row => row.createdAt.split('T')[0], align: 'left', sortable: true},
-                {name: 'connected', label: '', align: 'left', sortable: false},
-                {name: 'reviews', label: '', align: 'left', sortable: false},
-                {name: 'action', label: '', field: 'action', align: 'left', sortable: false},
-            ],
+                { name: 'name', label: $t('name'), field: 'name', align: 'left', sortable: true },
+                { name: 'company', label: $t('company'), field: row => row.company.name, align: 'left', sortable: true },
+                { name: 'language', label: $t('language'), field: 'language', align: 'left', sortable: true },
+                { name: 'users', label: $t('participants'), field: 'users', align: 'left', sortable: false },
+                { name: 'date', label: $t('date'), field: 'date', align: 'left', sortable: true },
+                { name: 'connected', label: $t('usersConnected'), field: 'connected', align: 'left', sortable: false },
+                { name: 'reviews', label: $t('reviews'), field: 'reviews', align: 'left', sortable: false },
+                { name: 'action', label: '', field: 'action', align: 'left', sortable: false }
+              ],              
             visibleColumns: ['name', 'language', 'company', 'users', 'date', 'action'],
             // Datatable pagination
             pagination: {
                 page: 1,
                 rowsPerPage: 25,
                 sortBy: 'date',
-                descending: true
+                descending: true,
+                pagesNumber: 1
             },
+
+            
             rowsPerPageOptions: [
                 {label:'25', value:25},
                 {label:'50', value:50},
@@ -117,15 +121,21 @@ export default {
             AuditService.getAudits({findingTitle: this.search.finding})
             .then((data) => {
                 this.audits = data.data.datas
+      
                 this.loading = false
             })
             .catch((err) => {
                 console.log(err)
             })
         },
-
+        formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('fr-FR');
+          },
         createAudit: function() {
             this.cleanErrors();
+            this.currentAudit.auditType = this.currentAudit.auditType.name;
             if (!this.currentAudit.name)
                 this.errors.name = "Name required";
             if (!this.currentAudit.language)
@@ -139,7 +149,8 @@ export default {
 
             AuditService.createAudit(this.currentAudit)
             .then((response) => {
-                this.$refs.createModal.hide();
+                this.showCreateModal = false;
+                this.getAudits();
                 this.$router.push("/audits/" + response.data.datas.audit._id)
             })
             .catch((err) => {

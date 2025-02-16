@@ -1,6 +1,6 @@
 <template>
 <div>
-    <q-drawer side="left" :value="true">
+    <q-drawer side="left" :modelValue="true">
         <q-list class="home-drawer">
             <q-item-label header>{{$t('handleCustomData')}}</q-item-label>
         
@@ -52,19 +52,21 @@
 </template>
 
 <script>
+import { defineComponent } from 'vue';
+
 import Breadcrumb from 'components/breadcrumb'
 import UserService from '@/services/user'
 
-export default {
-    data: () => {
-        return {
-            UserService: UserService
-        }
-    },
+export default defineComponent({
+  data: () => {
+      return {
+          UserService: UserService
+      }
+  },
 
-    components: {
-        Breadcrumb
-    }
-}
+  components: {
+      Breadcrumb
+  },
+});
 </script>
 

@@ -19,8 +19,10 @@ export default {
             UserService: UserService,
             // Vulnerabilities list
             vulnerabilities: [],
+            currentDetailsIndex:0,
             // Loading state
             loading: true,
+            rows:[],
             // Datatable headers
             dtHeaders: [
                 { name: 'title', label: $t('title'), field: 'title', align: 'left', sortable: true },
@@ -119,7 +121,18 @@ export default {
             })
             return result;
         },
-
+        filteredVulnerabilitiesLeft() {
+            if (!this.mergeLanguageLeft) return [];
+            return this.vulnerabilities.filter(
+              (vuln) => vuln && vuln.details && this.getVulnTitleLocale(vuln, this.mergeLanguageLeft) !== 'undefined'
+            );
+          },
+          filteredVulnerabilitiesRight() {
+            if (!this.mergeLanguageRight) return [];
+            return this.vulnerabilities.filter(
+              (vuln) => vuln && vuln.details && this.getVulnTitleLocale(vuln, this.mergeLanguageRight) !== 'undefined'
+            );
+          },
         vulnCategoriesOptions: function() {
             var result = this.vulnCategories.map(cat => {return cat.name})
             result.unshift('No Category')
@@ -483,11 +496,17 @@ export default {
         },
 
         getVulnTitleLocale: function(vuln, locale) {
-            for (var i=0; i<vuln.details.length; i++) {
-                if (vuln.details[i].locale === locale && vuln.details[i].title) return vuln.details[i].title;
+            if (!vuln || !Array.isArray(vuln.details)) {
+                return "undefined";
+            }
+            for (var i = 0; i < vuln.details.length; i++) {
+                if (vuln.details[i].locale === locale && vuln.details[i].title) {
+                    return vuln.details[i].title;
+                }
             }
             return "undefined";
         },
+        
 
         mergeVulnerabilities: function() {
             VulnerabilityService.mergeVulnerability(this.mergeVulnLeft, this.mergeVulnRight, this.mergeLanguageRight)

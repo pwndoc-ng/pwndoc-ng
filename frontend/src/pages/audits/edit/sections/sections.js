@@ -1,3 +1,4 @@
+import { nextTick } from 'vue';
 import { Notify, Dialog } from 'quasar';
 
 import BasicEditor from 'components/editor';
@@ -14,7 +15,12 @@ export default {
     props: {
         frontEndAuditState: Number,
         parentState: String,
-        parentApprovals: Array
+        parentApprovals: Array,
+        audit: {
+            type: Object,
+            required: false,
+            default: () => ({})
+          }
     },
     data: () => {
         return {
@@ -101,8 +107,8 @@ export default {
             })
             .then((data) => {
                 this.section = data.data.datas;
-	        this.sectionOrig = this.$_.cloneDeep(this.section);
-                this.$nextTick(() => {
+            this.sectionOrig = this.$_.cloneDeep(this.section);
+                nextTick(() => {
                     Utils.syncEditors(this.$refs)
                 })
             })
@@ -115,7 +121,7 @@ export default {
         // Update Section
         updateSection: function() {
             Utils.syncEditors(this.$refs)
-            this.$nextTick(() => {
+            nextTick(() => {
                 if (this.$refs.customfields && this.$refs.customfields.requiredFieldsEmpty()) {
                     Notify.create({
                         message: $t('msg.fieldRequired'),

@@ -1,6 +1,6 @@
 import Image from "@tiptap/extension-image";
 import { Plugin, PluginKey } from "prosemirror-state";
-import { VueNodeViewRenderer } from "@tiptap/vue-2";
+import { VueNodeViewRenderer } from "@tiptap/vue-3";
 
 import uploadImage from "./uploadImage.vue";
 import ImageService from "@/services/image";

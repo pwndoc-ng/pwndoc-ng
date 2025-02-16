@@ -16,7 +16,9 @@
 </template>
 
 <script>
-export default {
+import { defineComponent } from 'vue';
+
+export default defineComponent({
   data () {
     return {
       message: ''
@@ -25,6 +27,6 @@ export default {
 
   created: function() {
       this.message = this.$route.params.error;
-  }
-}
+  },
+});
 </script>

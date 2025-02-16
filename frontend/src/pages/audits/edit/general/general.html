@@ -1,9 +1,21 @@
 <div>
-<breadcrumb buttons :title="`${$parent.audit.name} (${$parent.audit.auditType || 'Audit Type not set'})`" :state="parentState" :approvals="parentApprovals">
-    <div slot="buttons">
-      <q-btn v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT" color="positive" :label="$t('btn.save')+' (ctrl+s)'" no-caps @click="updateAuditGeneral" />
-    </div>
-</breadcrumb>
+    <breadcrumb
+    buttons
+    :title="audit ? `${audit.name} (${audit.auditType || 'Audit Type not set'})` : 'Loading...'"
+    :state="parentState"
+    :approvals="parentApprovals"
+  >
+    <template v-slot:buttons>
+      <q-btn
+        v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+        color="positive"
+        :label="$t('btn.save') + ' (ctrl+s)'"
+        no-caps
+        @click="updateAuditGeneral"
+      />
+    </template>
+  </breadcrumb>
+  
 
 <div class="row q-col-gutter-md q-pa-md">
     <div class="col-md-8 offset-md-2 col-12">
@@ -90,7 +102,8 @@
                     v-model="audit.reviewers"
                     :options="reviewers"
                     option-value="username"
-                    :option-label="(item) => (item)? item.firstname+' '+item.lastname: 'undefined'"
+                    :option-label="(item) => item?.firstname && item?.lastname ? item.firstname + ' ' + item.lastname : 'Undefined User'"
+
                     multiple
                     use-chips
                     options-sanitize
@@ -118,7 +131,7 @@
                     v-model="audit.collaborators"
                     :options="collaborators"
                     option-value="username"
-                    :option-label="(item) => (item)? item.firstname+' '+item.lastname: 'undefined'"
+                    :option-label="(item) => item?.firstname && item?.lastname ? item.firstname + ' ' + item.lastname : 'Undefined User'"
                     multiple
                     use-chips
                     options-sanitize

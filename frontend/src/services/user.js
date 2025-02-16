@@ -1,5 +1,5 @@
 var jwtDecode = require('jwt-decode');
-import Vue from 'vue';
+import { api } from 'boot/axios'
 import User from '@/services/user';
 
 import Router from '@/router'
@@ -17,7 +17,7 @@ export default {
     getToken(username, password, totpToken) {
         return new Promise((resolve, reject) => {
             var params = {username: username, password: password, totpToken: totpToken};
-            Vue.prototype.$axios.post(`users/token`, params)
+             api.post(`users/token`, params)
             .then((response) => {
                 var token = response.data.datas.token;
                 this.user = jwtDecode(token);
@@ -31,7 +31,7 @@ export default {
 
     refreshToken() {
         return new Promise((resolve, reject) => {
-            Vue.prototype.$axios.get('users/refreshtoken')
+             api.get('users/refreshtoken')
             .then((response) => {
                 var token = response.data.datas.token;
                 this.user = jwtDecode(token);
@@ -47,7 +47,7 @@ export default {
     },
 
     destroyToken() {
-        Vue.prototype.$axios.delete('users/refreshtoken')
+         api.delete('users/refreshtoken')
         .then(() => {
             User.clear()
             Router.push('/login');
@@ -60,7 +60,7 @@ export default {
     initUser(username, firstname, lastname, password) {
         return new Promise((resolve, reject) => {
             var params = {username: username, password: password, firstname: firstname, lastname: lastname};
-            Vue.prototype.$axios.post(`users/init`, params)
+             api.post(`users/init`, params)
             .then((response) => {
                 var token = response.data.datas.token;
                 this.user = jwtDecode(token);
@@ -74,7 +74,7 @@ export default {
     },
 
     isInit() {
-        return (Vue.prototype.$axios.get(`users/init`, {timeout: 10000}));
+        return ( api.get(`users/init`, {timeout: 10000}));
     },
 
     isAuth() {
@@ -95,7 +95,7 @@ export default {
     },
 
     exportUsers: function() {
-        return Vue.prototype.$axios.get(`users/export`)
+        return  api.get(`users/export`)
     },
 
     isAllowed(role) {
@@ -103,23 +103,23 @@ export default {
     },
 
     getProfile: function() {
-        return Vue.prototype.$axios.get(`users/me`);
+        return  api.get(`users/me`);
     },
 
     updateProfile: function(user) {
-        return Vue.prototype.$axios.put(`users/me`, user);
+        return  api.put(`users/me`, user);
     },
 
     getTotpQrCode: function() {
-        return Vue.prototype.$axios.get(`users/totp`);
+        return  api.get(`users/totp`);
     },
 
     setupTotp: function(totpToken, totpSecret) {
-        return Vue.prototype.$axios.post(`users/totp`,{totpToken: totpToken, totpSecret: totpSecret});
+        return  api.post(`users/totp`,{totpToken: totpToken, totpSecret: totpSecret});
     },
 
     cancelTotp: function(totpToken) {
-        return Vue.prototype.$axios.delete(`users/totp`,{data: {totpToken: totpToken}});
+        return  api.delete(`users/totp`,{data: {totpToken: totpToken}});
     },
 
 }

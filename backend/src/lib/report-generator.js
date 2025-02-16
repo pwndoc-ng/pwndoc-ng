@@ -80,11 +80,16 @@ async function generateDoc(audit) {
     catch(err) {
         console.log(err)
     }
-    var doc = new Docxtemplater().attachModule(imageModule).loadZip(zip).setOptions({parser: parser, paragraphLoop: true});
+    var doc = new Docxtemplater(zip, {
+        modules: [imageModule],
+        parser: parser,
+        paragraphLoop: true
+    });
+    
     customGenerator.apply(preppedAudit);
-    doc.setData(preppedAudit);
+
     try {
-        doc.render();
+        doc.render(preppedAudit);
     }
     catch (error) {
         if (error.properties.id === 'multi_error') {

@@ -4,59 +4,65 @@
     stack-label
     v-model="dataString"
     type="textarea"
-    @input="updateParent"
+    @update:modelValue="updateParent"
     outlined 
     :readonly="readonly"
     />
 </template>
 
 <script>
+import { defineComponent } from 'vue';
 
-export default {
-    name: 'textarea-array',
-    props: {
-        label: String,
-        value: Array,
-        noEmptyLine: {
-            type: Boolean,
-            default: false
-        },
-        readonly: {
-            type: Boolean,
-            default: false
-        },
-    },
+export default defineComponent({
+  emits: ['update:modelValue'],
+  name: 'textarea-array',
 
-    data: function() {
-        return {
-            dataString: ""
-        }
-    },
+  props: {
+      label: String,
+      modelValue: Array,
+      noEmptyLine: {
+          type: Boolean,
+          default: false
+      },
+      readonly: {
+          type: Boolean,
+          default: false
+      },
+  },
 
-    mounted: function() {
-        if (this.value)
-            this.dataString = this.value.join('\n')
-    },
+  data: function() {
+      return {
+          dataString: ""
+      }
+  },
 
-    watch: {
-        value (val) {
+  mounted: function() {
+      if (this.modelValue)
+          this.dataString = this.modelValue.join('\n')
+  },
+
+  watch: {
+      modelValue: {
+        deep: true,
+
+        handler(val) {
             var str = (val)? val.join('\n'): ""
             if (str === this.dataString)
                 return
             this.dataString = str
-        }
-    },
+        },
+      }
+  },
 
-    methods: {
-        updateParent: function() {
-            if (this.noEmptyLine)
-                this.$emit('input', this.dataString.split('\n').filter(e => e !== ''))
-            else
-                this.$emit('input', this.dataString.split('\n'))
-        }
-    }
-}
-
+  methods: {
+      updateParent: function() {
+          if (this.noEmptyLine)
+              this.$emit('update:modelValue', this.dataString.split('\n').filter(e => e !== ''))
+          else
+              this.$emit('update:modelValue', this.dataString.split('\n'))
+      }
+  },
+});
 </script>
 
 <style>

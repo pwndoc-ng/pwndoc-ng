@@ -152,126 +152,129 @@
 </template>
 
 <script>
+import { defineComponent, nextTick } from 'vue';
+
 import {Loading} from 'quasar';
 import UserService from '@/services/user';
 import Utils from '@/services/utils'
 
 import { $t } from '@/boot/i18n'
 
-export default {
-    data () {
-        return {
-            init: false,
-            loaded: false,
-            username: "",
-            firstname: "",
-            lastname: "",
-            password: "",
-            totpToken: "",
-            step: 0,
-            errors: {alert: "", username: "", password: "", firstname: "", lastname: ""},
-            loginLoading: false,
-        }
-    },
+export default defineComponent({
+  data () {
+      return {
+          init: false,
+          loaded: false,
+          username: "",
+          firstname: "",
+          lastname: "",
+          password: "",
+          totpToken: "",
+          step: 0,
+          errors: {alert: "", username: "", password: "", firstname: "", lastname: ""},
+          loginLoading: false,
+      }
+  },
 
-    created: function() {
-        if (this.$route.query.tokenError)
-            if (this.$route.query.tokenError === "2") this.errors.alert = $t('err.expiredToken');
-            else this.errors.alert = $t('err.invalidToken');
-        this.checkInit();
-    },
+  created: function() {
+      if (this.$route.query.tokenError)
+          if (this.$route.query.tokenError === "2") this.errors.alert = $t('err.expiredToken');
+          else this.errors.alert = $t('err.invalidToken');
+      this.checkInit();
+  },
 
-    methods: {
+  methods: {
 
-        cleanErrors() {
-            this.errors.alert = "";
-            this.errors.username = "";
-            this.errors.firstname = "";
-            this.errors.lastname = "";
-            this.errors.password = "";
-        },
+      cleanErrors() {
+          this.errors.alert = "";
+          this.errors.username = "";
+          this.errors.firstname = "";
+          this.errors.lastname = "";
+          this.errors.password = "";
+      },
 
-        checkInit() {
-            Loading.show({message: $t('msg.tryingToContactBackend'), customClass: 'loading', backgroundColor: 'blue-grey-8'});
-            UserService.isInit()
-            .then((data) => {
-                Loading.hide();
-                this.loaded = true;
-                this.init = data.data.datas;
-            })
-            .catch(err => {
-                Loading.show({
-                    message: `<i class='material-icons'>wifi_off</i><br /><p>${$t('msg.wrongContactingBackend')}</p>`, 
-                    spinner: null, 
-                    backgroundColor: 'red-10', 
-                    customClass: 'loading-error'})
-                console.log(err)
-            })
-        },
+      checkInit() {
+          Loading.show({message: $t('msg.tryingToContactBackend'), customClass: 'loading', backgroundColor: 'blue-grey-8'});
+          UserService.isInit()
+          .then((data) => {
+              Loading.hide();
+              this.loaded = true;
+              this.init = data.data.datas;
+          })
+          .catch(err => {
+              Loading.show({
+                  message: `<i class='material-icons'>wifi_off</i><br /><p>${$t('msg.wrongContactingBackend')}</p>`, 
+                  spinner: null, 
+                  backgroundColor: 'red-10', 
+                  html:true,
+                  customClass: 'loading-error'})
+              console.log(err)
+          })
+      },
 
-         initUser() {
-            this.cleanErrors();
-            if (!this.username)
-                this.errors.username = $t('msg.usernameRequired');
-            if (!Utils.strongPassword(this.password))
-                this.errors.password = $t('msg.passwordComplexity')
-            if (!this.password)
-                this.errors.password = $t('msg.passwordRequired');
-            if (!this.firstname)
-                this.errors.firstname = $t('msg.firstnameRequired');
-            if (!this.lastname)
-                this.errors.lastname = $t('msg.lastnameRequired');
+       initUser() {
+          this.cleanErrors();
+          if (!this.username)
+              this.errors.username = $t('msg.usernameRequired');
+          if (!Utils.strongPassword(this.password))
+              this.errors.password = $t('msg.passwordComplexity')
+          if (!this.password)
+              this.errors.password = $t('msg.passwordRequired');
+          if (!this.firstname)
+              this.errors.firstname = $t('msg.firstnameRequired');
+          if (!this.lastname)
+              this.errors.lastname = $t('msg.lastnameRequired');
 
-            if (this.errors.username || this.errors.password || this.errors.firstname || this.errors.lastname)
-                return;
+          if (this.errors.username || this.errors.password || this.errors.firstname || this.errors.lastname)
+              return;
 
-            UserService.initUser(this.username, this.firstname, this.lastname, this.password)
-            .then(async () => {
-                await this.$settings.refresh();
-                this.$router.push('/');
-            })
-            .catch(err => {
-                console.log(err)
-                this.errors.alert = err.response.data.datas;
-            })
-        },
+          UserService.initUser(this.username, this.firstname, this.lastname, this.password)
+          .then(async () => {
+              await this.$settings.refresh();
+              this.$router.push('/');
+          })
+          .catch(err => {
+              console.log(err)
+              this.errors.alert = err.response.data.datas;
+          })
+      },
 
-        getToken() {
-            this.cleanErrors();
-            if (!this.username)
-                this.errors.username = $t('msg.usernameRequired');
-            if (!this.password)
-                this.errors.password = $t('msg.passwordRequired');
+      getToken() {
+          this.cleanErrors();
+          if (!this.username)
+              this.errors.username = $t('msg.usernameRequired');
+          if (!this.password)
+              this.errors.password = $t('msg.passwordRequired');
 
-            if (this.errors.username || this.errors.password)
-                return;
+          if (this.errors.username || this.errors.password)
+              return;
 
-            this.loginLoading = true;
-            UserService.getToken(this.username, this.password, this.totpToken)
-            .then(async () => {
-                await this.$settings.refresh();
-                this.$router.push('/');
-            })
-            .catch(err => {
-                if (err.response.status === 422) {
-                    this.step = 1
-                    this.$nextTick(() => {
-                        this.$refs.totptoken.focus()
-                    })
-                }
-                else {
-                    let errmsg = $t('err.invalidCredentials');
-                    if (err.response.data.datas)
-                        errmsg = err.response.data.datas;
-                    this.errors.alert = errmsg;
-                }
-            })
-            .finally(() => {
-                this.loginLoading = false;
-            });
-        }
-    }
-}
+          this.loginLoading = true;
+          UserService.getToken(this.username, this.password, this.totpToken)
+          .then(async () => {
+              await this.$settings.refresh();
+              this.$router.push('/');
+          })
+          .catch(err => {
+              if (err.response.status === 422) {
+                  this.step = 1
+                  nextTick(() => {
+                      this.$refs.totptoken.focus()
+                  })
+              }
+              else {
+                  let errmsg = $t('err.invalidCredentials');
+                  if (err.response.data.datas)
+                      errmsg = err.response.data.datas;
+                  this.errors.alert = errmsg;
+              }
+          })
+          .finally(() => {
+              this.loginLoading = false;
+          });
+      }
+  },
+});
 </script>
 
 <style lang="stylus">

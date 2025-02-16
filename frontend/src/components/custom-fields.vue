@@ -15,7 +15,7 @@
                 hide-bottom-space
                 :rules="(field.customField.required)? [val => !!val || 'Field is required']: []"
                 lazy-rules="ondemand"
-                :value="field.text"
+                :modelValue="field.text"
                 >
                     <template v-slot:control>
                         <basic-editor 
@@ -80,7 +80,7 @@
                     <template v-slot:append>
                         <q-icon name="event" class="cursor-pointer">
                         <q-popup-proxy ref="qDateProxyField" transition-show="scale" transition-hide="scale">
-                            <q-date :readonly="readonly" first-day-of-week="1" mask="YYYY-MM-DD" v-model="field.text" @input="$refs.qDateProxyField.forEach(e => e.hide())" />
+                            <q-date :readonly="readonly" first-day-of-week="1" mask="YYYY-MM-DD" v-model="field.text" @update:modelValue="$refs.qDateProxyField.forEach(e => e.hide())" />
                         </q-popup-proxy>
                         </q-icon>
                     </template>
@@ -159,7 +159,7 @@
                 v-if="field.customField.fieldType === 'checkbox'"
                 :label="field.customField.label"
                 stack-label
-                :value="field.text"
+                :modelValue="field.text"
                 :hint="field.description"
                 hide-bottom-space
                 outlined
@@ -187,7 +187,7 @@
                 v-if="field.customField.fieldType === 'radio'"
                 :label="field.customField.label"
                 stack-label
-                :value="field.text"
+                :modelValue="field.text"
                 :hint="field.description"
                 hide-bottom-space
                 outlined
@@ -215,112 +215,115 @@
 </template>
 
 <script>
+import { defineComponent } from 'vue';
+
 import BasicEditor from 'components/editor';
 
-export default {
-    name: 'custom-fields',
-    props: {
-        value: Array,
-        customElement: {
-            type: String,
-            default: 'div'
-        },
-        noSyncEditor: {
-            type: Boolean,
-            default: false
-        },
-        diff: {
-            type: Array,
-            default: null
-        },
-        readonly: {
-            type: Boolean,
-            default: false
-        },
-        locale: {
-            type: String,
-            default: ''
-        },
-        collab: {
-            type: Boolean,
-            default: true
-        },
-        idUnique: {
-            type: String,
-            default: ''
-        }
-    },
+export default defineComponent({
+  emits: ['editorchange'],
+  name: 'custom-fields',
 
-    data: function() {
-        return {
-            
-        }
-    },
+  props: {
+      modelValue: Array,
+      customElement: {
+          type: String,
+          default: 'div'
+      },
+      noSyncEditor: {
+          type: Boolean,
+          default: false
+      },
+      diff: {
+          type: Array,
+          default: null
+      },
+      readonly: {
+          type: Boolean,
+          default: false
+      },
+      locale: {
+          type: String,
+          default: ''
+      },
+      collab: {
+          type: Boolean,
+          default: true
+      },
+      idUnique: {
+          type: String,
+          default: ''
+      }
+  },
 
-    components: {
-        BasicEditor
-    },
+  data: function() {
+      return {
+          
+      }
+  },
 
-    computed: {
-         computedFields: function() {
-            var result = []
-            var tmpArray = []
-            this.value.forEach(e => {
-                if (e.customField.fieldType === 'space' && e.customField.size === 12) { // full size space creates an empty component as separator
-                    result.push(tmpArray)
-                    result.push([])
-                    tmpArray = []
-                }
-                else {
-                    tmpArray.push(e)
-                }
-            })
-            if (tmpArray.length > 0)
-                result.push(tmpArray)
-            return result
-        }
-    },
+  components: {
+      BasicEditor
+  },
 
-    methods: {
-        isTextInCustomFields: function(field) {
-            if (this.diff) {
-                return typeof this.diff.find(f => {
-                    return f.customField._id === field.customField._id && this.$_.isEqual(f.text, field.text)
-                }) === 'undefined'
-            }
-            return false
-        },
-        eventPropagation: function(){
-            this.$emit('editorchange')
-        },
-        getTextDiffInCustomFields: function(field) {
-            var result = ''
-            if (this.diff) {
-                this.diff.find(f => {
-                    if (f.customField._id === field.customField._id)
-                        result = f.text
-                })
-            }
-            return result
-        },
+  computed: {
+       computedFields: function() {
+          var result = []
+          var tmpArray = []
+          this.modelValue.forEach(e => {
+              if (e.customField.fieldType === 'space' && e.customField.size === 12) { // full size space creates an empty component as separator
+                  result.push(tmpArray)
+                  result.push([])
+                  tmpArray = []
+              }
+              else {
+                  tmpArray.push(e)
+              }
+          })
+          if (tmpArray.length > 0)
+              result.push(tmpArray)
+          return result
+      }
+  },
 
-        validate: function() {
-            Object.keys(this.$refs).forEach(key => key.startsWith('field') && this.$refs[key][0].validate())
-        },
+  methods: {
+      isTextInCustomFields: function(field) {
+          if (this.diff) {
+              return typeof this.diff.find(f => {
+                  return f.customField._id === field.customField._id && this.$_.isEqual(f.text, field.text)
+              }) === 'undefined'
+          }
+          return false
+      },
+      eventPropagation: function(){
+          this.$emit('editorchange')
+      },
+      getTextDiffInCustomFields: function(field) {
+          var result = ''
+          if (this.diff) {
+              this.diff.find(f => {
+                  if (f.customField._id === field.customField._id)
+                      result = f.text
+              })
+          }
+          return result
+      },
 
-        requiredFieldsEmpty: function() {
-            this.validate()
-            return this.value.some(e => e.customField.fieldType !== 'space' && e.customField.required && (!e.text || e.text.length === 0))
-        },
+      validate: function() {
+          Object.keys(this.$refs).forEach(key => key.startsWith('field') && this.$refs[key][0].validate())
+      },
 
-        getOptionsGroup: function(options) {
-            return options
-            .filter(e => e.locale === this.locale)
-            .map(e => {return {label: e.value, value: e.value}})
-        }
-    }
-}
+      requiredFieldsEmpty: function() {
+          this.validate()
+          return this.modelValue.some(e => e.customField.fieldType !== 'space' && e.customField.required && (!e.text || e.text.length === 0));
+      },
 
+      getOptionsGroup: function(options) {
+          return options
+          .filter(e => e.locale === this.locale)
+          .map(e => {return {label: e.value, value: e.value}})
+      }
+  },
+});
 </script>
 
 <style>

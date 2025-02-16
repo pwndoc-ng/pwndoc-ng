@@ -1,23 +1,23 @@
-import Vue from 'vue'
+import { api } from 'boot/axios'
 
 export default {
   getCollabs: function() {
-    return Vue.prototype.$axios.get(`users`)
+    return  api.get(`users`)
   },
 
   createCollab: function(collab) {
-    return Vue.prototype.$axios.post('users', collab)
+    return  api.post('users', collab)
   },
 
   updateCollab: function(collabId, collab) {
-    return Vue.prototype.$axios.put(`users/${collabId}`, collab)
+    return  api.put(`users/${collabId}`, collab)
   },
 
   deleteCollab: function(collabId) {
-    return Vue.prototype.$axios.delete(`users/${collabId}`)
+    return  api.delete(`users/${collabId}`)
   },
 
   deleteAllCollab: function() {
-    return Vue.prototype.$axios.delete(`users`)
+    return  api.delete(`users`)
   }
 }

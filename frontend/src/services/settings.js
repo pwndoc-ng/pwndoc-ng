@@ -1,23 +1,23 @@
-import Vue from 'vue'
+import { api } from 'boot/axios'
 
 export default {
-  getSettings: function() {
-    return Vue.prototype.$axios.get(`settings`)
+  getSettings() {
+    return api.get(`settings`)
   },
 
-  getPublicSettings: function() {
-    return Vue.prototype.$axios.get(`settings/public`)
+  getPublicSettings() {
+    return api.get(`settings/public`)
   },
 
-  updateSettings: function(params) {
-    return Vue.prototype.$axios.put(`settings`, params)
+  updateSettings(params) {
+    return api.put(`settings`, params)
   },
 
-  exportSettings: function() {
-    return Vue.prototype.$axios.get(`settings/export`)
+  exportSettings() {
+    return api.get(`settings/export`)
   },
 
-  revertDefaults: function() {
-    return Vue.prototype.$axios.put(`settings/revert`)
-  },
+  revertDefaults() {
+    return api.put(`settings/revert`)
+  }
 }

@@ -7,7 +7,7 @@ module.exports = function (ctx) {
     // app boot (/src/boot)
     boot: [
       'axios',
-      'affix',
+      'sticky',
       'auth',
       'i18n',
       'darkmode',
@@ -28,6 +28,9 @@ module.exports = function (ctx) {
       scopeHoisting: true,
       vueRouterMode: 'history',
       vueCompiler: true,
+      showProgress: true,
+      showWarnings: true,
+      stylusVariables: 'src/css/quasar-variables.styl',
       // gzip: true,
       // analyze: true,
       // extractCSS: false,
@@ -54,7 +57,7 @@ module.exports = function (ctx) {
       port: 8081,
       proxy: {
         '/api': {
-          target: 'https://pwndoc-ng-backend:5252',
+          target: 'https://127.0.0.1:8443',
           changeOrigin: true,
           secure: false
         }
@@ -111,6 +114,7 @@ module.exports = function (ctx) {
         'QSeparator',
         'QSpace',
         'QSpinnerGears',
+        'QInnerLoading',
         'QSplitter',
         'QTab',
         'QTable',
@@ -136,7 +140,8 @@ module.exports = function (ctx) {
         'Cookies',
         'Dialog',
         'Loading',
-        'Notify'
+        'Notify',
+        'Dark'
       ]
       // iconSet: ctx.theme.mat ? 'material-icons' : 'ionicons'
       // lang: 'de' // Quasar language

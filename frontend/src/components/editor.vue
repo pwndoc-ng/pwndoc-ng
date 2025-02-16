@@ -7,11 +7,7 @@
     :class="affixRelativeElement"
     :style="editable ? '' : 'border: 1px dashed lightgrey'"
   >
-    <affix
-      :relative-element-selector="'.' + affixRelativeElement"
-      :enabled="!noAffix"
-      class="bg-white"
-    >
+  <div v-sticky="{ zIndex: 10, stickyTop: 50 }" class="bg-white">
       <q-toolbar class="editor-toolbar">
         <div v-if="toolbar.indexOf('format') !== -1">
           <q-tooltip :delay="500" content-class="text-bold"
@@ -494,9 +490,9 @@
         <q-separator
           vertical
           class="q-mx-sm"
-          v-if="diff !== undefined && (diff || value) && value !== diff"
+          v-if="diff !== undefined && (diff || modelValue) && modelValue !== diff"
         />
-        <div v-if="diff !== undefined && (diff || value) && value !== diff">
+        <div v-if="diff !== undefined && (diff || modelValue) && modelValue !== diff">
           <q-btn
             flat
             size="sm"
@@ -507,7 +503,7 @@
           />
         </div>
       </q-toolbar>
-    </affix>
+    </div>
     <q-separator />
      <bubble-menu
       class="editor-bubble-menu"
@@ -545,8 +541,11 @@
 </template>
 
 <script>
-import { Editor, EditorContent, BubbleMenu } from "@tiptap/vue-2";
+import { defineComponent } from 'vue';
+
+import { Editor, EditorContent, BubbleMenu, VueNodeViewRenderer  } from "@tiptap/vue-3";
 //  Import extensions
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
 import StarterKit from "@tiptap/starter-kit";
@@ -567,15 +566,43 @@ import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
 
 
+import css from 'highlight.js/lib/languages/css'
+import js from 'highlight.js/lib/languages/javascript'
+import http from 'highlight.js/lib/languages/http'
+import ts from 'highlight.js/lib/languages/typescript'
+import html from 'highlight.js/lib/languages/xml'
+import bash from 'highlight.js/lib/languages/bash';
+import sql from 'highlight.js/lib/languages/sql';
+import json from 'highlight.js/lib/languages/json';
+import CodeBlockComponent from './CodeBlockComponent.vue'
+
+import { all, createLowlight } from 'lowlight'
+
+// create a lowlight instance
+const lowlight = createLowlight(all)
+
+// you can also register languages
+lowlight.register('html', html)
+lowlight.register('css', css)
+lowlight.register('javascripts', js)
+lowlight.register('ts', ts)
+lowlight.register('http', http)
+lowlight.register('bash', bash);
+lowlight.register('sql', sql);
+lowlight.register('json', json);
+
+
 const Diff = require("diff");
 //  Internal libs
 import Utils from "@/services/utils";
 import ImageService from "@/services/image";
 
-export default {
+export default defineComponent({
+  emits: ['editorchange', 'ready', 'update:modelValue'],
   name: "BasicEditor",
+
   props: {
-    value: String,
+    modelValue: String,
     editable: {
       type: Boolean,
       default: true,
@@ -609,10 +636,12 @@ export default {
     },
 
   },
+
   components: {
     EditorContent,
     BubbleMenu
   },
+
   data() {
     return {
       editor: null,
@@ -631,7 +660,7 @@ export default {
   },
 
   watch: {
-    async value(value) {
+    async modelValue(value) {
       await this.updateInitialeValue(value)
     },
     editable(value) {
@@ -641,7 +670,9 @@ export default {
   },
 
   mounted() {
-     
+    if (this.modelValue === undefined || this.modelValue === null) {
+      this.$emit('update:modelValue', '');
+    }
      const ydoc = new Y.Doc()
      if(this.idUnique == '') {
       this.ClassEditor = uuidv4()
@@ -656,7 +687,9 @@ export default {
      }
 
     let extensionEditor = [
-        StarterKit,
+        StarterKit.configure({
+          codeBlock: false, // Désactive le codeBlock standard pour mettre le code block highlight
+        }),
         Highlight.configure({
           multicolor: true,
         }),
@@ -665,6 +698,13 @@ export default {
              linkOnPaste: false,
               openOnClick: false,
         }),
+        CodeBlockLowlight
+          .extend({
+            addNodeView() {
+              return VueNodeViewRenderer(CodeBlockComponent)
+            },
+          })
+          .configure({ lowlight }),
         Underline,
         TableRow,
         TableHeader,
@@ -681,19 +721,22 @@ export default {
         }),
         Figure,
       ]
-
      if(this.collab){
+
        this.provider = new HocuspocusProvider({
-        url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
+        //url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
+        url:"wss://127.0.0.1:8443/collab/",
         name: this.$route.params.auditId ||  this.idUnique.replace('-', '/'),
         document  : ydoc
       })
 
       this.provider.on('status', event => {
         this.status = event.status
+        console.log('status',event.status)
       })
       this.provider.on('synced', state => {
         this.state=state.state
+        console.log('ok',state.state)
       })
       extensionEditor.push(Collaboration.configure({
           document: ydoc,
@@ -717,7 +760,6 @@ export default {
       editable: false,
       extensions: extensionEditor ,
       onUpdate: () => {
-        console.log("onUpdate");
         if(this.state && this.initialeDataUpdated && this.countChangeAfterUpdate>0 && this.countChangeAfterUpdate<this.countChange){
            this.$emit('editorchange') // need save only if sync is done
         } else {
@@ -734,18 +776,19 @@ export default {
     //this.editor.setOptions({ editable: this.editable });
     this.editor.setEditable(this.editable && this.initialeDataUpdated);
     
-    if (typeof this.value === "undefined") {
-      this.value = "";
+    if (typeof this.modelValue === "undefined") {
+      this.modelValue = "";
     }
 
     if (
-      this.value === this.editor.getHTML()
+      this.modelValue === this.editor.getHTML()
     ) {
       return;
     }
-    this.updateInitialeValue(this.value)
+    this.updateInitialeValue(this.modelValue)
   },
-  async beforeDestroy() {
+
+  async beforeUnmount() {
     while(1){
       if(this.state==1 && this.status=='connected') break;
       else await this.sleep(100)
@@ -755,6 +798,7 @@ export default {
     }
     this.editor.destroy();
   },
+
   computed: {
     formatIcon: function () {
       if (this.editor.isActive("paragraph")) return "fa fa-paragraph";
@@ -782,7 +826,7 @@ export default {
             /([{}:;,.]|<p>|<\/p>|<pre><code>|<\/code><\/pre>|<[uo]l><li>.*<\/li><\/[uo]l>|\s+)/
           );
         };
-        var value = this.value || "";
+        var value = this.modelValue || "";
         var diff = HtmlDiff.diff(this.diff, value);
         diff.forEach((part) => {
           const diffclass = part.added
@@ -813,7 +857,6 @@ export default {
     },
   },
 
- 
   methods: {
     async updateInitialeValue(value){
     if( typeof this.$route.params.auditId == 'undefined' && (this.idUnique.split('-')[0]=="undefined" || this.idUnique.split('-') == ""  )&& this.initialeDataUpdated==false){
@@ -914,12 +957,60 @@ export default {
       }
       return colour;
     },
+    highlightAllCodeBlocks(html) {
+      if (!html) return '';
+
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+
+      doc.querySelectorAll('pre code').forEach((codeBlock) => {
+        const langClass = codeBlock.className.match(/language-([a-zA-Z0-9-]+)/);
+        const lang = langClass ? langClass[1] : 'plaintext';
+        const originalCode = codeBlock.textContent;
+
+        try {
+          const highlighted = lowlight.highlight(lang, originalCode);
+          const tempDiv = document.createElement('div');
+          highlighted.children.forEach((node) => {
+            tempDiv.appendChild(this.convertLowlightNodeToHtml(node));
+          });
+          codeBlock.innerHTML = tempDiv.innerHTML;
+        } catch (e) {
+          console.warn(`Highlighting failed for ${lang}, fallback to plaintext`, e);
+          codeBlock.textContent = originalCode;
+        }
+      });
+
+      return doc.body.innerHTML;
+    },
+    convertLowlightNodeToHtml(node) {
+      if (node.type === 'text') {
+        return document.createTextNode(node.value);
+      } else if (node.type === 'element') {
+        const el = document.createElement(node.tagName);
+        if (node.properties) {
+          Object.entries(node.properties).forEach(([key, value]) => {
+            if (key === 'className') {
+              el.className = value.join(' ');
+            } else {
+              el.setAttribute(key, value);
+            }
+          });
+        }
+        if (node.children) {
+          node.children.forEach((child) => {
+            el.appendChild(this.convertLowlightNodeToHtml(child));
+          });
+        }
+        return el;
+      }
+      return document.createTextNode('');
+    },
     updateHTML() {
       if (!this.initialeDataUpdated) return;
-      
-      console.log("updateHTML");
       this.json = this.editor.getJSON();
       this.html = this.editor.getHTML();
+      this.html = this.highlightAllCodeBlocks(this.html);
       if (
         Array.isArray(this.json.content) &&
         this.json.content.length === 1 &&
@@ -928,13 +1019,88 @@ export default {
       ) {
         this.html = "";
       }
-      this.$emit("input", this.html);
+      this.$emit('update:modelValue', this.html);
     },
   },
-};
+});
 </script>
 
 <style lang="scss">
+
+.tiptap {
+  :first-child {
+    margin-top: 0;
+  }
+
+  pre {
+    background: var(--black);
+    border-radius: 0.5rem;
+    color: var(--white);
+    font-family: 'JetBrainsMono', monospace;
+    margin: 1.5rem 0;
+    padding: 0.75rem 1rem;
+
+    code {
+      background: none;
+      color: inherit;
+      font-size: 0.8rem;
+      padding: 0;
+    }
+
+    /* Code styling */
+    .hljs-comment,
+    .hljs-quote {
+      color: #616161;
+    }
+
+    .hljs-variable,
+    .hljs-template-variable,
+    .hljs-attribute,
+    .hljs-tag,
+    .hljs-name,
+    .hljs-regexp,
+    .hljs-link,
+    .hljs-name,
+    .hljs-selector-id,
+    .hljs-selector-class {
+      color: #f98181;
+    }
+
+    .hljs-number,
+    .hljs-meta,
+    .hljs-built_in,
+    .hljs-builtin-name,
+    .hljs-literal,
+    .hljs-type,
+    .hljs-params {
+      color: #fbbc88;
+    }
+
+    .hljs-string,
+    .hljs-symbol,
+    .hljs-bullet {
+      color: #b9f18d;
+    }
+
+    .hljs-title,
+    .hljs-section {
+      color: #faf594;
+    }
+
+    .hljs-keyword,
+    .hljs-selector-tag {
+      color: #70cff8;
+    }
+
+    .hljs-emphasis {
+      font-style: italic;
+    }
+
+    .hljs-strong {
+      font-weight: 700;
+    }
+  }
+}
 
 
 .collaboration-cursor__caret {

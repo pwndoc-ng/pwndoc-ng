@@ -287,7 +287,7 @@ module.exports = function(app) {
             Response.BadParameters(res, 'Missing some required parameters');
             return;
         }
-        if (passwordpolicy.strongPassword(req.body.newPassword)!==true){
+        if (req.body.newPassword.length==0 && passwordpolicy.strongPassword(req.body.newPassword)!==true){
             Response.BadParameters(res, 'New Password does not match the password policy');
             return;
         }
@@ -298,11 +298,12 @@ module.exports = function(app) {
 
         var user = {};
         // Required params
+        
         user.password = req.body.currentPassword;
 
         // Optionals params
         if (req.body.username) user.username = req.body.username;
-        if (req.body.newPassword) user.newPassword = req.body.newPassword;
+        if (req.body.newPassword && req.body.newPassword.length>0) user.newPassword = req.body.newPassword;
         if (req.body.firstname) user.firstname = req.body.firstname;
         if (req.body.lastname) user.lastname = req.body.lastname;
         if (!_.isNil(req.body.email)) user.email = req.body.email;
