@@ -724,8 +724,8 @@ export default defineComponent({
      if(this.collab){
 
        this.provider = new HocuspocusProvider({
-        //url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
-        url:"wss://127.0.0.1:8443/collab/",
+        url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
+        //url:"wss://127.0.0.1:8443/collab/",
         name: this.$route.params.auditId ||  this.idUnique.replace('-', '/'),
         document  : ydoc
       })
