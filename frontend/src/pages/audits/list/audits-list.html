@@ -104,6 +104,9 @@
                 <q-td key="company">{{ props.row.company?.name || '-' }}</q-td>
                 <q-td key="language">{{ convertLocale(props.row.language) }}</q-td>
                 <q-td key="users">{{ convertParticipants(props.row) }}</q-td>
+                <q-td key="date">
+                  {{ formatDate(props.row.createdAt)}}
+                </q-td>
                 <q-td key="connected">
                   <q-chip
                   v-if="UserService.isAllowed('audits:users-connected') && props.row.connected && props.row.connected.length > 0"
@@ -119,9 +122,6 @@
                     </div>
                   </q-tooltip>
                 </q-chip>
-                </q-td>
-                <q-td key="date">
-                  {{ formatDate(props.row.date) }}
                 </q-td>
                 <q-td key="reviews">
                   <audit-state-icon v-if="$settings.reviews.enabled" :approvals="props.row.approvals" :state="props.row.state" />
