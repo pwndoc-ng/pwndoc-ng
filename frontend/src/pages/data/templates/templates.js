@@ -26,7 +26,8 @@ export default {
             pagination: {
                 page: 1,
                 rowsPerPage: 25,
-                sortBy: 'name'
+                sortBy: 'name',
+                rowsNumber: 0 
             },
             rowsPerPageOptions: [
                 {label:'25', value:25},
@@ -36,7 +37,7 @@ export default {
             ],
             // Search filter
             search: {name: '', ext: ''},
-            customFilter: Utils.customFilter,
+           // customFilter: Utils.customFilter,
             // Errors messages
             errors: {name: '', file: ''},
             // Selected or New Vulnerability
@@ -69,7 +70,35 @@ export default {
                 console.log(err)
             })
         },
-
+        customFilter(rows, terms, cols, getCellValue, pagination) {
+            // 1. Filtrer d’abord
+            const filtered = rows.filter(row => {
+              return Object.keys(terms).every(key => {
+                const cellValue = getCellValue(row, key);
+                return String(cellValue).toLowerCase().includes(String(terms[key]).toLowerCase());
+              });
+            });
+          
+            // 2. Trier si besoin
+            if (pagination.sortBy) {
+              filtered.sort((a, b) => {
+                const aValue = getCellValue(a, pagination.sortBy);
+                const bValue = getCellValue(b, pagination.sortBy);
+          
+                if (aValue < bValue) return pagination.descending ? 1 : -1;
+                if (aValue > bValue) return pagination.descending ? -1 : 1;
+                return 0;
+              });
+            }
+          
+            // 3. Paginer
+            const startIndex = (pagination.page - 1) * pagination.rowsPerPage;
+            const endIndex = startIndex + pagination.rowsPerPage;
+          
+            // Retourne juste la tranche de la page actuelle
+            return pagination.rowsPerPage === 0 ? filtered : filtered.slice(startIndex, endIndex);
+          },
+          
         downloadTemplate: function(row) {
             TemplateService.downloadTemplate(row._id)
             .then((data) => {

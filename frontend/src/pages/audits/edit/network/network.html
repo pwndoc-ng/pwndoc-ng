@@ -91,7 +91,7 @@
         :title="`${currentHost.ip} (${currentHost.hostname})`"
         :data="currentHost.services"
         :columns="dtHostHeaders"
-        :v-model:pagination="hostPagination"
+        v-model:pagination="hostPagination"
         row-key="port"
         />
     </div>
