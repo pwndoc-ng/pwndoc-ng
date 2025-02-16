@@ -42,7 +42,7 @@ export default {
                 page: 1,
                 rowsPerPage: 25,
                 sortBy: 'date',
-                descending: true,
+                descending: false,
                 pagesNumber: 1
             },
 
