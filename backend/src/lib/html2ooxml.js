@@ -64,6 +64,7 @@ function html2ooxml(html, style = "") {
   let cParagraphProperties = {};
   let list_state = [];
   let inCodeBlock = false;
+  let inCodeBlockHighlight = false;
   let inTable = false;
   let inTableRow = false;
   let inTableCell = false;
@@ -123,6 +124,7 @@ function html2ooxml(html, style = "") {
             break;
           case 'pre':
             inCodeBlock = true;
+            inCodeBlockHighlight = true
             cParagraph = new docx.Paragraph({ style: "Code" });
             break;
           case 'br':
@@ -137,10 +139,10 @@ function html2ooxml(html, style = "") {
             cRunProperties.italics = true;
             break;
           case 'span':
-            if (inCodeBlock && attribs.class) {
-              cRunProperties.color = HIGHLIGHT_COLOR_MAP[attribs.class] || '#000000';
+            if (inCodeBlock && attribs.class && HIGHLIGHT_COLOR_MAP[attribs.class]) {
+              cRunProperties.color = HIGHLIGHT_COLOR_MAP[attribs.class];
             }
-            break; 
+            break;
           case 'u':
             cRunProperties.underline = {};
             break;
@@ -185,7 +187,11 @@ function html2ooxml(html, style = "") {
             else cParagraphProperties.bullet = { level: 0 };
             break;
           case 'code':
-            cRunProperties.style = "CodeChar";
+            if (inCodeBlockHighlight) {
+              cRunProperties.style = "Code";
+            } else {
+              cRunProperties.style = "CodeChar";
+            }
             break;
           case 'legend':
             if (attribs && attribs.alt !== "undefined") {
@@ -205,13 +211,21 @@ function html2ooxml(html, style = "") {
       ontext(text) {
         if (cRunProperties.link) {
           cParagraph.addChildElement(new docx.TextRun({ "text": `{_|link|_{${text}|-|${cRunProperties.link}}_|link|_}`, "style": "PwndocLink" }));
-        } else  if (inCodeBlock) {
-          cParagraph.addChildElement(
-            new docx.TextRun({
-              text,
-              color: cRunProperties.color || '#000000',
-            })
-          );
+        } else if (inCodeBlock) {
+          if (cRunProperties.color) {
+            cParagraph.addChildElement(
+              new docx.TextRun({
+                text,
+                color: cRunProperties.color,
+              })
+            );
+          } else {
+            cParagraph.addChildElement(
+              new docx.TextRun({
+                text
+              })
+            );
+          }
         } else if (text && cParagraph) {
           if (inTableCell) {
             cellHasText = true;
@@ -234,6 +248,7 @@ function html2ooxml(html, style = "") {
             "p",
             "pre",
             "img",
+            //"code",
             "legend",
             //"table",
             /* "tr",
@@ -248,88 +263,94 @@ function html2ooxml(html, style = "") {
 
           cParagraph = null;
           cParagraphProperties = {};
-        if (tag === "b" || tag === "strong") {
-          delete cRunProperties.bold;
-        }else if (tag === "pre") {
-          inCodeBlock = false;
-          if (cParagraph) {
-            paragraphs.push(cParagraph);
-          }
-          cParagraph = null;
-        }else if (tag === "span") {
-          if (inCodeBlock) {
-            delete cRunProperties.color;
-          }
-        } else if (tag === "i" || tag === "em") {
-          delete cRunProperties.italics;
-        } else if (tag === "u") {
-          delete cRunProperties.underline;
-        } else if (tag === "mark") {
-          delete cRunProperties.highlight;
-        } else if (tag === "strike" || tag === "s") {
-          delete cRunProperties.strike;
-        } else if (tag === "ul" || tag === "ol") {
-          list_state.pop();
-          if (list_state.length === 0) cParagraphProperties = {};
-        } else if (tag === "code") {
-          delete cRunProperties.style;
-        } else if (tag === "tr") {
-          inTableRow = false;
-          tableHeader = false;
-          tmpTable.push(tmpCells);
-          tmpCells = []
-        } else if (tag === "a") {
-          delete cRunProperties.link
-        } else if (tag === "td" || tag === "th") {
-          tmpCells.push({
-            text: cellHasText === true ? tmpCellContent : "",
-            width: tmpAttribs.colwidth ? tmpAttribs.colwidth : "250",
-            header: tableHeader,
-          });
-
-          tmpAttribs = {};
-          tmpCellContent = [];
-          inTableCell = false;
-        } else if (tag === "table") {
-          inTable = false;
-          let tblRows = [];
-          tmpTable.map((row) => {
-            let tmpCells = [];
-            let isHeader = false
-            let widthTotal = row.map(cell => parseInt(cell.width)).reduce((prev, next) => prev + next);
-
-            row.map((cell) => {
-              isHeader = cell.header;
-              tmpCells.push(new docx.TableCell({
-                width: {
-                  size: Math.round(parseFloat(cell.width / widthTotal)),
-                  type: "pct",
-                },
-                children: cell.text,
-              }))
+          if (tag === "b" || tag === "strong") {
+            delete cRunProperties.bold;
+          } else if (tag === "pre") {
+            inCodeBlockHighlight = false;
+            inCodeBlock = false;
+            if (cParagraph) {
+              paragraphs.push(cParagraph);
+            }
+            cParagraph = null;
+          } else if (tag === "span") {
+            if (inCodeBlock) {
+              delete cRunProperties.color;
+            }
+          } else if (tag === "i" || tag === "em") {
+            delete cRunProperties.italics;
+          } else if (tag === "u") {
+            delete cRunProperties.underline;
+          } else if (tag === "mark") {
+            delete cRunProperties.highlight;
+          } else if (tag === "strike" || tag === "s") {
+            delete cRunProperties.strike;
+          } else if (tag === "ul" || tag === "ol") {
+            list_state.pop();
+            if (list_state.length === 0) cParagraphProperties = {};
+          } else if (tag === "tr") {
+            inTableRow = false;
+            tableHeader = false;
+            tmpTable.push(tmpCells);
+            tmpCells = []
+          } else if (tag === "a") {
+            delete cRunProperties.link
+          } else if (tag === "td" || tag === "th") {
+            tmpCells.push({
+              text: cellHasText === true ? tmpCellContent : "",
+              width: tmpAttribs.colwidth ? tmpAttribs.colwidth : "250",
+              header: tableHeader,
             });
 
-            tblRows.push(new docx.TableRow({
-              children: tmpCells,
-              tableHeader: isHeader,
-            }))
-          });
-          // build table and push to paragraphs array
-          cParagraph = new docx.Table({
-            rows: tblRows,
-            width: {
-              size: 100,
-              type: "pct"
-            }
-          });
+            tmpAttribs = {};
+            tmpCellContent = [];
+            inTableCell = false;
+          } else if (tag === "table") {
+            inTable = false;
+            let tblRows = [];
+            tmpTable.map((row) => {
+              let tmpCells = [];
+              let isHeader = false
+              let widthTotal = row.map(cell => parseInt(cell.width)).reduce((prev, next) => prev + next);
 
-          paragraphs.push(cParagraph);
-          cParagraph = null;
-          cParagraphProperties = {};
-          tmpTable = [];
-          tmpCells = [];
+              row.map((cell) => {
+                isHeader = cell.header;
+                tmpCells.push(new docx.TableCell({
+                  width: {
+                    size: Math.round(parseFloat(cell.width / widthTotal)),
+                    type: "pct",
+                  },
+                  children: cell.text,
+                }))
+              });
+
+              tblRows.push(new docx.TableRow({
+                children: tmpCells,
+                tableHeader: isHeader,
+              }))
+            });
+            // build table and push to paragraphs array
+            cParagraph = new docx.Table({
+              rows: tblRows,
+              width: {
+                size: 100,
+                type: "pct"
+              }
+            });
+
+            paragraphs.push(cParagraph);
+            cParagraph = null;
+            cParagraphProperties = {};
+            tmpTable = [];
+            tmpCells = [];
+          }
         }
-      }},
+        if (tag === "code") {
+          inCodeBlock = false;
+          if(!inCodeBlockHighlight){
+            delete cRunProperties.style;
+          }
+        }
+      },
 
       onend() {
         doc.addSection({
