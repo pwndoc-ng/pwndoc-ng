@@ -1,52 +1,50 @@
 <div>
     <breadcrumb
     buttons
-    :title="audit ? `${audit.name} (${audit.auditType || 'Audit Type not set'})` : 'Loading...'"
+    :title="audit?.name ? `${audit.name} (${audit.auditType || $t('msg.auditTypeNotSet')})` : 'Loading...'"
     :state="parentState"
     :approvals="parentApprovals"
   >
-      <div slot="buttons" v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT">
-        <q-btn-dropdown 
-        class="q-mr-sm"
-        :label="$t('import')"
-        no-caps
-        >
-            <q-list>
-                <q-item clickable @click="$refs.nmapFile.click()">
-                    <q-item-section>
-                        <q-item-label>
-                            Nmap
-                            <input
-                            type="file"
-                            ref="nmapFile"
-                            accept=".xml"
-                            class="hidden"
-                            @change="importNetworkScan($event.target.files, 'nmap')"
-                            />
-                        </q-item-label>
-                    </q-item-section>
-                </q-item>
-                <q-separator />
-                <q-item clickable @click="$refs.nessusFile.click()">
-                    <q-item-section>
-                        <q-item-label>
-                            Nessus
-                            <input
-                            type="file"
-                            ref="nessusFile"
-                            accept=".nessus"
-                            class="hidden"
-                            @change="importNetworkScan($event.target.files, 'nessus')"
-                            />
-                        </q-item-label>
-                    </q-item-section>
-                </q-item>
-            </q-list>
+    <template v-slot:buttons>
+      <div >
+        <q-btn-dropdown class="q-mr-sm" :label="$t('import')" no-caps>
+          <q-list>
+            <q-item clickable @click="$refs.nmapFile.click()">
+              <q-item-section>
+                <q-item-label>
+                  Nmap
+                  <input
+                    type="file"
+                    ref="nmapFile"
+                    accept=".xml"
+                    class="hidden"
+                    @change="importNetworkScan($event.target.files, 'nmap')"
+                  />
+                </q-item-label>
+              </q-item-section>
+            </q-item>
+            <q-separator />
+            <q-item clickable @click="$refs.nessusFile.click()">
+              <q-item-section>
+                <q-item-label>
+                  Nessus
+                  <input
+                    type="file"
+                    ref="nessusFile"
+                    accept=".nessus"
+                    class="hidden"
+                    @change="importNetworkScan($event.target.files, 'nessus')"
+                  />
+                </q-item-label>
+              </q-item-section>
+            </q-item>
+          </q-list>
         </q-btn-dropdown>
-        <q-btn color="positive" :label="$t('btn.save')+' (ctrl+s)'" no-caps @click="updateAuditNetwork" />
-    </div>
-</breadcrumb>
-
+        <q-btn color="positive" :label="$t('btn.save') + ' (ctrl+s)'" no-caps @click="updateAuditNetwork" />
+      </div>
+    </template>
+  </breadcrumb>
+  
 <div class="row q-col-gutter-md q-pa-md">
     <div class="col-md-6">
         <q-card>

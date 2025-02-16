@@ -15,7 +15,12 @@ export default {
     props: {
         frontEndAuditState: Number,
         parentState: String,
-        parentApprovals: Array
+        parentApprovals: Array,
+        audit: {
+            type: Object,
+            required: false,
+            default: () => ({})
+          }
     },
     data: () => {
         return {

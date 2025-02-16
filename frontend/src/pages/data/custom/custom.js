@@ -109,11 +109,8 @@ export default {
     },
 
     computed: {
-        filteredCustomFields() {
-            return this.customFields.filter(field =>
-                (field.display === this.newCustomField.display && field.displayList.every(e => this.newCustomField.displayList.indexOf(e) > -1))
-            )
-        },
+
+      
         vulnTypesFiltered() {
             console.log('Calcul vulnTypesFiltered', this.newVulnType.locale);
             return this.vulnTypes.filter(vuln => vuln.locale === this.newVulnType.locale);

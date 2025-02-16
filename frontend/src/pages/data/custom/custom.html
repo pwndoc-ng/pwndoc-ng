@@ -965,120 +965,184 @@
                     </q-card-section>
                     <q-separator />
                     <q-card-section>
-                        <draggable v-model="customFields" item-key="_id" class="row bg-grey-2 q-pa-sm">
-                            <template #item="{ element: field, index: idx }">
-                              <div :class="`col-md-${field.size || 12} col-12 offset-md-${field.offset || 0}`">
-                          
-                                <!-- Editeur personnalisé -->
-                                <q-field
-                                  v-if="field.fieldType === 'text'"
-                                  label-slot
-                                  stack-label
-                                  borderless
-                                  :hint="field.description"
-                                  hide-bottom-space
-                                >
-                                <template v-slot:control>
-                                    <basic-editor
-                                      :key="field._id + '-' + cfLocale"
-                                      :model-value="getFieldValue(field)"
-                                      @update:model-value="setFieldValue(field, $event)"
-                                    />
-                                  </template>
-                                  <template v-slot:label>
-                                    {{ field.label }} <span v-if="field.required" class="text-red">*</span>
-                                  </template>
-                                </q-field>
-                          
-                                <!-- Champ texte simple -->
-                                <q-input
-                                  v-else-if="field.fieldType === 'input'"
-                                  :model-value="getFieldValue(field)"
-                                  @update:model-value="setFieldValue(field, $event)"
-                                  :label="field.label"
-                                  outlined
-                                  dense
-                                  stack-label
-                                />
-                          
-                                <!-- Date -->
-                                <q-input
-                                  v-else-if="field.fieldType === 'date'"
-                                  :model-value="getFieldValue(field)"
-                                  @update:model-value="setFieldValue(field, $event)"
-                                  :label="field.label"
-                                  outlined
-                                  dense
-                                  stack-label
-                                >
-                                  <template v-slot:append>
-                                    <q-icon name="event" class="cursor-pointer">
-                                      <q-popup-proxy transition-show="scale" transition-hide="scale">
-                                        <q-date
-                                          v-model="tempDate"
-                                          mask="YYYY-MM-DD"
-                                          @update:model-value="setFieldValue(field, $event)"
-                                        />
-                                      </q-popup-proxy>
-                                    </q-icon>
-                                  </template>
-                                </q-input>
-                          
-                                <!-- Sélection simple -->
-                                <q-select
-                                  v-else-if="field.fieldType === 'select'"
-                                  :model-value="getFieldValue(field)"
-                                  @update:model-value="setFieldValue(field, $event)"
-                                  :options="field.options.filter(e => e.locale === cfLocale)"
-                                  option-value="value"
-                                  option-label="value"
-                                  :label="field.label"
-                                  outlined
-                                  dense
-                                  stack-label
-                                />
-                          
-                                <!-- Sélection multiple -->
-                                <q-select
-                                  v-else-if="field.fieldType === 'select-multiple'"
-                                  :model-value="getFieldValue(field)"
-                                  @update:model-value="setFieldValue(field, $event)"
-                                  :options="field.options.filter(e => e.locale === cfLocale)"
-                                  option-value="value"
-                                  option-label="value"
-                                  multiple
-                                  use-chips
-                                  :label="field.label"
-                                  outlined
-                                  dense
-                                  stack-label
-                                />
-                          
-                                <!-- Checkbox group -->
-                                <q-option-group
-                                  v-else-if="field.fieldType === 'checkbox'"
-                                  :model-value="getFieldValue(field)"
-                                  @update:model-value="setFieldValue(field, $event)"
-                                  :options="getOptionsGroup(field.options)"
-                                  type="checkbox"
-                                />
-                          
-                                <!-- Radio group -->
-                                <q-option-group
-                                  v-else-if="field.fieldType === 'radio'"
-                                  :model-value="getFieldValue(field)"
-                                  @update:model-value="setFieldValue(field, $event)"
-                                  :options="getOptionsGroup(field.options)"
-                                  type="radio"
-                                />
-                          
-                                <!-- Espace vide -->
-                                <div v-else-if="field.fieldType === 'space'" class="q-pa-md"></div>
-                          
+                      <draggable v-model="customFields" item-key="_id" class="row bg-grey-2 q-pa-sm" handle=".drag-handle">
+                        <template #item="{ element: field, index: idx }">
+                          <q-item
+                            v-if="field.display === newCustomField.display && field.displaySub === newCustomField.displaySub"
+                            :class="`col-md-${field.size || 12} col-12 offset-md-${field.offset || 0}`"
+                            class="relative-position q-pa-xs"
+                          >
+                            <!-- Boutons (éditer, supprimer, déplacer) à gauche et VERTICALEMENT -->
+                            <q-item-section avatar top v-if="UserService.isAllowed('custom-fields:update')" class="q-pr-sm">
+                              <div class="column items-center q-gutter-y-xs">
+                                <q-btn flat color="primary" icon="mdi-pencil" dense size="sm">
+                                  <q-menu content-style="width: 300px" anchor="top left" self="top end">
+                                    <q-item v-if="field.fieldType !== 'space'">
+                                      <q-item-section>
+                                        <q-input class="full-width" :label="$t('label')" v-model="field.label" clearable outlined dense />
+                                      </q-item-section>
+                                    </q-item>
+                                    <q-item v-if="field.fieldType !== 'space'">
+                                      <q-item-section>
+                                        <q-input class="full-width" :label="$t('description')" v-model="field.description" clearable @clear="field.description = ''" outlined dense />
+                                      </q-item-section>
+                                    </q-item>
+                                    <q-item>
+                                      <q-item-section>
+                                        <q-select class="full-width" :label="$t('size')" v-model="field.size" :options="[1,2,3,4,5,6,7,8,9,10,11,12]" outlined dense />
+                                      </q-item-section>
+                                      <q-item-section>
+                                        <q-select class="full-width" :label="$t('offset')" v-model="field.offset" :options="[0,1,2,3,4,5,6,7,8,9,10,11,12]" outlined dense />
+                                      </q-item-section>
+                                    </q-item>
+                                    <q-item v-if="field.fieldType !== 'space'">
+                                      <q-item-section>
+                                        <q-toggle :label="$t('required')" v-model="field.required" dense />
+                                      </q-item-section>
+                                    </q-item>
+                                    <q-item v-if="['select', 'select-multiple', 'checkbox', 'radio'].includes(field.fieldType)">
+                                      <q-item-section>
+                                        <q-list bordered separator dense>
+                                          <q-item v-for="(option,idx) of getFieldLangOptions(field.options)" :key="idx">
+                                            <q-item-section>{{ option.value }}</q-item-section>
+                                            <q-item-section side>
+                                              <q-btn color="red" unelevated no-caps label="X" @click="removeCustomFieldOption(field.options, option)" />
+                                            </q-item-section>
+                                          </q-item>
+                                        </q-list>
+                                      </q-item-section>
+                                    </q-item>
+                                    <q-item>
+                                      <q-item-section>
+                                        <q-input class="full-width" :label="$t('addOption')" v-model="newCustomOption" outlined dense @keyup.enter="addCustomFieldOption(field.options)" />
+                                      </q-item-section>
+                                      <q-item-section side>
+                                        <q-btn color="secondary" unelevated label="+" size="md" @click="addCustomFieldOption(field.options)" />
+                                      </q-item-section>
+                                    </q-item>
+                                  </q-menu>
+                                </q-btn>
+                      
+                                <q-btn size="sm" flat color="red" icon="mdi-delete" @click="deleteCustomField(field)" :title="$t('btn.delete')" />
+                      
+                                <q-icon name="mdi-drag" class="cursor-pointer drag-handle" size="sm" color="grey" />
                               </div>
-                            </template>
-                          </draggable>
-                          
+                            </q-item-section>
+                      
+                            <!-- Champs : Editeur personnalisé -->
+                            <q-item-section>
+                              <q-field
+                                v-if="field.fieldType === 'text'"
+                                class="full-width"
+                                label-slot
+                                stack-label
+                                borderless
+                                :hint="field.description"
+                                hide-bottom-space
+                              >
+                                <template v-slot:control>
+                                  <basic-editor
+                                    :key="field._id + '-' + cfLocale"
+                                    :model-value="getFieldValue(field)"
+                                    @update:model-value="setFieldValue(field, $event)"
+                                  />
+                                </template>
+                                <template v-slot:label>
+                                  {{ field.label }} <span v-if="field.required" class="text-red">*</span>
+                                </template>
+                              </q-field>
+                      
+                              <!-- Champ texte simple -->
+                              <q-input
+                                v-else-if="field.fieldType === 'input'"
+                                class="full-width"
+                                :model-value="getFieldValue(field)"
+                                @update:model-value="setFieldValue(field, $event)"
+                                :label="field.label"
+                                outlined
+                                dense
+                                stack-label
+                              />
+                      
+                              <!-- Date -->
+                              <q-input
+                                v-else-if="field.fieldType === 'date'"
+                                class="full-width"
+                                :model-value="getFieldValue(field)"
+                                @update:model-value="setFieldValue(field, $event)"
+                                :label="field.label"
+                                outlined
+                                dense
+                                stack-label
+                              >
+                                <template v-slot:append>
+                                  <q-icon name="event" class="cursor-pointer">
+                                    <q-popup-proxy transition-show="scale" transition-hide="scale">
+                                      <q-date v-model="tempDate" mask="YYYY-MM-DD" @update:model-value="setFieldValue(field, $event)" />
+                                    </q-popup-proxy>
+                                  </q-icon>
+                                </template>
+                              </q-input>
+                      
+                              <!-- Sélection simple -->
+                              <q-select
+                                v-else-if="field.fieldType === 'select'"
+                                class="full-width"
+                                :model-value="getFieldValue(field)"
+                                @update:model-value="setFieldValue(field, $event)"
+                                :options="field.options.filter(e => e.locale === cfLocale)"
+                                option-value="value"
+                                option-label="value"
+                                :label="field.label"
+                                outlined
+                                dense
+                                stack-label
+                              />
+                      
+                              <!-- Sélection multiple -->
+                              <q-select
+                                v-else-if="field.fieldType === 'select-multiple'"
+                                class="full-width"
+                                :model-value="getFieldValue(field)"
+                                @update:model-value="setFieldValue(field, $event)"
+                                :options="field.options.filter(e => e.locale === cfLocale)"
+                                option-value="value"
+                                option-label="value"
+                                multiple
+                                use-chips
+                                :label="field.label"
+                                outlined
+                                dense
+                                stack-label
+                              />
+                      
+                              <!-- Checkbox group -->
+                              <q-option-group
+                                v-else-if="field.fieldType === 'checkbox'"
+                                :model-value="getFieldValue(field)"
+                                @update:model-value="setFieldValue(field, $event)"
+                                :options="getOptionsGroup(field.options)"
+                                type="checkbox"
+                              />
+                      
+                              <!-- Radio group -->
+                              <q-option-group
+                                v-else-if="field.fieldType === 'radio'"
+                                :model-value="getFieldValue(field)"
+                                @update:model-value="setFieldValue(field, $event)"
+                                :options="getOptionsGroup(field.options)"
+                                type="radio"
+                              />
+                      
+                              <!-- Espace vide -->
+                              <div v-else-if="field.fieldType === 'space'" class="q-pa-md"></div>
+                            </q-item-section>
+                          </q-item>
+                        </template>
+                      </draggable>
+                      
+                  
+                      
                       </q-card-section>
                       
                     <q-card-section v-if="UserService.isAllowed('custom-fields:update')">

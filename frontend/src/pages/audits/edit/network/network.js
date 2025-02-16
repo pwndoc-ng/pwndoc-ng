@@ -4,7 +4,7 @@ import Breadcrumb from 'components/breadcrumb';
 
 import AuditService from '@/services/audit';
 import Utils from '@/services/utils';
-
+import DataService from '@/services/data';
 import { $t } from '@/boot/i18n'
 
 export default {
@@ -18,6 +18,23 @@ export default {
             auditId: null,
             audit: {
                 // scope: []
+            },
+            audit: {
+                creator: {},
+                name: "",
+                auditType: "",
+                client: {},
+                company: {},
+                collaborators: [],
+                reviewers: [],
+                date: "",
+                date_start: "",
+                date_end: "",
+                scope: [],
+                language: "",
+                template: "",
+                customFields: [],
+                approvals: []
             },
             auditOrig: {},
             // List of available targets for select options
@@ -50,7 +67,7 @@ export default {
     mounted: function() {
         this.auditId = this.$route.params.auditId;
         this.getAuditNetwork();
-        
+        this.getAuditGeneral();
         this.$socket.emit('menu', {menu: 'network', room: this.auditId});
 
         // save on ctrl+s
@@ -107,7 +124,15 @@ export default {
                 console.log(err)
             })
         },
-
+        getAuditGeneral: function() {
+            DataService.getCustomFields()
+            .then((data) => {
+                this.audit = data.data.datas;
+            })
+            .catch((err) => {              
+                console.log(err.response)
+            })
+        },
         // Save Audit
         updateAuditNetwork: function() {
             AuditService.updateAuditNetwork(this.auditId, this.audit)
