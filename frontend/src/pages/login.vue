@@ -206,6 +206,7 @@ export default defineComponent({
                   message: `<i class='material-icons'>wifi_off</i><br /><p>${$t('msg.wrongContactingBackend')}</p>`, 
                   spinner: null, 
                   backgroundColor: 'red-10', 
+                  html:true,
                   customClass: 'loading-error'})
               console.log(err)
           })

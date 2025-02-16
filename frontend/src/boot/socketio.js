@@ -10,6 +10,7 @@ export default boot(({ app }) => {
     Loading.show({
       message: `<i class='material-icons'>wifi_off</i><br /><p>${$t('msg.wrongContactingBackend')}</p>`,
       spinner: null,
+      html:true,
       backgroundColor: 'red-10',
       customClass: 'loading-error',
       delay: 5000

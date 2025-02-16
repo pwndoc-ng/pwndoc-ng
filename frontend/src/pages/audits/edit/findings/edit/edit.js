@@ -240,7 +240,61 @@ export default {
     syncEditors() {
       Utils.syncEditors(this.$refs);
     },
-
+    backupFinding: function() {
+        Utils.syncEditors(this.$refs)
+        VulnService.backupFinding(this.localAudit.language, this.finding)
+        .then((data) => {
+            Notify.create({
+                message: data.data.datas,
+                color: 'positive',
+                textColor:'white',
+                position: 'top-right'
+            })
+        })
+        .catch((err) => {
+            Notify.create({
+                message: err.response.data.datas,
+                color: 'negative',
+                textColor:'white',
+                position: 'top-right'
+            })
+        })
+    },
+    deleteFinding: function() {
+        Dialog.create({
+            title: $t('msg.deleteFindingConfirm'),
+            message: $t('msg.deleteFindingNotice'),
+            ok: {label: $t('btn.confirm'), color: 'negative'},
+            cancel: {label: $t('btn.cancel'), color: 'white'}
+        })
+        .onOk(() => {
+            AuditService.deleteFinding(this.auditId, this.findingId)
+            .then(() => {
+                Notify.create({
+                    message: $t('msg.findingDeleteOk'),
+                    color: 'positive',
+                    textColor:'white',
+                    position: 'top-right'
+                })
+                this.findingOrig = this.finding
+                var currentIndex = this.$parent.audit.findings.findIndex(e => e._id === this.findingId)
+                if (this.$parent.audit.findings.length === 1)
+                    this.$router.push(`/audits/${this.$parent.auditId}/findings/add`)
+                else if (currentIndex === this.$parent.audit.findings.length - 1)
+                    this.$router.push(`/audits/${this.$parent.auditId}/findings/${this.$parent.audit.findings[currentIndex - 1]._id}`)
+                else
+                    this.$router.push(`/audits/${this.$parent.auditId}/findings/${this.$parent.audit.findings[currentIndex + 1]._id}`)
+            })
+            .catch((err) => {
+                Notify.create({
+                    message: err.response.data.datas,
+                    color: 'negative',
+                    textColor:'white',
+                    position: 'top-right'
+                })
+            })
+        })
+    },
     updateOrig() {
       if (this.selectedTab === 'proofs' && !this.proofsTabVisited) {
         this.finding.poc = this.finding.poc || '';
