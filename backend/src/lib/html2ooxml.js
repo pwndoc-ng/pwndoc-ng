@@ -350,6 +350,9 @@ function html2ooxml(html, style = "") {
             delete cRunProperties.color;
             delete cRunProperties.style;
           }
+        } else if {
+          delete cRunProperties.color;
+          delete cRunProperties.style;
         }
       },
 
