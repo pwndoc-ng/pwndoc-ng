@@ -40,7 +40,7 @@
                     toggle-color="grey-5"
                     toggle-text-color="black"
                     no-caps
-                    :options="cvssItems.AV"
+                    :options="cvssItems.AV || []"
                     :readonly="readonly"
                 >
                 <template v-slot:one>
@@ -78,7 +78,7 @@
                     toggle-color="grey-5"
                     toggle-text-color="black"
                     no-caps
-                    :options="cvssItems.AC"
+                    :options="cvssItems.AC  || []"
                     :readonly="readonly"
                 >
                     <template v-slot:one>
@@ -106,7 +106,7 @@
                     toggle-color="grey-5"
                     toggle-text-color="black"
                     no-caps
-                    :options="cvssItems.PR"
+                    :options="cvssItems.PR  || []"
                     :readonly="readonly"
                 >
                     <template v-slot:one>
@@ -139,7 +139,7 @@
                     toggle-color="grey-5"
                     toggle-text-color="black"
                     no-caps
-                    :options="cvssItems.UI"
+                    :options="cvssItems.UI  || []"
                     :readonly="readonly"
                 >
                     <template v-slot:one>
@@ -169,7 +169,7 @@
                     toggle-color="grey-5"
                     toggle-text-color="black"
                     no-caps
-                    :options="cvssItems.S"
+                    :options="cvssItems.S  || []"
                     :readonly="readonly"
                 >
                     <template v-slot:one>
@@ -197,7 +197,7 @@
                     toggle-color="grey-5"
                     toggle-text-color="black"
                     no-caps
-                    :options="cvssItems.C"
+                    :options="cvssItems.C  || []"
                     :readonly="readonly"
                 >
                     <template v-slot:one>
@@ -230,7 +230,7 @@
                     toggle-color="grey-5"
                     toggle-text-color="black"
                     no-caps
-                    :options="cvssItems.I"
+                    :options="cvssItems.I || [] "
                     :readonly="readonly"
                 >
                     <template v-slot:one>
@@ -263,7 +263,7 @@
                     toggle-color="grey-5"
                     toggle-text-color="black"
                     no-caps
-                    :options="cvssItems.A"
+                    :options="cvssItems.A || [] "
                     :readonly="readonly"
                 >
                     <template v-slot:one>
@@ -324,7 +324,7 @@
                         toggle-color="grey-5"
                         toggle-text-color="black"
                         no-caps
-                        :options="cvssItems.E"
+                        :options="cvssItems.E || [] "
                         :readonly="readonly"
                     >
                         <template v-slot:one>
@@ -367,7 +367,7 @@
                         toggle-color="grey-5"
                         toggle-text-color="black"
                         no-caps
-                        :options="cvssItems.RL"
+                        :options="cvssItems.RL || [] "
                         :readonly="readonly"
                     >
                         <template v-slot:one>
@@ -410,7 +410,7 @@
                         toggle-color="grey-5"
                         toggle-text-color="black"
                         no-caps
-                        :options="cvssItems.RC"
+                        :options="cvssItems.RC || [] "
                         :readonly="readonly"
                     >
                         <template v-slot:one>
@@ -476,7 +476,7 @@
                         toggle-color="grey-5"
                         toggle-text-color="black"
                         no-caps
-                        :options="cvssItems.CR"
+                        :options="cvssItems.CR || [] "
                         :readonly="readonly"
                     >
                         <template v-slot:one>
@@ -514,7 +514,7 @@
                         toggle-color="grey-5"
                         toggle-text-color="black"
                         no-caps
-                        :options="cvssItems.IR"
+                        :options="cvssItems.IR || [] "
                         :readonly="readonly"
                     >
                         <template v-slot:one>
@@ -552,7 +552,7 @@
                         toggle-color="grey-5"
                         toggle-text-color="black"
                         no-caps
-                        :options="cvssItems.AR"
+                        :options="cvssItems.AR || [] "
                         :readonly="readonly"
                     >
                         <template v-slot:one>
@@ -592,7 +592,7 @@
                         toggle-color="grey-5"
                         toggle-text-color="black"
                         no-caps
-                        :options="cvssItems.MAV"
+                        :options="cvssItems.MAV || [] "
                         :readonly="readonly"
                     >
                         <template v-slot:one>
@@ -635,7 +635,7 @@
                         toggle-color="grey-5"
                         toggle-text-color="black"
                         no-caps
-                        :options="cvssItems.MAC"
+                        :options="cvssItems.MAC || [] "
                         :readonly="readonly"
                     >
                         <template v-slot:one>
@@ -668,7 +668,7 @@
                         toggle-color="grey-5"
                         toggle-text-color="black"
                         no-caps
-                        :options="cvssItems.MPR"
+                        :options="cvssItems.MPR || [] "
                         :readonly="readonly"
                     >
                         <template v-slot:one>
@@ -706,7 +706,7 @@
                         toggle-color="grey-5"
                         toggle-text-color="black"
                         no-caps
-                        :options="cvssItems.MUI"
+                        :options="cvssItems.MUI || [] "
                         :readonly="readonly"
                     >
                         <template v-slot:one>
@@ -739,7 +739,7 @@
                         toggle-color="grey-5"
                         toggle-text-color="black"
                         no-caps
-                        :options="cvssItems.MS"
+                        :options="cvssItems.MS || [] "
                         :readonly="readonly"
                     >
                         <template v-slot:one>
@@ -772,7 +772,7 @@
                         toggle-color="grey-5"
                         toggle-text-color="black"
                         no-caps
-                        :options="cvssItems.MC"
+                        :options="cvssItems.MC || [] "
                         :readonly="readonly"
                     >
                         <template v-slot:one>
@@ -810,7 +810,7 @@
                         toggle-color="grey-5"
                         toggle-text-color="black"
                         no-caps
-                        :options="cvssItems.MI"
+                        :options="cvssItems.MI || [] "
                         :readonly="readonly"
                     >
                         <template v-slot:one>
@@ -848,7 +848,7 @@
                         toggle-color="grey-5"
                         toggle-text-color="black"
                         no-caps
-                        :options="cvssItems.MA"
+                        :options="cvssItems.MA || [] "
                         :readonly="readonly"
                     >
                         <template v-slot:one>
@@ -880,194 +880,134 @@
 
 <script>
 import { defineComponent } from 'vue';
-
-import { $t } from '@/boot/i18n'
-
+import { $t } from '@/boot/i18n';
 
 export default defineComponent({
   emits: ['update:modelValue'],
   name: 'cvss-calculator',
-  props: ['value', 'readonly'],
-
-  data: function() {
-      return {
-          cvssItems: {
-              AV: [{label: $t("cvss.network"), value: "N", slot: 'one'}, {label: $t("cvss.adjacentNetwork"), value: "A", slot: 'two'}, {label: $t("cvss.local"), value: "L", slot: 'three'}, {label: $t("cvss.physical"), value: "P", slot: 'four'}],
-              AC: [{label: $t("cvss.low"), value: "L", slot: 'one'}, {label: $t("cvss.high"), value: "H", slot: 'two'}],
-              PR: [{label: $t("cvss.none"), value: "N", slot: 'one'}, {label: $t("cvss.low"), value: "L", slot: 'two'}, {label: $t("cvss.high"), value: "H", slot: 'three'}],
-              UI: [{label: $t("cvss.none"), value: "N", slot: 'one'}, {label: $t("cvss.required"), value: "R", slot: 'two'}],
-              S: [{label: $t("cvss.unchanged"), value: "U", slot: 'one'}, {label: $t("cvss.changed"), value: "C", slot: 'two'}],
-              C: [{label: $t("cvss.none"), value: "N", slot: 'one'}, {label: $t("cvss.low"), value: "L", slot: 'two'}, {label: $t("cvss.high"), value: "H", slot: 'three'}],
-              I: [{label: $t("cvss.none"), value: "N", slot: 'one'}, {label: $t("cvss.low"), value: "L", slot: 'two'}, {label: $t("cvss.high"), value: "H", slot: 'three'}],
-              A: [{label: $t("cvss.none"), value: "N", slot: 'one'}, {label: $t("cvss.low"), value: "L", slot: 'two'}, {label: $t("cvss.high"), value: "H", slot: 'three'}],
-              E: [{label: $t("cvss.notDefined"), value: "", slot: 'one'}, {label: $t("cvss.unproven"), value: "U", slot: 'two'}, {label: $t("cvss.poc"), value: "P", slot: 'three'}, {label: $t("cvss.functional"), value: "F", slot: 'four'}, {label: $t("cvss.high"), value: "H", slot: 'five'}],
-              RL: [{label: $t("cvss.notDefined"), value: "", slot: 'one'}, {label: $t("cvss.officialFix"), value: "O", slot: 'two'}, {label: $t("cvss.temporaryFix"), value: "T", slot: 'three'}, {label: $t("cvss.workaround"), value: "W", slot: 'four'}, {label: $t("cvss.unavailable"), value: "U", slot: 'five'}],
-              RC: [{label: $t("cvss.notDefined"), value: "", slot: 'one'}, {label: $t("cvss.unknown"), value: "U", slot: 'two'}, {label: $t("cvss.reasonable"), value: "R", slot: 'three'}, {label: $t("cvss.confirmed"), value: "C", slot: 'four'}],
-              CR: [{label: $t("cvss.notDefined"), value: "", slot: 'one'}, {label: $t("cvss.low"), value: "L", slot: 'two'}, {label: $t("cvss.medium"), value: "M", slot: 'three'}, {label: $t("cvss.high"), value: "H", slot: 'four'}],
-              IR: [{label: $t("cvss.notDefined"), value: "", slot: 'one'}, {label: $t("cvss.low"), value: "L", slot: 'two'}, {label: $t("cvss.medium"), value: "M", slot: 'three'}, {label: $t("cvss.high"), value: "H", slot: 'four'}],
-              AR: [{label: $t("cvss.notDefined"), value: "", slot: 'one'}, {label: $t("cvss.low"), value: "L", slot: 'two'}, {label: $t("cvss.medium"), value: "M", slot: 'three'}, {label: $t("cvss.high"), value: "H", slot: 'four'}],
-              MAV: [{label: $t("cvss.notDefined"), value: "", slot: 'one'}, {label: $t("cvss.network"), value: "N", slot: 'two'}, {label: $t("cvss.adjacentNetwork"), value: "A", slot: 'three'}, {label: $t("cvss.local"), value: "L", slot: 'four'}, {label: $t("cvss.physical"), value: "P", slot: 'five'}],
-              MAC: [{label: $t("cvss.notDefined"), value: "", slot: 'one'}, {label: $t("cvss.low"), value: "L", slot: 'two'}, {label: $t("cvss.high"), value: "H", slot: 'three'}],
-              MPR: [{label: $t("cvss.notDefined"), value: "", slot: 'one'}, {label: $t("cvss.none"), value: "N", slot: 'two'}, {label: $t("cvss.low"), value: "L", slot: 'three'}, {label: $t("cvss.high"), value: "H", slot: 'four'}],
-              MUI: [{label: $t("cvss.notDefined"), value: "", slot: 'one'}, {label: $t("cvss.none"), value: "N", slot: 'two'}, {label: $t("cvss.required"), value: "R", slot: 'three'}],
-              MS: [{label: $t("cvss.notDefined"), value: "", slot: 'one'}, {label: $t("cvss.unchanged"), value: "U", slot: 'two'}, {label: $t("cvss.changed"), value: "C", slot: 'three'}],
-              MC: [{label: $t("cvss.notDefined"), value: "", slot: 'one'}, {label: $t("cvss.none"), value: "N", slot: 'two'}, {label: $t("cvss.low"), value: "L", slot: 'three'}, {label: $t("cvss.high"), value: "H", slot: 'four'}],
-              MI: [{label: $t("cvss.notDefined"), value: "", slot: 'one'}, {label: $t("cvss.none"), value: "N", slot: 'two'}, {label: $t("cvss.low"), value: "L", slot: 'three'}, {label: $t("cvss.high"), value: "H", slot: 'four'}],
-              MA: [{label: $t("cvss.notDefined"), value: "", slot: 'one'}, {label: $t("cvss.none"), value: "N", slot: 'two'}, {label: $t("cvss.low"), value: "L", slot: 'three'}, {label: $t("cvss.high"), value: "H", slot: 'four'}],
-          },
-          cvssObj: {version:'3.1', AV:'', AC:'', PR:'', UI:'', S:'', C:'', I:'', A:'', E:'', RL:'', RC:'', CR:'', IR:'', AR:'', MAV:'', MAC:'', MPR:'', MUI:'', MS:'', MC:'', MI:'', MA:''},
-          cvss: {
-              baseMetricScore: '',
-              baseSeverity: '',
-              temporalMetricScore: '',
-              temporalSeverity: '',
-              environmentalMetricScore: '',
-              environmentalSeverity: ''
-          },
-          tooltip: {
-              anchor: "bottom middle",
-              self: "top left",
-              delay: 500,
-              maxWidth: "700px",
-              class: "",
-              style: "font-size: 12px"
-          }
-      }
+  props: {
+    modelValue: {
+      type: String,
+      default: ''
+    },
+    readonly: {
+      type: Boolean,
+      default: false
+    }
   },
 
-  created: function() {
-      this.cvssStrToObject(this.value);
-      this.cvss = CVSS31.calculateCVSSFromVector(this.value);
+  data() {
+    return {
+        cvssItems: {
+  AV: [
+    { label: 'Network', value: 'N' },
+    { label: 'Adjacent', value: 'A' },
+    { label: 'Local', value: 'L' },
+    { label: 'Physical', value: 'P' }
+  ],
+  AC: [
+    { label: 'Low', value: 'L' },
+    { label: 'High', value: 'H' }
+  ],
+  PR: [
+    { label: 'None', value: 'N' },
+    { label: 'Low', value: 'L' },
+    { label: 'High', value: 'H' }
+  ],
+  UI: [
+    { label: 'None', value: 'N' },
+    { label: 'Required', value: 'R' }
+  ],
+  S: [
+    { label: 'Unchanged', value: 'U' },
+    { label: 'Changed', value: 'C' }
+  ],
+  C: [
+    { label: 'None', value: 'N' },
+    { label: 'Low', value: 'L' },
+    { label: 'High', value: 'H' }
+  ],
+  I: [
+    { label: 'None', value: 'N' },
+    { label: 'Low', value: 'L' },
+    { label: 'High', value: 'H' }
+  ],
+  A: [
+    { label: 'None', value: 'N' },
+    { label: 'Low', value: 'L' },
+    { label: 'High', value: 'H' }
+  ]
+},
+
+      cvssObj: {version:'3.1', AV:'', AC:'', PR:'', UI:'', S:'', C:'', I:'', A:'', E:'', RL:'', RC:'', CR:'', IR:'', AR:'', MAV:'', MAC:'', MPR:'', MUI:'', MS:'', MC:'', MI:'', MA:''},
+      cvss: {
+        baseMetricScore: '',
+        baseSeverity: '',
+        temporalMetricScore: '',
+        temporalSeverity: '',
+        environmentalMetricScore: '',
+        environmentalSeverity: ''
+      },
+      tooltip: {
+        anchor: 'bottom middle',
+        self: 'top left',
+        delay: 500,
+        maxWidth: '700px',
+        class: '',
+        style: 'font-size: 12px'
+      }
+    };
+  },
+
+  created() {
+    this.cvssStrToObject(this.modelValue);
+    this.cvss = CVSS31.calculateCVSSFromVector(this.modelValue);
   },
 
   watch: {
-      value: function(val) {
-          this.cvssStrToObject(val);
+    modelValue(val) {
+      this.cvssStrToObject(val);
+      this.cvss = CVSS31.calculateCVSSFromVector(val);
+    },
+    cvssObj: {
+      handler() {
+        this.cvssObjectToStr();
       },
-      cvssObj: {
-          handler(newValue, oldValue) {
-              this.cvssObjectToStr()
-          },
-          deep: true
-      }
+      deep: true
+    }
   },
 
   methods: {
-      roundUp1(n) {
-          return CVSS31.roundUp1(n)
-      },
+    roundUp1(n) {
+      return CVSS31.roundUp1(n);
+    },
 
-      cvssStrToObject(str) {
-          if (str) {
-              var temp = str.split('/');
-              for (var i=0; i<temp.length; i++) {
-                  var elt = temp[i].split(':');
-                  switch(elt[0]) {
-                      case "CVSS":
-                          this.cvssObj.version = elt[1];
-                      case "AV":
-                          this.cvssObj.AV = elt[1];
-                          break;
-                      case "AC":
-                          this.cvssObj.AC = elt[1];
-                          break;
-                      case "PR":
-                          this.cvssObj.PR = elt[1];
-                          break;
-                      case "UI":
-                          this.cvssObj.UI = elt[1];
-                          break;
-                      case "S":
-                          this.cvssObj.S = elt[1];
-                          break;
-                      case "C":
-                          this.cvssObj.C = elt[1];
-                          break;
-                      case "I":
-                          this.cvssObj.I = elt[1];
-                          break;
-                      case "A":
-                          this.cvssObj.A = elt[1];
-                          break;
-                      case "E":
-                          this.cvssObj.E = elt[1];
-                          break;
-                      case "RL":
-                          this.cvssObj.RL = elt[1];
-                          break;
-                      case "RC":
-                          this.cvssObj.RC = elt[1];
-                          break;
-                      case "CR":
-                          this.cvssObj.CR = elt[1];
-                          break;
-                      case "IR":
-                          this.cvssObj.IR = elt[1];
-                          break;
-                      case "AR":
-                          this.cvssObj.AR = elt[1];
-                          break;
-                      case "MAV":
-                          this.cvssObj.MAV = elt[1];
-                          break;
-                      case "MAC":
-                          this.cvssObj.MAC = elt[1];
-                          break;
-                      case "MPR":
-                          this.cvssObj.MPR = elt[1];
-                          break;
-                      case "MUI":
-                          this.cvssObj.MUI = elt[1];
-                          break;
-                      case "MS":
-                          this.cvssObj.MS = elt[1];
-                          break;
-                      case "MC":
-                          this.cvssObj.MC = elt[1];
-                          break;
-                      case "MI":
-                          this.cvssObj.MI = elt[1];
-                          break;
-                      case "MA":
-                          this.cvssObj.MA = elt[1];
-                          break;
-                      default:
-                          break;
-                  }
-              }
+    cvssStrToObject(str) {
+      if (str) {
+        const temp = str.split('/');
+        for (let i = 0; i < temp.length; i++) {
+          const elt = temp[i].split(':');
+          if (this.cvssObj.hasOwnProperty(elt[0])) {
+            this.cvssObj[elt[0]] = elt[1] || '';
           }
-      },
-
-      cvssObjectToStr() {
-          var vectorString = "CVSS:"+this.cvssObj.version;
-          if (this.cvssObj.AV) vectorString += "/AV:"+this.cvssObj.AV
-          if (this.cvssObj.AC) vectorString += "/AC:"+this.cvssObj.AC
-          if (this.cvssObj.PR) vectorString += "/PR:"+this.cvssObj.PR
-          if (this.cvssObj.UI) vectorString += "/UI:"+this.cvssObj.UI
-          if (this.cvssObj.S) vectorString += "/S:"+this.cvssObj.S
-          if (this.cvssObj.C) vectorString += "/C:"+this.cvssObj.C
-          if (this.cvssObj.I) vectorString += "/I:"+this.cvssObj.I
-          if (this.cvssObj.A) vectorString += "/A:"+this.cvssObj.A
-          if (this.cvssObj.E) vectorString += "/E:"+this.cvssObj.E
-          if (this.cvssObj.RL) vectorString += "/RL:"+this.cvssObj.RL
-          if (this.cvssObj.RC) vectorString += "/RC:"+this.cvssObj.RC
-          if (this.cvssObj.CR) vectorString += "/CR:"+this.cvssObj.CR
-          if (this.cvssObj.IR) vectorString += "/IR:"+this.cvssObj.IR
-          if (this.cvssObj.AR) vectorString += "/AR:"+this.cvssObj.AR
-          if (this.cvssObj.MAV) vectorString += "/MAV:"+this.cvssObj.MAV
-          if (this.cvssObj.MAC) vectorString += "/MAC:"+this.cvssObj.MAC
-          if (this.cvssObj.MPR) vectorString += "/MPR:"+this.cvssObj.MPR
-          if (this.cvssObj.MUI) vectorString += "/MUI:"+this.cvssObj.MUI
-          if (this.cvssObj.MS) vectorString += "/MS:"+this.cvssObj.MS
-          if (this.cvssObj.MC) vectorString += "/MC:"+this.cvssObj.MC
-          if (this.cvssObj.MI) vectorString += "/MI:"+this.cvssObj.MI
-          if (this.cvssObj.MA) vectorString += "/MA:"+this.cvssObj.MA
-
-          this.cvss = CVSS31.calculateCVSSFromVector(vectorString);                 
-          this.$emit('update:modelValue', vectorString);
+        }
       }
-  },
+    },
+
+    cvssObjectToStr() {
+      let vectorString = 'CVSS:' + this.cvssObj.version;
+      for (const key in this.cvssObj) {
+        if (key !== 'version' && this.cvssObj[key]) {
+          vectorString += `/${key}:${this.cvssObj[key]}`;
+        }
+      }
+
+      this.cvss = CVSS31.calculateCVSSFromVector(vectorString);
+      this.$emit('update:modelValue', vectorString);
+    }
+  }
 });
+
 </script>
 
 <style>

@@ -234,6 +234,18 @@
                     :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                   />
                 </div>
+                <q-field class="col-md-12 basic-editor q-mt-md" borderless :label="$t('remediation')" stack-label>
+                  <template #control>
+                    <basic-editor
+                      ref="basiceditor_remediation"
+                      v-model="finding.remediation"
+                      v-on:editorchange="readyToSave ? needSave = true : null"
+                      idUnique="basiceditor_remediation"
+                      noSync
+                      :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                    />
+                  </template>
+                </q-field>
               </q-card-section>
             </q-card>
           </q-tab-panel>
