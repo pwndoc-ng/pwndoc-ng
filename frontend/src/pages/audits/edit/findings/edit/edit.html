@@ -129,20 +129,23 @@
   
               <q-expansion-item
                 :label="$t('customFields')"
-                v-if="finding.customFields && finding.customFields.length > 0"
+                v-if="finding.customFields !== undefined"
                 default-opened
                 header-class="bg-blue-grey-5 text-white"
                 expand-icon-class="text-white"
               >
-                <custom-fields
-                  ref="customfields"
-                  v-model="finding.customFields"
-                  custom-element="QCardSection"
-                  v-on:editorchange="readyToSave ? needSave = true : null"
-                  no-sync-editor
-                  :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                  :locale="audit?.language || 'en'"
-                />
+   
+              <custom-fields
+              ref="customfields"
+              v-model="finding.customFields"
+              :category="finding.category || ''"
+              :idUnique="finding._id"
+              custom-element="QCardSection"
+              :locale="audit?.language || 'en'"
+            />
+
+
+            
               </q-expansion-item>
             </q-card>
           </q-tab-panel>

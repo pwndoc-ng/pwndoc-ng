@@ -62,6 +62,7 @@ export default {
   mounted() {
     this.auditId = this.$route.params.auditId;
     this.findingId = this.$route.params.findingId;
+    this.getCustomFields()
     this.getFinding();
     this.getAudit();
     this.getVulnTypes();
@@ -123,7 +124,15 @@ export default {
           this.updateFinding();
       }
     },
-
+    getCustomFields: function() {
+        DataService.getCustomFields()
+        .then((data) => {
+            this.customFields = this.$_.cloneDeep(data.data.datas)
+        })
+        .catch((err) => {
+            console.log(err)
+        })
+    },
     getAudit() {
       AuditService.getAudit(this.auditId)
         .then((data) => {
@@ -160,45 +169,67 @@ export default {
         );
       });
     },
-
-    getFinding() {
-      AuditService.getFinding(this.auditId, this.findingId)
-        .then((data) => {
-          this.finding = data.data.datas;
-
-          // Initialiser les valeurs null ou undefined à des chaînes vides pour éviter les erreurs Proxy
-          ['description', 'observation', 'poc', 'scope', 'remediation'].forEach(
-            (field) => {
-              this.finding[field] = this.finding[field] || '';
-            }
+    initCustomFieldsForFinding() {
+        // Définir la catégorie et la langue à utiliser
+        const categoryForFilter = this.finding.category || 'default';
+        const languageForFilter = (this.audit && this.audit.language) || 'en';
+      
+        // Si aucun champ custom n'est défini, on crée la structure par défaut
+        if (!this.finding.customFields || this.finding.customFields.length === 0) {
+          this.finding.customFields = this.$_.cloneDeep(
+            Utils.filterCustomFields(
+              'finding',              // Type d'entité, ici "finding"
+              categoryForFilter,      // La catégorie associée
+              this.customFields,      // Le tableau global de définitions custom
+              [],                     // Aucun champ existant
+              languageForFilter       // La langue souhaitée
+            )
           );
-
-          this.finding.references = this.finding.references || [];
-
-          if (
-            this.finding.customFields &&
-            this.finding.customFields.length > 0 &&
-            typeof this.finding.customFields[0].customField === 'string'
-          ) {
-            this.finding.customFields = Utils.filterCustomFields(
+        }
+        else {
+          // Optionnel : si des champs existent déjà, vous pouvez les mettre à jour pour
+          // vous assurer que la structure est conforme aux définitions globales
+          this.finding.customFields = this.$_.cloneDeep(
+            Utils.filterCustomFields(
               'finding',
-              this.finding.category,
-              this.$parent.customFields,
+              categoryForFilter,
+              this.customFields,
               this.finding.customFields,
-              this.localAudit.language
-            );
-          }
-
-          this.$nextTick(() => {
-            Utils.syncEditors(this.$refs);
-            this.findingOrig = this.$_.cloneDeep(this.finding);
+              languageForFilter
+            )
+          );
+        }
+      },
+      
+      getFinding() {
+        AuditService.getFinding(this.auditId, this.findingId)
+          .then((data) => {
+            this.finding = data.data.datas || {};
+      
+            // Forcer l'initialisation de customFields si elle est undefined
+            if (typeof this.finding.customFields === 'undefined') {
+              this.finding.customFields = [];
+            }
+      
+            // Assurer que certains champs texte sont initialisés
+            ['description', 'observation', 'poc', 'scope', 'remediation'].forEach(field => {
+              this.finding[field] = this.finding[field] || '';
+            });
+            this.finding.references = this.finding.references || [];
+      
+            // Initialiser les champs custom (même s'ils étaient vides)
+            this.initCustomFieldsForFinding();
+      
+            this.$nextTick(() => {
+              Utils.syncEditors(this.$refs);
+              this.findingOrig = this.$_.cloneDeep(this.finding);
+            });
+          })
+          .catch((err) => {
+            console.error(err);
           });
-        })
-        .catch((err) => {
-          console.error(err);
-        });
-    },
-
+      },
+      
     updateFinding() {
       Utils.syncEditors(this.$refs);
       nextTick(() => {
