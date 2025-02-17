@@ -47,6 +47,7 @@
               no-caps
               @click="cleanCurrentAudit(); showCreateModal = true;"
             />
+            
             <q-dialog v-model="showCreateModal">
                 <q-card style="min-width: 400px">
                   <q-card-section>
@@ -98,6 +99,57 @@
                 </q-card>
               </q-dialog>
             </template>
+            <template v-slot:top-row="props">
+              <q-tr>
+                  <q-td
+                  v-for="col in props.cols"
+                  :key="col.name"
+                  style="width:20%"
+                  >
+                      <div v-if="['name', 'users', 'date'].indexOf(col.name) > -1">
+                          <q-input 
+                          dense
+                          :label="$t('search')"
+                          v-model="search[col.name]"
+                          clearable
+                          :autofocus="col.name === 'name'"
+                          outlined
+                          />
+                      </div>
+                      <div v-else-if="col.name === 'company'">
+                          <q-select
+                              dense 
+                              :label="$t('search')"
+                              :options="companies"
+                              v-model="search.company"
+                              option-value="name"
+                              option-label="name"
+                              map-options
+                              emit-value
+                              clearable
+                              options-sanitize
+                              outlined
+                              />
+                      </div>
+                      <div v-else-if="col.name === 'language'">
+                          <q-select 
+                          dense
+                          :label="$t('search')"
+                          :options="languages"
+                          v-model="search.language"
+                          option-value="locale"
+                          option-label="language"
+                          map-options
+                          emit-value
+                          clearable
+                          options-sanitize
+                          outlined
+                          />
+                      </div>
+                  </q-td>
+              </q-tr>
+          </template>
+
             <template v-slot:body="props">
               <q-tr :props="props" @dblclick="dblClick(props.row)">
                 <q-td key="name">{{ props.row.name }}</q-td>
