@@ -114,6 +114,27 @@ export default {
     },
 
     computed: {
+        searchObject() {
+            return {
+              title: this.search.title,
+              category: this.search.category,
+              vulnType: this.search.vulnType
+            };
+          },
+          vulnCategoriesOptions() {
+            return this.$_.uniq(this.$_.map(this.vulnerabilities, vuln => {
+              return vuln.category || $t('noCategory');
+            }));
+          },
+          vulnTypeOptions() {
+            return this.$_.uniq(
+              this.vulnerabilities.map(vuln => vuln.detail?.vulnType || $t('undefined'))
+            );
+          },
+          filteredVulnerabilities() {
+            if (!this.dtLanguage) return this.vulnerabilities; // Si aucune langue sélectionnée, affiche tout
+            return this.vulnerabilities.filter(vuln => vuln.locale === this.dtLanguage);
+          },
         vulnCategoriesOptions: function() {
             return this.$_.uniq(this.$_.map(this.vulnerabilities, vuln => {
                 return vuln.category || $t('noCategory')
@@ -186,6 +207,7 @@ export default {
         },
 
         customFilter(rows, terms, cols, getCellValue) {
+            console.log('ok')
             var result = rows && rows.filter(row => {
               if (!row.detail || !row.detail.title) return false;
           
