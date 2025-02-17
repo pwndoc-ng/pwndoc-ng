@@ -350,10 +350,12 @@ function html2ooxml(html, style = "") {
             delete cRunProperties.color;
             delete cRunProperties.style;
           }
-        } else if {
+        } else if (tag === "a") {
           delete cRunProperties.color;
           delete cRunProperties.style;
-        }
+        } else if (tag === "b" || tag === "strong") {
+          delete cRunProperties.bold;
+        } 
       },
 
       onend() {
