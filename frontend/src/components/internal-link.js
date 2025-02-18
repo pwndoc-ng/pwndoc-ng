@@ -301,6 +301,8 @@ export const TriggerMenuExtension = Extension.create({
           linkMark.create({ href: "#IDX_"+padIndex(parseInt(index)+1) })
         );
         tr.removeStoredMark(linkMark);
+        const nonLinkMarks = (state.storedMarks || []).filter(mark => mark.type !== linkMark);
+
         // Ajouter un espace après le lien
         const spacePos = deleteFrom + linkText.length;
         tr.insertText(' ', spacePos);
