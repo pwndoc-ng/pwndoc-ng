@@ -260,7 +260,8 @@ export default {
 
         // Filter client options when selecting company
         filterClients: function(step) {
-            if (step !== 'init') this.audit.client = null // only reset client when company is updated
+            console.log()
+            //if (step !== 'init') this.audit.client = null // only reset client when company is updated
             if (this.audit.company && this.audit.company.name) {
                 this.selectClientsFromCompany = [];
                 this.clients.map(client => {
@@ -273,18 +274,13 @@ export default {
 
         // Set Company when selecting client 
         setCompanyFromClient: function(value) {
-            if (value && !value.company) {
-                this.audit.company = null;
-            }
-            else if (value) {
+            if (value && value.company) {
                 for (var i=0; i<this.companies.length; i++) {
                     if (this.companies[i].name === value.company.name) {
                         this.audit.company = this.$_.clone(this.companies[i]);
                         break;
                     }
                 }
-            } else {
-              this.audit.client = null
             }
         },
 
