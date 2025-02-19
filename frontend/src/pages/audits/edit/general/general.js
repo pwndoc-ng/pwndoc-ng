@@ -110,7 +110,15 @@ export default {
             .onOk(() => next())
         }
     },
-
+    watch: {
+        'audit.company': {
+          handler(newCompany, oldCompany) {
+            this.filterClients();
+          },
+          deep: true, // au cas où l'objet est modifié en profondeur
+        },
+      },
+      
     methods: {
         _listener: function(e) {
             if ((window.navigator.platform.match("Mac") ? e.metaKey : e.ctrlKey) && e.keyCode == 83) {
@@ -260,8 +268,9 @@ export default {
 
         // Filter client options when selecting company
         filterClients: function(step) {
-            console.log()
+ 
             //if (step !== 'init') this.audit.client = null // only reset client when company is updated
+            
             if (this.audit.company && this.audit.company.name) {
                 this.selectClientsFromCompany = [];
                 this.clients.map(client => {
@@ -274,6 +283,7 @@ export default {
 
         // Set Company when selecting client 
         setCompanyFromClient: function(value) {
+            console.log(value)
             if (value && value.company) {
                 for (var i=0; i<this.companies.length; i++) {
                     if (this.companies[i].name === value.company.name) {

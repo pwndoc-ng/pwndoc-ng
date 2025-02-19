@@ -314,7 +314,8 @@ export default {
         },
 
         dblClick: function(evt, row) {
-            this.$router.push('/audits/'+row._id)      
+            if(typeof row !== 'undefined' && typeof row._id !== 'undefined') this.$router.push('/audits/'+row._id+'/general')
+            else if(typeof evt !== 'undefined' && typeof evt._id !== 'undefined') this.$router.push('/audits/'+evt._id+'/general')
         }
     }
 }
