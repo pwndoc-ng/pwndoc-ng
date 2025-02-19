@@ -276,15 +276,7 @@ function html2ooxml(html, style = "") {
             if (inCodeBlock) {
               delete cRunProperties.color;
             }
-          } else if (tag === "i" || tag === "em") {
-            delete cRunProperties.italics;
-          } else if (tag === "u") {
-            delete cRunProperties.underline;
-          } else if (tag === "mark") {
-            delete cRunProperties.highlight;
-          } else if (tag === "strike" || tag === "s") {
-            delete cRunProperties.strike;
-          } else if (tag === "ul" || tag === "ol") {
+          }  else if (tag === "ul" || tag === "ol") {
             list_state.pop();
             if (list_state.length === 0) cParagraphProperties = {};
           } else if (tag === "tr") {
@@ -347,15 +339,23 @@ function html2ooxml(html, style = "") {
         if (tag === "code") {
           inCodeBlock = false;
           if(inCodeBlockHighlight){
-            delete cRunProperties.color;
             delete cRunProperties.style;
           }
+          delete cRunProperties.color;
         } else if (tag === "a") {
           delete cRunProperties.color;
           delete cRunProperties.style;
         } else if (tag === "b" || tag === "strong") {
           delete cRunProperties.bold;
-        } 
+        } else if (tag === "i" || tag === "em") {
+          delete cRunProperties.italics;
+        } else if (tag === "u") {
+          delete cRunProperties.underline;
+        } else if (tag === "mark") {
+          delete cRunProperties.highlight;
+        } else if (tag === "strike" || tag === "s") {
+          delete cRunProperties.strike;
+        }
       },
 
       onend() {
