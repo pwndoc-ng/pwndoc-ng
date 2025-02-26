@@ -287,11 +287,11 @@ module.exports = function(app) {
             Response.BadParameters(res, 'Missing some required parameters');
             return;
         }
-        if (req.body.newPassword.length==0 && passwordpolicy.strongPassword(req.body.newPassword)!==true){
+        if (req.body.newPassword && req.body.newPassword.length==0 && passwordpolicy.strongPassword(req.body.newPassword)!==true){
             Response.BadParameters(res, 'New Password does not match the password policy');
             return;
         }
-        if (req.body.newPassword !== req.body.confirmPassword) {
+        if (req.body.newPassword && req.body.newPassword !== req.body.confirmPassword) {
             Response.BadParameters(res, 'New password validation failed');
             return;
         }
@@ -303,7 +303,7 @@ module.exports = function(app) {
 
         // Optionals params
         if (req.body.username) user.username = req.body.username;
-        if (req.body.newPassword && req.body.newPassword.length>0) user.newPassword = req.body.newPassword;
+        if (!_.isNil(req.body.newPassword)) user.newPassword = req.body.newPassword;
         if (req.body.firstname) user.firstname = req.body.firstname;
         if (req.body.lastname) user.lastname = req.body.lastname;
         if (!_.isNil(req.body.email)) user.email = req.body.email;
@@ -329,7 +329,7 @@ module.exports = function(app) {
     
         // Optionals params
         if (req.body.username) user.username = req.body.username;
-        if (req.body.password) user.password = req.body.password;
+        if (!_.isNil(req.body.password)) user.password = req.body.password;
         if (req.body.firstname) user.firstname = req.body.firstname;
         if (req.body.lastname) user.lastname = req.body.lastname;
         if (!_.isNil(req.body.email)) user.email = req.body.email;
