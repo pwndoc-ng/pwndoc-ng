@@ -307,7 +307,7 @@ export default {
             .then((data) => {
                 this.vulnUpdates = data.data.datas;
                 this.vulnUpdates.forEach(vuln => {
-                    vuln.customFields = [ ...Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, vuln.customFields, vuln.locale),...Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, vuln.customFields, vuln.locale)]
+                    vuln.customFields = Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, vuln.customFields, vuln.locale)
                 })
                 if (this.vulnUpdates.length > 0) {
                     this.currentUpdate = this.vulnUpdates[0]._id || null;
