@@ -7,7 +7,7 @@
         <q-table
         class="sticky-header-table"
         :columns="dtHeaders"
-        :rows="vulnerabilities"
+        :rows="computedVulnerabilities"
         :filter="search"
         :filter-method="customFilter"
         v-model:pagination="pagination"
