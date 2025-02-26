@@ -122,7 +122,7 @@ export default {
                 this.errors.firstname = $t('msg.firstnameRequired');
             if (!this.currentCollab.username)
                 this.errors.username = $t('msg.usernameRequired');
-            if (!Utils.strongPassword(this.currentCollab.password))
+            if (this.currentCollab.password > 0 && !Utils.strongPassword(this.currentCollab.password))
                 this.errors.password = $t('msg.passwordComplexity')
 
             if (this.errors.lastname || this.errors.firstname || this.errors.username || this.errors.password)
