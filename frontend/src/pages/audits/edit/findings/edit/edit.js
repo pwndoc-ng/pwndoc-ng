@@ -176,40 +176,41 @@ export default {
       
         // Si aucun champ custom n'est défini, on crée la structure par défaut
         if (!this.finding.customFields || this.finding.customFields.length === 0) {
-          this.finding.customFields = this.$_.cloneDeep(
-            Utils.filterCustomFields(
-              'finding',              // Type d'entité, ici "finding"
-              categoryForFilter,      // La catégorie associée
-              this.customFields,      // Le tableau global de définitions custom
-              [],                     // Aucun champ existant
-              languageForFilter       // La langue souhaitée
-            )
-          );
-        }
-        else {
-          // Optionnel : si des champs existent déjà, vous pouvez les mettre à jour pour
-          // vous assurer que la structure est conforme aux définitions globales
           this.finding.customFields = [
             ...this.$_.cloneDeep(
               Utils.filterCustomFields(
                 'finding',              
-                categoryForFilter,      
-                this.customFields,      
-                [],                     
-                languageForFilter       
+                categoryForFilter,     
+                this.customFields,     
+                [],                  
+                languageForFilter  
               )
             ),
             ...this.$_.cloneDeep(
               Utils.filterCustomFields(
                 'vulnerability',        
-                categoryForFilter,      
-                this.customFields,      
-                [],                     
-                languageForFilter         
+                categoryForFilter,   
+                this.customFields,  
+                [],                   
+                languageForFilter     
               )
             )
           ];
         }
+        else {
+          // Récupération des champs existants pour éviter les doublons
+          const existingKeys = new Set(this.finding.customFields.map(field => field.key));
+        
+          const newFindingFields = this.$_.cloneDeep(
+            Utils.filterCustomFields('finding', categoryForFilter, this.customFields, this.finding.customFields, languageForFilter)
+          );
+        
+          const newVulnerabilityFields = this.$_.cloneDeep(
+            Utils.filterCustomFields('vulnerability', categoryForFilter, this.customFields, this.finding.customFields, languageForFilter)
+          ).filter(field => !existingKeys.has(field.key)); // Supprimer les doublons
+        
+          this.finding.customFields = [...newFindingFields, ...newVulnerabilityFields];
+        }        
       },
       
       getFinding() {
