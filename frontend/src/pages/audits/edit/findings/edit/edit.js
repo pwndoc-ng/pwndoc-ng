@@ -189,15 +189,26 @@ export default {
         else {
           // Optionnel : si des champs existent déjà, vous pouvez les mettre à jour pour
           // vous assurer que la structure est conforme aux définitions globales
-          this.finding.customFields = this.$_.cloneDeep(
-            Utils.filterCustomFields(
-              'finding',
-              categoryForFilter,
-              this.customFields,
-              this.finding.customFields,
-              languageForFilter
+          this.finding.customFields = [
+            ...this.$_.cloneDeep(
+              Utils.filterCustomFields(
+                'finding',              
+                categoryForFilter,      
+                this.customFields,      
+                [],                     
+                languageForFilter       
+              )
+            ),
+            ...this.$_.cloneDeep(
+              Utils.filterCustomFields(
+                'vulnerability',        
+                categoryForFilter,      
+                this.customFields,      
+                [],                     
+                languageForFilter         
+              )
             )
-          );
+          ];
         }
       },
       
