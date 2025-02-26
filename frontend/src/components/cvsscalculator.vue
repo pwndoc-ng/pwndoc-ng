@@ -899,45 +899,34 @@ export default defineComponent({
   data() {
     return {
         cvssItems: {
-  AV: [
-    { label: 'Network', value: 'N' },
-    { label: 'Adjacent', value: 'A' },
-    { label: 'Local', value: 'L' },
-    { label: 'Physical', value: 'P' }
-  ],
-  AC: [
-    { label: 'Low', value: 'L' },
-    { label: 'High', value: 'H' }
-  ],
-  PR: [
-    { label: 'None', value: 'N' },
-    { label: 'Low', value: 'L' },
-    { label: 'High', value: 'H' }
-  ],
-  UI: [
-    { label: 'None', value: 'N' },
-    { label: 'Required', value: 'R' }
-  ],
-  S: [
-    { label: 'Unchanged', value: 'U' },
-    { label: 'Changed', value: 'C' }
-  ],
-  C: [
-    { label: 'None', value: 'N' },
-    { label: 'Low', value: 'L' },
-    { label: 'High', value: 'H' }
-  ],
-  I: [
-    { label: 'None', value: 'N' },
-    { label: 'Low', value: 'L' },
-    { label: 'High', value: 'H' }
-  ],
-  A: [
-    { label: 'None', value: 'N' },
-    { label: 'Low', value: 'L' },
-    { label: 'High', value: 'H' }
-  ]
-},
+            AV: [ { label: 'Network', value: 'N' }, { label: 'Adjacent', value: 'A' }, { label: 'Local', value: 'L' }, { label: 'Physical', value: 'P' } ],
+            AC: [ { label: 'Low', value: 'L' }, { label: 'High', value: 'H' } ],
+            PR: [ { label: 'None', value: 'N' }, { label: 'Low', value: 'L' }, { label: 'High', value: 'H' } ],
+            UI: [ { label: 'None', value: 'N' }, { label: 'Required', value: 'R' } ],
+            S: [ { label: 'Unchanged', value: 'U' }, { label: 'Changed', value: 'C' } ],
+            C: [ { label: 'None', value: 'N' }, { label: 'Low', value: 'L' }, { label: 'High', value: 'H' } ],
+            I: [ { label: 'None', value: 'N' }, { label: 'Low', value: 'L' }, { label: 'High', value: 'H' } ],
+            A: [ { label: 'None', value: 'N' }, { label: 'Low', value: 'L' }, { label: 'High', value: 'H' } ],
+            
+            // Options manquantes pour Temporal et Environmental
+            E: [ { label: 'Not Defined', value: 'X' }, { label: 'Unproven', value: 'U' }, { label: 'Proof-of-Concept', value: 'P' }, { label: 'Functional', value: 'F' }, { label: 'High', value: 'H' } ],
+            RL: [ { label: 'Not Defined', value: 'X' }, { label: 'Official Fix', value: 'O' }, { label: 'Temporary Fix', value: 'T' }, { label: 'Workaround', value: 'W' }, { label: 'Unavailable', value: 'U' } ],
+            RC: [ { label: 'Not Defined', value: 'X' }, { label: 'Unknown', value: 'U' }, { label: 'Reasonable', value: 'R' }, { label: 'Confirmed', value: 'C' } ],
+            
+            CR: [ { label: 'Not Defined', value: 'X' }, { label: 'Low', value: 'L' }, { label: 'Medium', value: 'M' }, { label: 'High', value: 'H' } ],
+            IR: [ { label: 'Not Defined', value: 'X' }, { label: 'Low', value: 'L' }, { label: 'Medium', value: 'M' }, { label: 'High', value: 'H' } ],
+            AR: [ { label: 'Not Defined', value: 'X' }, { label: 'Low', value: 'L' }, { label: 'Medium', value: 'M' }, { label: 'High', value: 'H' } ],
+            
+            MAV: [ { label: 'Not Defined', value: 'X' }, { label: 'Network', value: 'N' }, { label: 'Adjacent', value: 'A' }, { label: 'Local', value: 'L' }, { label: 'Physical', value: 'P' } ],
+            MAC: [ { label: 'Not Defined', value: 'X' }, { label: 'Low', value: 'L' }, { label: 'High', value: 'H' } ],
+            MPR: [ { label: 'Not Defined', value: 'X' }, { label: 'None', value: 'N' }, { label: 'Low', value: 'L' }, { label: 'High', value: 'H' } ],
+            MUI: [ { label: 'Not Defined', value: 'X' }, { label: 'None', value: 'N' }, { label: 'Required', value: 'R' } ],
+            MS: [ { label: 'Not Defined', value: 'X' }, { label: 'Unchanged', value: 'U' }, { label: 'Changed', value: 'C' } ],
+            MC: [ { label: 'Not Defined', value: 'X' }, { label: 'None', value: 'N' }, { label: 'Low', value: 'L' }, { label: 'High', value: 'H' } ],
+            MI: [ { label: 'Not Defined', value: 'X' }, { label: 'None', value: 'N' }, { label: 'Low', value: 'L' }, { label: 'High', value: 'H' } ],
+            MA: [ { label: 'Not Defined', value: 'X' }, { label: 'None', value: 'N' }, { label: 'Low', value: 'L' }, { label: 'High', value: 'H' } ]
+        },
+
 
       cvssObj: {version:'3.1', AV:'', AC:'', PR:'', UI:'', S:'', C:'', I:'', A:'', E:'', RL:'', RC:'', CR:'', IR:'', AR:'', MAV:'', MAC:'', MPR:'', MUI:'', MS:'', MC:'', MI:'', MA:''},
       cvss: {
