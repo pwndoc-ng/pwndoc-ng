@@ -110,16 +110,12 @@ export default {
             return this.vulnTypes.filter(type => type.locale === this.currentLanguage);
         },
 
-        computedVulnerabilities: function() {
-            var result = [];
-            this.vulnerabilities.forEach(vuln => {
-                for (var i=0; i<vuln.details.length; i++) {
-                    if (vuln.details[i].locale === this.dtLanguage && vuln.details[i].title) {
-                        result.push(vuln);
-                    }
-                }
-            })
-            return result;
+        computedVulnerabilities() {
+            if (!this.dtLanguage) return [];
+            let filtered = this.vulnerabilities.filter(vuln =>
+                vuln.details.some(detail => detail.locale === this.dtLanguage && detail.title)
+            );
+            return filtered;
         },
         filteredVulnerabilitiesLeft() {
             if (!this.mergeLanguageLeft) return [];
@@ -385,15 +381,18 @@ export default {
                     references: [],
                     customFields: []
                 }
+         
                 details.customFields = this.$_.cloneDeep(Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, [], this.currentLanguage))
-                
-                this.currentVulnerability.details.push(details)
+                console.log( details.customFields,'vulnerability', this.currentVulnerability.category, this.customFields, [], this.currentLanguage)
+                this.currentVulnerability.details.push(details,)
                 index = this.currentVulnerability.details.length - 1;
             }
             else {
                 this.currentVulnerability.details[index].customFields = this.$_.cloneDeep(Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, this.currentVulnerability.details[index].customFields, this.currentLanguage))
             }
             this.currentDetailsIndex = index;
+     
+     
         },
 
         isTextInCustomFields: function(field) {
