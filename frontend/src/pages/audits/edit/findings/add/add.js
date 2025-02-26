@@ -234,6 +234,8 @@ export default {
         addFindingFromVuln: function(vuln) {
             var finding = null;
             if (vuln) {
+                console.log(vuln.detail.customFields)
+                console.log(Utils.filterCustomFields('vulnerability', vuln.category, this.$parent.customFields, [], this.audit.language))
                 finding = {
                     title: vuln.detail.title,
                     vulnType: vuln.detail.vulnType,
@@ -245,7 +247,7 @@ export default {
                     references: vuln.detail.references,
                     cvssv3: vuln.cvssv3,
                     category: vuln.category,
-                    customFields: Utils.filterCustomFields('finding', vuln.category, this.$parent.customFields, vuln.detail.customFields, this.audit.language)
+                    customFields: vuln.detail.customFields
                 };
             }
 
@@ -285,7 +287,7 @@ export default {
                     references: [],
                     cvssv3: "",
                     category: category.name,
-                    customFields: Utils.filterCustomFields('finding', category.name, this.$parent.customFields, [], this.audit.language)
+                    customFields: [...Utils.filterCustomFields('finding', category.name, this.$parent.customFields, [], this.audit.language),...Utils.filterCustomFields('vulnerability', category.name, this.$parent.customFields, [], this.audit.language)]
                 };
             }
             else if (this.findingTitle){
@@ -299,7 +301,7 @@ export default {
                     priority: "",
                     references: [],
                     cvssv3: "",
-                    customFields: Utils.filterCustomFields('finding', '', this.$parent.customFields, [], this.audit.language)
+                    customFields: [...Utils.filterCustomFields('finding', '', this.$parent.customFields, [], this.audit.language),...Utils.filterCustomFields('vulnerability', '', this.$parent.customFields, [], this.audit.language)]
                 };
             }
 
