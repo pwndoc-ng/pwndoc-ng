@@ -546,7 +546,7 @@ expressions.filters.count = function(input, severity, scoreType) {
 }
 
 // Generate a pie chart for findings severity
-// Example: {@findings | barChart:'field':'title':'barColor':'labelColor':'labelSize'}
+// Example: {@findings | pieChart:'field':'title':'barColor':'labelColor':'labelSize'}
 // Example: {@findings | pieChart:'My bar chart':'000000':'FF0000':'FFA500':'FFFF00'}
 expressions.filters.pieChart = function(input, title, colorCrit, colorHigh, colorMed, colorLow) {
     if(!input) return input;
