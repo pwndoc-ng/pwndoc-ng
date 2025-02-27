@@ -338,7 +338,7 @@ function html2ooxml(html, style = "") {
         }
         if (tag === "code") {
           inCodeBlock = false;
-          if(inCodeBlockHighlight){
+          if(!inCodeBlockHighlight){
             delete cRunProperties.style;
           }
           delete cRunProperties.color;

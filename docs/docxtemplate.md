@@ -287,6 +287,25 @@ There should now be abstractNum definition for each one.
 
 Filters allow to apply functions on Audit data values.
 
+### Charts
+
+Creates a chart (pie chart or bar chart) linked to findings.
+
+For the moment, the pie chart can only be used with severity. The bar chart can be used with any finding field.
+- *Colors* are in hex format without the "#" (FF5522)
+- *Label size* are in word's format (15pt = 1500)
+
+> Use in template document
+>```
+// Examples of simple pie chart:
+{@findings | barChart:'field':'title':'barColor':'labelColor':'labelSize'}
+{@findings | pieChart:'My bar chart':'000000':'FF0000':'FFA500':'FFFF00'}
+// Examples of bar chart:
+{@findings | barChart:'field':'title':'barColor':'labelColor':'labelSize'}
+{@findings | barChart:'vulnType':'My bar chart'}
+{@findings | barChart:'cvss.baseSeverity':'My chart':'FF0000':'AABB00':'1500'}
+>```
+
 ### bookmarkCreate
 
 Creates a text block or a location bookmark:
