@@ -229,7 +229,7 @@ export const TriggerMenuExtension = Extension.create({
         const data = await response.json();
         var retData = []
         data.datas.findings.forEach( (x,i)=>{
-            retData.push({value:x.title})
+            retData.push({value:x.title,unique_id:x._id})
         })
         return retData;
       } catch (error) {
@@ -275,6 +275,7 @@ export const TriggerMenuExtension = Extension.create({
         });
       }
   
+    function encodeHTMLEntities( s){ return s.replace(/[\u00A0-\u9999<>\&]/g, i => '&#'+i.charCodeAt(0)+';')}
       function insertOption(selectedOption, view) {
         const { state } = view;
         const { tr } = state;
@@ -298,7 +299,7 @@ export const TriggerMenuExtension = Extension.create({
         tr.addMark(
           deleteFrom,
           deleteFrom + linkText.length,
-          linkMark.create({ href: "#IDX_"+padIndex(parseInt(index)+1) })
+          linkMark.create({ href: "#"+index })
         );
         tr.removeStoredMark(linkMark);
         const nonLinkMarks = (state.storedMarks || []).filter(mark => mark.type !== linkMark);
@@ -337,9 +338,9 @@ export const TriggerMenuExtension = Extension.create({
           return '<div class="menu-separator"></div>';
         }
         return `
-          <div class="menu-option" data-value="${encodeURI(option.value)}" data-index="${index}">
+          <div class="menu-option" data-value="${btoa(option.value)}" data-index="${option.unique_id}">
             <span class="icon">🎯</span>
-            `+ String(option.value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');+`
+            ${encodeHTMLEntities(option.value)}
             ${option.shortcut ? `<span class="shortcut">${option.shortcut}</span>` : ''}
           </div>
         `;
@@ -367,9 +368,8 @@ export const TriggerMenuExtension = Extension.create({
       try {
         // Simuler un délai réseau (à retirer en production)
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
         const options = await fetchMenuOptions();
-        
+
         renderMenuOptions(options);
         
         selectedIndex = 0;
