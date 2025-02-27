@@ -1036,7 +1036,7 @@ async function prepAuditData(data, settings) {
             status: finding.status || "",
             category: $t(finding.category) || $t("No Category"),
             identifier: "IDX-" + utils.lPad(finding.identifier),
-            unique_id: finding._id
+            unique_id: finding._id.toString()
         }
         // Remediation Complexity color 
         if (tmpFinding.remediationComplexity === 1) tmpFinding.remediation.cellColorComplexity = cellLowColorRemediationComplexity
