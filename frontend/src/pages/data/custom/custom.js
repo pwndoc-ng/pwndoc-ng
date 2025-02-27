@@ -344,7 +344,8 @@ export default {
 
         // Update Audit Types
         updateVulnTypes: function() {
-            DataService.updateVulnTypes(this.editVulnTypes)
+            var dataAll = [...this.vulnTypes.filter(x => x.locale !== this.newVulnType.locale),...this.editVulnTypes]
+            DataService.updateVulnTypes(dataAll)
             .then((data) => {
                 this.getVulnerabilityTypes()
                 this.editVulnType = false
@@ -635,7 +636,6 @@ getFieldValue(field) {
             options.push({locale: this.cfLocale, value: this.newCustomOption})
             this.newCustomOption = ""
         },
-
 
         removeCustomFieldOption: function(options, option) {
             var index = options.findIndex(e => e.locale === option.locale && e.value === option.value)

@@ -345,6 +345,7 @@ function html2ooxml(html, style = "") {
         } else if (tag === "a") {
           delete cRunProperties.color;
           delete cRunProperties.style;
+          delete cRunProperties.link;
         } else if (tag === "b" || tag === "strong") {
           delete cRunProperties.bold;
         } else if (tag === "i" || tag === "em") {
