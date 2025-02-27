@@ -281,7 +281,7 @@ AuditSchema.statics.deleteOutdatedReportAutomation = (days) => {
  // Delete audit
 AuditSchema.statics.delete = (isAdmin, auditId, userId) => {
     return new Promise((resolve, reject) => {
-        var query = Audit.findOneAndRemove({_id: auditId})
+        var query = Audit.findOneAndDelete({_id: auditId})
         if (!isAdmin)
             query.or([{creator: userId}])
         return query.exec()               

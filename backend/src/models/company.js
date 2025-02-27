@@ -102,7 +102,7 @@ CompanySchema.statics.deleteAll = () => {
 // Delete company
 CompanySchema.statics.delete = (companyId) => {
     return new Promise((resolve, reject) => {
-        var query = Company.findOneAndRemove({_id: companyId});
+        var query = Company.findOneAndDelete({_id: companyId});
         query.exec()
         .then((rows) => {
             if (rows)
