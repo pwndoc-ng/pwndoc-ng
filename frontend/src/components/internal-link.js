@@ -289,8 +289,8 @@ export const TriggerMenuExtension = Extension.create({
         const index = optionElement ? optionElement.getAttribute('data-index') : 0;
         // Créer le lien au format texte cliquable
         const linkMark = state.schema.marks.link;
-        const linkText = atob(selectedOption); // Vous pouvez personnaliser le texte affiché
-        const linkUrl = atob(selectedOption); // L'URL sera la valeur de l'option
+        const linkText = decodeURI(selectedOption); // Vous pouvez personnaliser le texte affiché
+        const linkUrl = decodeURI(selectedOption); // L'URL sera la valeur de l'option
         
         // Insérer le texte du lien
         tr.insertText(linkText, deleteFrom);

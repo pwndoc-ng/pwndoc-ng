@@ -5,6 +5,7 @@ var expressions = require('angular-expressions');
 var ImageModule = require('docxtemplater-image-module-pwndoc');
 var sizeOf = require('image-size');
 var customGenerator = require('./custom-generator');
+var chartGenerator = require('./chart-generator');
 var utils = require('./utils');
 var html2ooxml = require('./html2ooxml');
 var _ = require('lodash');
@@ -13,13 +14,23 @@ var Settings = require('mongoose').model('Settings');
 var CVSS31 = require('./cvsscalc31.js');
 var translate = require('../translate')
 var $t
+var pieChartXML
+var barChartXML
+var zip
+var numberOfPieChart = 0
+var numberOfBarChart = 0
+var chartRelXml = ''
+var chartContentTypeXml = ''
+
+const encodeHTMLEntities = s => s.replace(/[\u00A0-\u9999<>&]/g, i => '&#'+i.charCodeAt(0)+';')
 
 // Generate document with docxtemplater
 async function generateDoc(audit) {
+
     var templatePath = `${__basedir}/../report-templates/${audit.template.name}.${audit.template.ext || 'docx'}`
     var content = fs.readFileSync(templatePath, "binary");
 
-    var zip = new PizZip(content);
+    zip = new PizZip(content);
 
     translate.setLocale(audit.language)
     $t = translate.translate
@@ -111,6 +122,41 @@ async function generateDoc(audit) {
             throw error
         }
     }
+
+    // Include refs in document
+    const relsPath = "word/_rels/document.xml.rels";
+    let relsXml = zip.files[relsPath].asText();
+    relsXml = relsXml.replace("</Relationships>", `${chartRelXml}</Relationships>`);
+
+
+    zip.file(relsPath, relsXml);
+    
+
+
+    const piechartStyleXmlPath = "word/charts/pieChart-style-pwndoc.xml";
+    const pieChartcolorsXmlPath = "word/charts/pieChart-colors-pwndoc.xml";
+
+    const barChartstyleXmlPath = "word/charts/barChart-style-pwndoc.xml";
+    const barChartcolorsXmlPath = "word/charts/barChart-colors-pwndoc.xml";
+
+    const pieChartstyleXml = `<c:chartStyle xmlns:c="http://schemas.microsoft.com/office/drawing/2012/chartStyle"/>`;
+    const pieChartcolorsXml = `<c:chartColors xmlns:c="http://schemas.microsoft.com/office/drawing/2012/chartColor"/>`;
+
+    const barChartstyleXml = `<c:chartStyle xmlns:c="http://schemas.microsoft.com/office/drawing/2012/chartStyle"/>`;
+    const barChartcolorsXml = `<c:chartColors xmlns:c="http://schemas.microsoft.com/office/drawing/2012/chartColor"/>`;
+
+    zip.file(piechartStyleXmlPath, pieChartstyleXml);
+    zip.file(pieChartcolorsXmlPath, pieChartcolorsXml);
+    zip.file(barChartstyleXmlPath, barChartstyleXml);
+    zip.file(barChartcolorsXmlPath, barChartcolorsXml);
+
+    // Add content type
+    const contentTypesPath = "[Content_Types].xml";
+    let contentTypesXml = zip.files[contentTypesPath].asText();
+    contentTypesXml = contentTypesXml.replace("</Types>", `${chartContentTypeXml}</Types>`);
+    zip.file(contentTypesPath, contentTypesXml);
+    
+
     var buf = doc.getZip().generate({type:"nodebuffer"});
 
     return buf;
@@ -377,7 +423,7 @@ expressions.filters.p = function(input, style = null) {
         let style_parsed = style.replaceAll(' ', '');
         result += '<w:pPr><w:pStyle w:val="' + style_parsed + '"/></w:pPr>';
     }
-    result += input + '</w:p>';
+    result += '<w:r><w:t>' + input + '</w:t></w:r></w:p>';
 
     return result;
 }
@@ -499,6 +545,158 @@ expressions.filters.count = function(input, severity, scoreType) {
     return count;
 }
 
+// Generate a pie chart for findings severity
+// Example: {@findings | pieChart:'field':'title':'barColor':'labelColor':'labelSize'}
+// Example: {@findings | pieChart:'My bar chart':'000000':'FF0000':'FFA500':'FFFF00'}
+expressions.filters.pieChart = function(input, title, colorCrit, colorHigh, colorMed, colorLow) {
+    if(!input) return input;
+    if(!title) title = "";
+    if(!colorCrit) colorCrit = "000000";
+    if(!colorHigh) colorHigh = "FF0000";
+    if(!colorMed) colorMed = "FFA500";
+    if(!colorLow) colorLow = "FFFF00";
+    var countCritical = 0;
+    var countHigh = 0;
+    var countMedium = 0;
+    var countLow = 0;
+
+    for(var i = 0; i < input.length; i++){
+
+        if(input[i].cvss["baseSeverity"] === "Critical"){
+            countCritical += 1;
+        } else if(input[i].cvss["baseSeverity"] === "High"){
+            countHigh += 1;
+        } else if(input[i].cvss["baseSeverity"] === "Medium"){
+            countMedium += 1;
+        } else if(input[i].cvss["baseSeverity"] === "Low"){
+            countLow += 1;
+        }
+    }
+
+    pieChartXML = chartGenerator.generatePieChart(title, colorCrit, colorHigh, colorMed, colorLow, countCritical, countHigh, countMedium, countLow, $t);
+
+    numberOfPieChart += 1;
+
+    // References
+    chartRelXml += `<Relationship Id="rId-pwndoc-pie-${numberOfPieChart}"
+    Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart"
+    Target="charts/pieChart-${numberOfPieChart}-pwndoc.xml"/>`;
+
+    // Content type
+    chartContentTypeXml += `<Override PartName="/word/charts/pieChart-${numberOfPieChart}-pwndoc.xml"
+                ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>
+    `;
+
+    const piechartXmlPath = `word/charts/pieChart-${numberOfPieChart}-pwndoc.xml`;
+    zip.file(piechartXmlPath, pieChartXML);
+
+    return `<w:p>
+    <w:r>
+        <w:drawing>
+            <wp:inline distT="0" distB="0" distL="0" distR="0" wp14:anchorId="5CD9E55B" wp14:editId="2E40AF66">
+                <wp:extent cx="5486400" cy="3200400"/>
+                <wp:effectExtent l="0" t="0" r="0" b="0"/>
+                <wp:docPr id="1836246480" name="Piechart Severity"/>
+                <wp:cNvGraphicFramePr/>
+                <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+                    <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">
+                        <c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"
+                                 xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+                                 r:id="rId-pwndoc-pie-${numberOfPieChart}"/>
+                    </a:graphicData>
+                </a:graphic>
+            </wp:inline>
+        </w:drawing>
+    </w:r>
+</w:p>`;
+}
+
+// Generate a bar chart for findings data
+// Example: {@findings | barChart:'field':'title':'barColor':'labelColor':'labelSize'}
+// Example: {@findings | barChart:'vulnType':'My bar chart'}
+// Example: {@findings | barChart:'cvss.baseSeverity':'My chart':'FF0000':'AABB00':'1500'}
+expressions.filters.barChart = function(input, field, title, barColor, labelColor, labelSize) {
+    if(!input) return input;
+    if(!field) return field;
+    if(!labelSize) labelSize = 1100
+    if(!title) title = "";
+    if(!barColor) barColor = "000000";
+    if(!labelColor) labelColor = "000000";
+
+    var dataTypeCount = {};
+
+    for(var i = 0; i < input.length; i++){
+        var fieldValue = input[i];
+        var parts = field.split('.');
+    
+        for (var j = 0; j < parts.length; j++) {
+            if (fieldValue && fieldValue[parts[j]]) {
+                fieldValue = fieldValue[parts[j]];
+            } else {
+                fieldValue = undefined;
+                break;
+            }
+        }
+    
+        if (fieldValue !== undefined) {
+            if (dataTypeCount[fieldValue]) {
+                dataTypeCount[fieldValue]++;
+            } else {
+                dataTypeCount[fieldValue] = 1;
+            }
+        }
+    }
+
+    valueXML = `<c:ptCount val="${Object.keys(dataTypeCount).length}"/>`;
+    legendXML = `<c:ptCount val="${Object.keys(dataTypeCount).length}"/>`;
+
+    var index = 0;
+
+    for (var type in dataTypeCount) {
+
+        legendXML += ` <c:pt idx="${index}"><c:v>${encodeHTMLEntities(type.toString())}</c:v></c:pt>`
+        valueXML += `<c:pt idx="${index}"><c:v>${encodeHTMLEntities(dataTypeCount[type].toString())}</c:v></c:pt>`
+        index+=1;
+    }
+
+    barChartXML = chartGenerator.generateBarChart(title, barColor, legendXML, valueXML, labelSize, labelColor);
+
+    numberOfBarChart +=1
+
+    // References
+    chartRelXml += `<Relationship Id="rId-pwndoc-bar-${numberOfBarChart}"
+    Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart"
+    Target="charts/barChart-${numberOfBarChart}-pwndoc.xml"/>`;
+
+    // Content type
+    chartContentTypeXml += `<Override PartName="/word/charts/barChart-${numberOfBarChart}-pwndoc.xml"
+                ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>
+    `;
+
+    // Chart path
+    const barchartXmlPath = `word/charts/barChart-${numberOfBarChart}-pwndoc.xml`;
+    zip.file(barchartXmlPath, barChartXML);
+
+    return `<w:p>
+    <w:r>
+        <w:drawing>
+            <wp:inline distT="0" distB="0" distL="0" distR="0" wp14:anchorId="5CD9E55B" wp14:editId="2E40AF66">
+                <wp:extent cx="5486400" cy="3200400"/>
+                <wp:effectExtent l="0" t="0" r="0" b="0"/>
+                <wp:docPr id="1836246480" name="barChart type"/>
+                <wp:cNvGraphicFramePr/>
+                <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+                    <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">
+                        <c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"
+                                 xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+                                 r:id="rId-pwndoc-bar-${numberOfBarChart}"/>
+                    </a:graphicData>
+                </a:graphic>
+            </wp:inline>
+        </w:drawing>
+    </w:r>
+</w:p>`;
+}
 
 // Translate using locale from 'translate' folder
 // Example: {input | translate: 'fr'}
