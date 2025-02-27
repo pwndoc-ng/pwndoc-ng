@@ -275,6 +275,7 @@ export const TriggerMenuExtension = Extension.create({
         });
       }
   
+    function encodeHTMLEntities( s){ return s.replace(/[\u00A0-\u9999<>\&]/g, i => '&#'+i.charCodeAt(0)+';')}
       function insertOption(selectedOption, view) {
         const { state } = view;
         const { tr } = state;
@@ -339,7 +340,7 @@ export const TriggerMenuExtension = Extension.create({
         return `
           <div class="menu-option" data-value="${btoa(option.value)}" data-index="${index}">
             <span class="icon">🎯</span>
-            ${option.value}
+            ${encodeHTMLEntities(option.value)}
             ${option.shortcut ? `<span class="shortcut">${option.shortcut}</span>` : ''}
           </div>
         `;
