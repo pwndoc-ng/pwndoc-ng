@@ -7,7 +7,7 @@
     :class="affixRelativeElement"
     :style="editable ? '' : 'border: 1px dashed lightgrey'"
   >
-  <div v-sticky="{ zIndex: 10, stickyTop: 50 }" class="bg-white">
+  <div v-sticky sticky-offset="stickyConfig"  class="bg-white">
       <q-toolbar class="editor-toolbar">
         <div v-if="toolbar.indexOf('format') !== -1">
           <q-tooltip :delay="500" content-class="text-bold"
@@ -659,6 +659,14 @@ export default defineComponent({
       countChangeAfterUpdate:-1,
       initialeDataUpdated:false,
       htmlEncode: Utils.htmlEncode,
+      stickyConfig: {
+        zIndex: 1000,
+        top: 50,
+        sticked: true,
+        disabled: false,
+        wrapper: true
+      }
+
     };
   },
 
