@@ -602,7 +602,10 @@ export default defineComponent({
   name: "BasicEditor",
 
   props: {
-    modelValue: String,
+    modelValue:{
+      type: String,
+      default: ''
+    },
     editable: {
       type: Boolean,
       default: true,
