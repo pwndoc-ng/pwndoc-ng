@@ -5,7 +5,8 @@ export default [
     {path: '', redirect: 'audits' },
     {path: 'audits', component: () => import('pages/audits'), meta: {breadcrumb: 'Audits'}, children: [
       {path: '', name:'audits', component: () => import('pages/audits/list')},
-      {path: ':finding', name:'audits', component: () => import('pages/audits/list')},
+      {path: ':finding', name:'audits_by_find', component: () => import('pages/audits/list')},
+
       {path: ':auditId', component: () => import('pages/audits/edit'), meta: {breadcrumb: 'Edit Audit'}, children: [
         {path: '', redirect: 'general'},
         {path: 'general', name:'general', component: () => import('pages/audits/edit/general')},
