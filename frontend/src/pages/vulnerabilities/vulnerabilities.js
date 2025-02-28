@@ -491,7 +491,7 @@ export default {
 
         goToAudits: function(row) {
             var title = this.getDtTitle(row);
-            this.$router.push({name: 'audits', params: {finding: title}});
+            this.$router.push({name: 'audits_by_find', params: {finding: title}});
         },
 
         getVulnTitleLocale: function(vuln, locale) {
