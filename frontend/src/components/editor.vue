@@ -941,10 +941,6 @@ export default defineComponent({
     },
     async updateInitialeValue(value){
 
-      this.initialeDataUpdated=true
-              this.editor.setEditable(this.editable && this.initialeDataUpdated);
-              this.$emit('ready')
-
               
     if( typeof this.$route.params.auditId == 'undefined' && (this.idUnique.split('-')[0]=="undefined" || this.idUnique.split('-') == ""  )&& this.initialeDataUpdated==false){
       // if editor is init not in vuln edit context like cutom field
