@@ -841,7 +841,7 @@ export default defineComponent({
     this.editor.setEditable(this.editable && this.initialeDataUpdated);
     
     if (typeof this.modelValue === "undefined") {
-      this.modelValue = "";
+      this.$emit('update:modelValue', "");
     }
 
     if (
@@ -943,10 +943,6 @@ export default defineComponent({
 
     },
     async updateInitialeValue(value){
-
-      this.initialeDataUpdated=true
-              this.editor.setEditable(this.editable && this.initialeDataUpdated);
-              this.$emit('ready')
 
               
     if( typeof this.$route.params.auditId == 'undefined' && (this.idUnique.split('-')[0]=="undefined" || this.idUnique.split('-') == ""  )&& this.initialeDataUpdated==false){
@@ -1509,13 +1505,6 @@ pre .diffadd {
   }
 }
 
-.flex {
-  display: flex;
-
-  div {
-    width: 50%;
-  }
-}
 
 .content {
   max-width: 50%;
