@@ -774,7 +774,7 @@ export default defineComponent({
         LanguageTool.configure({
          apiUrl: `https://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/v2/check`, 
           //apiUrl: `https://127.0.0.1:8443/v2/check`, 
-          language: 'fr-FR',   
+          language: 'auto',   
           automaticMode: true, // 1 seconde de délai avant vérification
         }),
       ]
@@ -828,9 +828,6 @@ export default defineComponent({
       },
       onSelectionUpdate({ editor }) {
         setTimeout(() => updateMatch(editor))
-      },
-      onPaste(){
-        setTimeout(() => { proofread()});
       },
       disableInputRules: true,
       disablePasteRules: true,
