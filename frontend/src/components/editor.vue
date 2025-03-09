@@ -838,7 +838,7 @@ export default defineComponent({
     this.editor.setEditable(this.editable && this.initialeDataUpdated);
     
     if (typeof this.modelValue === "undefined") {
-      this.modelValue = "";
+      this.$emit('update:modelValue', "");
     }
 
     if (
@@ -1506,13 +1506,6 @@ pre .diffadd {
   }
 }
 
-.flex {
-  display: flex;
-
-  div {
-    width: 50%;
-  }
-}
 
 .content {
   max-width: 50%;
