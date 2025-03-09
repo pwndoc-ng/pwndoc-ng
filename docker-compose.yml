@@ -1,7 +1,7 @@
 version: '3'
 services:
   mongodb:
-    image: mongo:4.2.15
+    image: mongo:4
     container_name: mongo-pwndoc-ng
     volumes:
       - mongo-data:/data/db
@@ -37,8 +37,17 @@ services:
     image: pwndoc-ng/pwndoc-ng:frontend
     container_name: pwndoc-ng-frontend
     restart: always
+    environment:
+      - Java_Xms=512m
+      - Java_Xmx=2g
     ports:
       - 8443:8443
+    networks:
+      - backend
+  languagetool:
+    image: erikvl87/languagetool
+    container_name: pwndoc-ng-languagetool
+    restart: always
     networks:
       - backend
 

@@ -529,6 +529,28 @@
 
 
     </bubble-menu>
+    <bubble-menu
+  class="bubble-menu"
+  v-if="editor"
+  :editor="editor"
+  :tippy-options="{ placement: 'bottom', animation: 'fade' }"
+>
+  <section class="bubble-menu-section-container">
+    <section class="message-section">
+      {{ matchMessage }}
+    </section>
+    <section class="suggestions-section">
+      <article
+        v-for="(replacement, i) in replacements"
+        @click="() => acceptSuggestion(replacement)"
+        :key="i + replacement.value"
+        class="suggestion"
+      >
+        {{ replacement.value }}
+      </article>
+    </section>
+  </section>
+</bubble-menu>
     <editor-content
       v-if="typeof diff === 'undefined' || !toggleDiff"
       class="editor__content q-pa-sm"
@@ -541,11 +563,14 @@
 </template>
 
 <script>
-import { defineComponent } from 'vue';
+import { defineComponent,ref } from 'vue';
 
 import { Editor, EditorContent, BubbleMenu, VueNodeViewRenderer  } from "@tiptap/vue-3";
 //  Import extensions
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
+
+
+import { LanguageTool } from './languagetool'
 import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
 import StarterKit from "@tiptap/starter-kit";
@@ -564,6 +589,7 @@ import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
+
 
 
 import css from 'highlight.js/lib/languages/css'
@@ -596,6 +622,13 @@ const Diff = require("diff");
 //  Internal libs
 import Utils from "@/services/utils";
 import ImageService from "@/services/image";
+
+
+const match = ref(null)
+
+
+const updateHtmlLanguageTool = () => navigator.clipboard.writeText(editor.value.getHTML())
+
 
 export default defineComponent({
   emits: ['editorchange', 'ready', 'update:modelValue'],
@@ -678,6 +711,15 @@ export default defineComponent({
   },
 
   mounted() {
+
+    const updateMatch = this.updateMatch;
+
+
+
+    const proofread = () => this.editor.commands.proofread()
+
+
+
     if (this.modelValue === undefined || this.modelValue === null) {
       this.$emit('update:modelValue', '');
     }
@@ -698,6 +740,7 @@ export default defineComponent({
         StarterKit.configure({
           codeBlock: false, // Désactive le codeBlock standard pour mettre le code block highlight
         }),
+
         Highlight.configure({
           multicolor: true,
         }),
@@ -728,6 +771,12 @@ export default defineComponent({
           allowBase64: true
         }),
         Figure,
+        LanguageTool.configure({
+         apiUrl: `https://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/v2/check`, 
+          //apiUrl: `https://127.0.0.1:8443/v2/check`, 
+          language: 'fr-FR',   
+          automaticMode: true, // 1 seconde de délai avant vérification
+        }),
       ]
      if(this.collab){
 
@@ -767,19 +816,26 @@ export default defineComponent({
     this.editor = new Editor({
       editable: false,
       extensions: extensionEditor ,
-      onUpdate: () => {
+      onUpdate: ({editor}) => {
+        setTimeout(() => updateMatch(editor))
         if(this.state && this.initialeDataUpdated && this.countChangeAfterUpdate>0 && this.countChangeAfterUpdate<this.countChange){
            this.$emit('editorchange') // need save only if sync is done
         } else {
           this.countChange++
         }
-
         if (this.noSync) return;
         this.updateHTML();
+      },
+      onSelectionUpdate({ editor }) {
+        setTimeout(() => updateMatch(editor))
+      },
+      onPaste(){
+        setTimeout(() => { proofread()});
       },
       disableInputRules: true,
       disablePasteRules: true,
     });
+
     this.affixRelativeElement += "-" +  this.ClassEditor;
     //this.editor.setOptions({ editable: this.editable });
     this.editor.setEditable(this.editable && this.initialeDataUpdated);
@@ -794,6 +850,7 @@ export default defineComponent({
       return;
     }
     this.updateInitialeValue(this.modelValue)
+
   },
 
   async beforeUnmount() {
@@ -808,6 +865,18 @@ export default defineComponent({
   },
 
   computed: {
+
+    match() {
+      return this.editor ? this.editor.extensionStorage.languagetool.match.value : null;
+    },
+    matchMessage() {
+     // console.log('matchmessage',this.match.message,this.match)
+      return this.match?.message || 'No Message';
+    },
+    replacements() {
+      //console.log('remplacements',this.match.replacements,this.match)
+      return this.match?.replacements || [];
+    },
     formatIcon: function () {
       if (this.editor.isActive("paragraph")) return "fa fa-paragraph";
       else return null;
@@ -866,7 +935,20 @@ export default defineComponent({
   },
 
   methods: {
+    acceptSuggestion(sug)  {
+      this.editor.commands.insertContent(sug.value)
+    },
+    updateMatch(editor) {
+
+
+    },
     async updateInitialeValue(value){
+
+      this.initialeDataUpdated=true
+              this.editor.setEditable(this.editable && this.initialeDataUpdated);
+              this.$emit('ready')
+
+              
     if( typeof this.$route.params.auditId == 'undefined' && (this.idUnique.split('-')[0]=="undefined" || this.idUnique.split('-') == ""  )&& this.initialeDataUpdated==false){
       // if editor is init not in vuln edit context like cutom field
       this.editor.commands.setContent(value, false);
@@ -875,6 +957,7 @@ export default defineComponent({
       this.$emit('ready')
       this.countChangeAfterUpdate=this.countChange
     } else {
+
       if(this.initialeDataUpdated==false){
           for (let i = 0; i < 200; i++) { // 25 second to connect web socket failed after
             if(this.status=='connected' && this.state){
@@ -1363,4 +1446,111 @@ pre .diffadd {
   background: bottom;
     border: none;
 }
+
+.editor-menubar {
+  display: flex;
+  gap: 1rem;
+
+  button {
+    padding: 0.5rem;
+    text-transform: capitalize;
+    border: none;
+    background-color: white;
+    box-shadow: 0 0 10px rgba($color: #000000, $alpha: 0.25);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    font-weight: 500;
+    font-size: 1.1em;
+
+    &:hover {
+      box-shadow: 0 0 2px rgba($color: #000000, $alpha: 0.25);
+    }
+  }
+}
+
+.ProseMirror {
+  .lt {
+    border-bottom: 2px solid #e86a69;
+    transition: background 0.25s ease-in-out;
+
+    &:hover {
+      background: rgba($color: #e86a69, $alpha: 0.2);
+    }
+
+    &-style {
+      border-bottom: 2px solid #9d8eff;
+
+      &:hover {
+        background: rgba($color: #9d8eff, $alpha: 0.2) !important;
+      }
+    }
+
+    &-typographical,
+    &-grammar {
+      border-bottom: 2px solid #eeb55c;
+
+      &:hover {
+        background: rgba($color: #eeb55c, $alpha: 0.2) !important;
+      }
+    }
+
+    &-misspelling {
+      border-bottom: 2px solid #e86a69;
+
+      &:hover {
+        background: rgba($color: #e86a69, $alpha: 0.2) !important;
+      }
+    }
+  }
+
+  &-focused {
+    outline: none !important;
+  }
+}
+
+.flex {
+  display: flex;
+
+  div {
+    width: 50%;
+  }
+}
+
+.content {
+  max-width: 50%;
+  min-width: 50%;
+}
+
+.bubble-menu > .bubble-menu-section-container {
+  display: flex;
+  flex-direction: column;
+  background-color: white;
+  padding: 8px;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba($color: black, $alpha: 0.25);
+  max-width: 400px;
+
+  .suggestions-section {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 1em;
+
+    .suggestion {
+      background-color: #229afe;
+      border-radius: 4px;
+      color: white;
+      cursor: pointer;
+      font-weight: 500;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      font-size: 1.1em;
+      max-width: fit-content;
+    }
+  }
+}
+
 </style>
