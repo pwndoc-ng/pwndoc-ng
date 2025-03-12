@@ -62,10 +62,12 @@ export default {
   mounted() {
     this.auditId = this.$route.params.auditId;
     this.findingId = this.$route.params.findingId;
-    this.getCustomFields()
-    this.getFinding();
+    this.getCustomFields().then( x => {
+      this.getFinding();
+    })
     this.getAudit();
     this.getVulnTypes();
+    
 
     this.$socket.emit('menu', {
       menu: 'editFinding',
@@ -125,12 +127,16 @@ export default {
       }
     },
     getCustomFields: function() {
-        DataService.getCustomFields()
-        .then((data) => {
-            this.customFields = this.$_.cloneDeep(data.data.datas)
-        })
-        .catch((err) => {
-            console.log(err)
+      return new Promise((resolve, reject) => {
+          DataService.getCustomFields()
+          .then((data) => {
+              this.customFields = this.$_.cloneDeep(data.data.datas)
+              resolve();
+          })
+          .catch((err) => {
+              console.log(err)
+              reject();
+          })
         })
     },
     getAudit() {
@@ -173,29 +179,30 @@ export default {
         // Définir la catégorie et la langue à utiliser
         const categoryForFilter = this.finding.category || 'default';
         const languageForFilter = (this.audit && this.audit.language) || 'en';
-      
+        
         // Si aucun champ custom n'est défini, on crée la structure par défaut
         if (!this.finding.customFields || this.finding.customFields.length === 0) {
-          this.finding.customFields = [
-            ...this.$_.cloneDeep(
-              Utils.filterCustomFields(
-                'finding',              
-                categoryForFilter,     
-                this.customFields,     
-                [],                  
-                languageForFilter  
-              )
-            ),
-            ...this.$_.cloneDeep(
-              Utils.filterCustomFields(
-                'vulnerability',        
-                categoryForFilter,   
-                this.customFields,  
-                [],                   
-                languageForFilter     
-              )
+
+         const  findingCustomField = this.$_.cloneDeep(
+            Utils.filterCustomFields(
+              'finding',              
+              categoryForFilter,     
+              this.customFields,     
+              [],                  
+              languageForFilter  
             )
-          ];
+          )
+          const existingKeys = new Set(findingCustomField.map(field => field.key));
+         const vulnerabilityCustomField = this.$_.cloneDeep(
+            Utils.filterCustomFields(
+              'vulnerability',              
+              categoryForFilter,     
+              this.customFields,     
+              [],                  
+              languageForFilter  
+            ).filter(field => !existingKeys.has(field.key))
+          )
+          this.finding.customFields = [ ...findingCustomField,...vulnerabilityCustomField ];
         }
         else {
           // Récupération des champs existants pour éviter les doublons
@@ -210,7 +217,8 @@ export default {
           ).filter(field => !existingKeys.has(field.key)); // Supprimer les doublons
         
           this.finding.customFields = [...newFindingFields, ...newVulnerabilityFields];
-        }        
+        } 
+ 
       },
       
       getFinding() {
