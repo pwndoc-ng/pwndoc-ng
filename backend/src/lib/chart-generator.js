@@ -86,16 +86,16 @@ chartGenerator.generatePieChart = function (title, colorCrit, colorHigh, colorMe
                 <c:strCache>
                     <c:ptCount val="4"/>
                     <c:pt idx="0">
-                    <c:v>Critique</c:v>
+                    <c:v>${translate("Critical")}</c:v>
                     </c:pt>
                     <c:pt idx="1">
-                    <c:v>Haute</c:v>
+                    <c:v>${translate("High")}</c:v>
                     </c:pt>
                     <c:pt idx="2">
-                    <c:v>Moyenne</c:v>
+                    <c:v>${translate("Medium")}</c:v>
                     </c:pt>
                     <c:pt idx="3">
-                    <c:v>Basse</c:v>
+                    <c:v>${translate("Low")}</c:v>
                     </c:pt>
                 </c:strCache>
                 </c:strRef>
