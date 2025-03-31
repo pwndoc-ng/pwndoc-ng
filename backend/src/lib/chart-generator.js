@@ -203,7 +203,7 @@ chartGenerator.generatePieChart = function (title, colorCrit, colorHigh, colorMe
         `;
 }
 
-// Returns XML corresponding to a barChart
+// Returns XML corresponding to a barChart 
 chartGenerator.generateBarChart = function(title, barColor, legendXML, valueXML, labelSize, labelColor){
 
    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
