@@ -356,16 +356,14 @@ expressions.filters.linkTo = function(input, url) {
     var entityencodedurl = url.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'); // encode to prevent xml issues
     var entityencodedinput = input.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'); // encode to prevent xml issues
     
-    return `<w:r>
+    return `<w:p><w:r>
     <w:fldChar w:fldCharType="begin"/></w:r><w:r>
     <w:instrText xml:space="preserve"> HYPERLINK "${entityencodedurl}" </w:instrText>
 </w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r>
-<w:r><w:rPr><w:rStyle w:val="Hyperlink"/>
+<w:r><w:rPr><w:rStyle w:val="PwndocLink"/>
         <w:shd w:val="clear" w:color="auto" w:fill="auto"/> <!-- Remove any shading -->
-        <w:u w:val="single"/> <!-- Add underline -->
-        <w:color w:val="0000FF"/> <!-- Set text color to blue -->
     </w:rPr><w:t>${entityencodedinput}</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/>
-</w:r>`;
+</w:r></w:p>`;
         
 }
 

@@ -513,7 +513,7 @@ Takes a text to display and a URL to generate a hyperlink. To apply a custom sty
 
 > Use in template document
 >```
-{@cvss.vectorString | linkTo: 'https://www.first.org/cvss/calculator/3.1#' + cvss.vectorString | p}
+{@cvss.vectorString | linkTo: 'https://www.first.org/cvss/calculator/3.1#' + cvss.vectorString}
 >```
 
 ### loopObject
