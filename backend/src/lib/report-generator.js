@@ -916,7 +916,12 @@ function cvssStrToObject(cvss) {
     }
     return res
 }
-
+function stripParagraphTags(input) {
+    console.log("JE STRIP MES PARAMETRES")
+    return input
+        .replace(/<\/?p[^>]*>/gi, '') // supprime toutes les balises <p> ou </p>
+        .trim();
+}
 async function prepAuditData(data, settings) {
     /** CVSS Colors for table cells */
     var noneColor = settings.report.public.cvssColors.noneColor.replace('#', ''); //default of blue ("#4A86E8")
@@ -1033,11 +1038,13 @@ async function prepAuditData(data, settings) {
             references: finding.references || [],
             poc: await splitHTMLParagraphs(finding.poc),
             affected: finding.scope || "",
+            //affected: stripParagraphTags(finding.scope) || [],
             status: finding.status || "",
             category: $t(finding.category) || $t("No Category"),
             identifier: "IDX-" + utils.lPad(finding.identifier),
             unique_id: finding._id.toString()
         }
+        console.log(tmpFinding)
         // Remediation Complexity color 
         if (tmpFinding.remediationComplexity === 1) tmpFinding.remediation.cellColorComplexity = cellLowColorRemediationComplexity
         else if (tmpFinding.remediationComplexity === 2) tmpFinding.remediation.cellColorComplexity = cellMediumColorRemediationComplexity
