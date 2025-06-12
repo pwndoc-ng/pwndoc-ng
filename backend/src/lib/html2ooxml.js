@@ -1,7 +1,8 @@
 let docx = require("docx");
 let xml = require("xml");
 let htmlparser = require("htmlparser2");
-
+const { Paragraph } = require("docx");
+const { Document, Packer } = require("docx");
 const HIGHLIGHT_COLOR_MAP = {
   'hljs-keyword': '#569CD6', // Bleu vif
   'hljs-built_in': '#DCDCAA', // Jaune clair
@@ -54,9 +55,10 @@ const HIGHLIGHT_COLOR_MAP = {
 
 
 
-function html2ooxml(html, style = "") {
+function html2ooxml(html, style = "") {;
   if (html === "") return html;
   if (!html.match(/^<.+>/)) html = `<p>${html}</p>`;
+  console.log(html);
   let doc = new docx.Document({ sections: [] });
   let paragraphs = [];
   let cParagraph = null;
@@ -77,6 +79,7 @@ function html2ooxml(html, style = "") {
   let parser = new htmlparser.Parser(
     {
       onopentag(tag, attribs) {
+        console.log("Mon tag actuel est : " + tag);
         switch (tag) {
           case 'h1':
             cParagraph = new docx.Paragraph({ heading: "Heading1" });
@@ -207,8 +210,9 @@ function html2ooxml(html, style = "") {
             break;
         }
       },
-
+      
       ontext(text) {
+        console.log(text);
         if (cRunProperties.link) {
           cParagraph.addChildElement(new docx.TextRun({ "text": `{_|link|_{${text}|-|${cRunProperties.link}}_|link|_}`, "style": "PwndocLink" }));
         } else if (inCodeBlock) {
@@ -250,9 +254,10 @@ function html2ooxml(html, style = "") {
             "img",
             //"code",
             "legend",
-            //"table",
-            /* "tr",
-            "th", */
+            "table",
+             "tr",
+            "th", 
+            "td"
           ].includes(tag)) {
 
           if (inTableCell) {
@@ -287,11 +292,16 @@ function html2ooxml(html, style = "") {
           } else if (tag === "a") {
             delete cRunProperties.link
           } else if (tag === "td" || tag === "th") {
-            tmpCells.push({
-              text: cellHasText === true ? tmpCellContent : "",
-              width: tmpAttribs.colwidth ? tmpAttribs.colwidth : "250",
-              header: tableHeader,
-            });
+const sanitizedContent = (Array.isArray(tmpCellContent) && tmpCellContent.length > 0)
+  ? tmpCellContent.filter(p => p !== null)
+  : [new docx.Paragraph("")];
+
+tmpCells.push({
+  text: sanitizedContent,
+  width: tmpAttribs.colwidth || "250",
+  header: tableHeader,
+});
+
 
             tmpAttribs = {};
             tmpCellContent = [];
@@ -302,7 +312,10 @@ function html2ooxml(html, style = "") {
             tmpTable.map((row) => {
               let tmpCells = [];
               let isHeader = false
-              let widthTotal = row.map(cell => parseInt(cell.width)).reduce((prev, next) => prev + next);
+              let widthTotal = row
+  .map(cell => parseInt(cell.width || "250", 10))
+  .reduce((prev, next) => prev + next, 0) || 1; // évite division par zéro
+
 
               row.map((cell) => {
                 isHeader = cell.header;
@@ -328,7 +341,6 @@ function html2ooxml(html, style = "") {
                 type: "pct"
               }
             });
-
             paragraphs.push(cParagraph);
             cParagraph = null;
             cParagraphProperties = {};
@@ -360,9 +372,13 @@ function html2ooxml(html, style = "") {
       },
 
       onend() {
-        doc.addSection({
-          children: paragraphs,
-        });
+        if (paragraphs.length === 0) {
+    paragraphs.push(new docx.Paragraph("")); // Ajoute au moins un paragraphe vide
+  }
+
+  doc.addSection({
+    children: paragraphs,
+  });
       },
     },
     { decodeEntities: true }
@@ -374,9 +390,14 @@ function html2ooxml(html, style = "") {
   parser.end();
 
   let prepXml = doc.documentWrapper.document.body.prepForXml({});
-  let filteredXml = prepXml["w:body"].filter((e) => {
-    return Object.keys(e)[0] === "w:p" || Object.keys(e)[0] === "w:tbl";
-  });
+
+  if (!prepXml || !prepXml["w:body"]) {
+    throw new Error("Le document généré est vide ou mal formé");
+  }
+let filteredXml = prepXml["w:body"].filter((e) => {
+  return e && (Object.keys(e)[0] === "w:p" || Object.keys(e)[0] === "w:tbl");
+});
+
   let dataXml = xml(filteredXml);
   dataXml = dataXml.replace(/w:numId w:val="{2-0}"/g, 'w:numId w:val="2"'); // Replace numbering to have correct value
   //a little dirty but until we do better it works
