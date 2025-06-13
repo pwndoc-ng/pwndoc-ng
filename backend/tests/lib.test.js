@@ -558,9 +558,6 @@ module.exports = function () {
             `<w:pStyle w:val="Code"/>`+
           `</w:pPr>`+
           `<w:r>`+
-            `<w:rPr>`+
-              `<w:rStyle w:val="CodeChar"/>`+
-            `</w:rPr>`+
             `<w:t xml:space="preserve">Code Block</w:t>`+
           `</w:r>`+
         `</w:p>`

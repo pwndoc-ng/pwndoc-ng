@@ -69,12 +69,12 @@ ClientSchema.statics.create = (clients) => {
         })
         .catch((err) => {
             if (err.code === 11000) {
-                if (err.result.nInserted === 0)
+                if (err.result.insertedCount === 0)
                     reject({fn: 'BadParameters', message: 'Client email already exists'});
                 else {
                     var errorMessages = [] 
                     err.writeErrors.forEach(e => errorMessages.push(e.errmsg || "no errmsg"))
-                    resolve({created: err.result.nInserted, duplicates: errorMessages});
+                    resolve({created: err.result.insertedCount, duplicates: errorMessages});
                 }
             }
             else

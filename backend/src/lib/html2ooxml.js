@@ -276,9 +276,6 @@ function html2ooxml(html, style = "") {
             if (inCodeBlock) {
               delete cRunProperties.color;
             }
-          }  else if (tag === "ul" || tag === "ol") {
-            list_state.pop();
-            if (list_state.length === 0) cParagraphProperties = {};
           } else if (tag === "tr") {
             inTableRow = false;
             tableHeader = false;
@@ -342,6 +339,9 @@ function html2ooxml(html, style = "") {
             delete cRunProperties.style;
           }
           delete cRunProperties.color;
+        }  else if (tag === "ul" || tag === "ol") {
+          list_state.pop();
+          if (list_state.length === 0) cParagraphProperties = {};
         } else if (tag === "a") {
           delete cRunProperties.color;
           delete cRunProperties.style;
