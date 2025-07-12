@@ -79,16 +79,6 @@ Start date of the test
 End date of the test
 > Use in template document: `{date_end}`
 
-### summary
-Summary of the audit (HTML with images)
-> Use in template document:
->```
-// Summary section
-{-w:p summary}{@text | convertHTML}
-                                            {-w:p images}{%image}
-                                    Image 1 - {caption}{/images}{/summary}
->```
-
 ### language
 Locale of Audit. [Custom Data](/data?id=languages)
 

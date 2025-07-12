@@ -29,7 +29,6 @@ This fork includes pending PR and new feature such as:
 - syntaxe highlight (code: css, js, http, ts, html, bash, sql, json). For this to work, the code type must be defined in the PwnDoc-Ng code block in the drop-down menu
 - chart (bar chart and pie chart)
 - spellchecker
-- **Summary Section**: Direct input of executive summary from the platform interface, automatically included in DOCX generation
 - ![image](https://github.com/user-attachments/assets/59e45807-9b50-4254-949b-879763c4b066)
 
 - if you use `{@identifier | bookmarkCreate | p}` inside your template doc you can use shortcut `:::` inside editor to link other vuln with hyperlink

@@ -314,7 +314,7 @@ AuditSchema.statics.getGeneral = (isAdmin, auditId, userId) => {
         query.populate('collaborators', 'username firstname lastname')
         query.populate('reviewers', 'username firstname lastname')
         query.populate('company')
-        query.select('name auditType date date_start date_end summary client collaborators language scope.name template customFields')
+        query.select('name auditType date date_start date_end client collaborators language scope.name template customFields')
         query.lean().exec()
         .then((row) => {
             if (!row)
