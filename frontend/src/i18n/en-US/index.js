@@ -375,6 +375,7 @@ export default {
     endDate: 'End Date',
     reportingDate: 'Reporting Date',
     auditScope: 'Scope (One per line)',
+    summary: 'Summary',
     import: 'Import',
     export: 'Export',
     hostsAssociateScopes: 'Associate imported hosts with Scopes',

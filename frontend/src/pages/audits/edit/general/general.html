@@ -201,6 +201,17 @@
             <q-card-section>
                 <textarea-array :label="$t('auditScope')" v-model="audit.scope" no-empty-line :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"/>
             </q-card-section>
+            
+            <q-card-section>
+                <div class="text-h6 q-mb-sm">{{$t('summary')}}</div>
+                <basic-editor 
+                    ref="summaryEditor" 
+                    v-model="audit.summary" 
+                    :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                    :locale="audit.language"
+                />
+            </q-card-section>
+
             <q-expansion-item 
             :label="$t('customFields')"
             v-if="audit.customFields && audit.customFields.length > 0"

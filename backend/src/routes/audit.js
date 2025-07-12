@@ -185,6 +185,7 @@ module.exports = function(app, io) {
         if (req.body.date) update.date = req.body.date;
         if (req.body.date_start) update.date_start = req.body.date_start;
         if (req.body.date_end) update.date_end = req.body.date_end;
+        if (req.body.summary !== undefined) update.summary = req.body.summary;
         if (req.body.client !== undefined) update.client = req.body.client
         if (req.body.company !== undefined) {
             update.company = {};

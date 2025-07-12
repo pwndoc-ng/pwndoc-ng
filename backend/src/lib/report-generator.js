@@ -959,6 +959,7 @@ async function prepAuditData(data, settings) {
     result.date = data.date || "undefined"
     result.date_start = data.date_start || "undefined"
     result.date_end = data.date_end || "undefined"
+    result.summary = await splitHTMLParagraphs(data.summary)
     if (data.customFields) {
         for (field of data.customFields) {
             var fieldType = field.customField.fieldType
