@@ -437,8 +437,7 @@ chartGenerator.generateBarChart = function(title, barColor, legendXML, valueXML,
       <a:endParaRPr lang="fr-FR"/>
     </a:p>
   </c:txPr>
-</c:chartSpace>
-    `;
+</c:chartSpace>`;
 }
 
 module.exports = chartGenerator;
