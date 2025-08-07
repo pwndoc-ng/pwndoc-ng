@@ -127,7 +127,7 @@ export default {
         getAuditGeneral: function() {
             DataService.getCustomFields()
             .then((data) => {
-                this.audit = data.data.datas;
+                this.audit.customFields = data.data.datas.customFields;
             })
             .catch((err) => {              
                 console.log(err.response)
