@@ -435,10 +435,7 @@ export default defineComponent({
         this.$socket.emit('updateUsers', {room: this.auditId})
       })
       this.$socket.on('updateAudit', () => {
-        // Ne pas rafraîchir l'audit si on est en train de sauvegarder une vulnérabilité
-        if (!this.isUpdatingFinding) {
           this.getAudit();
-        }
       })
       this.$socket.on('disconnect', () => {
         this.$socket.emit('join', {username: UserService.user.username, room: this.auditId})
