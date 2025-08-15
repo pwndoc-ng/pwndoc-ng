@@ -915,6 +915,7 @@ function cvssStrToObject(cvss) {
     return res
 }
 function stripParagraphTags(input) {
+    console.log("JE STRIP MES PARAMETRES")
     return input
         .replace(/<\/?p[^>]*>/gi, '') // supprime toutes les balises <p> ou </p>
         .trim();

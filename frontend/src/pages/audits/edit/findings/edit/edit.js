@@ -122,10 +122,8 @@ export default {
         e.keyCode == 83
       ) {
         e.preventDefault();
-        // Only trigger save if we're in the finding edit context
-        if (this.frontEndAuditState === this.AUDIT_VIEW_STATE.EDIT && 
-            this.$route.name === 'editFinding')
-            this.updateFinding();
+        if (this.frontEndAuditState === this.AUDIT_VIEW_STATE.EDIT)
+          this.updateFinding();
       }
     },
     getCustomFields: function() {
@@ -287,8 +285,6 @@ export default {
               position: 'top-right',
             });
           });
-      }).catch((err) => {
-        console.error('Error in updateFinding nextTick:', err);
       });
     },
 
