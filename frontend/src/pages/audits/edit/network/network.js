@@ -17,9 +17,6 @@ export default {
         return {
             auditId: null,
             audit: {
-                // scope: []
-            },
-            audit: {
                 creator: {},
                 name: "",
                 auditType: "",
@@ -66,8 +63,11 @@ export default {
 
     mounted: function() {
         this.auditId = this.$route.params.auditId;
-        this.getAuditNetwork();
-        this.getAuditGeneral();
+        // Load general audit data first (including scopes), then network data
+        this.getAuditGeneral()
+        .then(() => {
+            return this.getAuditNetwork();
+        });
         this.$socket.emit('menu', {menu: 'network', room: this.auditId});
 
         // save on ctrl+s
@@ -116,10 +116,10 @@ export default {
 
         // Get Audit datas from uuid
         getAuditNetwork: function() {
-            AuditService.getAuditNetwork(this.auditId)
+            return AuditService.getAuditNetwork(this.auditId)
             .then((data) => {
-                this.audit = data.data.datas;
-                // Object.assign(this.audit, data.data.datas);
+                // Merge network audit data with existing audit data, preserving general data like scopes
+                Object.assign(this.audit, data.data.datas);
                 this.auditOrig = this.$_.cloneDeep(this.audit);
             })
             .catch((err) => {
@@ -127,9 +127,11 @@ export default {
             })
         },
         getAuditGeneral: function() {
-            DataService.getCustomFields()
+            return AuditService.getAuditGeneral(this.auditId)
             .then((data) => {
+                // Load general audit data first (including scopes)
                 this.audit = data.data.datas;
+                this.auditOrig = this.$_.cloneDeep(this.audit);
             })
             .catch((err) => {              
                 console.log(err.response)
