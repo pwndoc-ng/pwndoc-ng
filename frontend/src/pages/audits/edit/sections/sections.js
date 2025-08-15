@@ -93,7 +93,9 @@ export default {
         _listener: function(e) {
             if ((window.navigator.platform.match("Mac") ? e.metaKey : e.ctrlKey) && e.keyCode == 83) {
                 e.preventDefault();
-                if (this.frontEndAuditState === this.AUDIT_VIEW_STATE.EDIT)
+                // Only trigger save if we're in the section edit context
+                if (this.frontEndAuditState === this.AUDIT_VIEW_STATE.EDIT && 
+                    this.$route.name === 'editSection')
                     this.updateSection();
             }
         },
@@ -149,6 +151,8 @@ export default {
                         position: 'top-right'
                     })
                 })
+            }).catch((err) => {
+                console.error('Error in updateSection nextTick:', err);
             })
         },
 
