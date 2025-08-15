@@ -107,9 +107,7 @@ export default {
         _listener: function(e) {
             if ((window.navigator.platform.match("Mac") ? e.metaKey : e.ctrlKey) && e.keyCode == 83) {
                 e.preventDefault();
-                // Only trigger save if we're in the network audit context
-                if (this.frontEndAuditState === this.AUDIT_VIEW_STATE.EDIT && 
-                    this.$route.name === 'network')
+                if (this.frontEndAuditState === this.AUDIT_VIEW_STATE.EDIT)
                     this.updateAuditNetwork();
             }
         },
