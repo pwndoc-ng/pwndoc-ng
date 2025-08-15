@@ -122,6 +122,7 @@ export default {
         e.keyCode == 83
       ) {
         e.preventDefault();
+        e.stopPropagation();
         if (this.frontEndAuditState === this.AUDIT_VIEW_STATE.EDIT)
           this.updateFinding();
       }
@@ -251,12 +252,17 @@ export default {
       },
       
     updateFinding() {
+      // Marquer qu'on est en train de sauvegarder une vulnérabilité
+      this.$parent.isUpdatingFinding = true;
+      
       Utils.syncEditors(this.$refs);
       nextTick(() => {
         if (
           this.$refs.customfields &&
           this.$refs.customfields.requiredFieldsEmpty()
         ) {
+          // Réactiver la synchronisation si on sort sans sauvegarder
+          this.$parent.isUpdatingFinding = false;
           Notify.create({
             message: $t('msg.fieldRequired'),
             color: 'negative',
@@ -284,6 +290,10 @@ export default {
               textColor: 'white',
               position: 'top-right',
             });
+          })
+          .finally(() => {
+            // Réactiver la synchronisation après la sauvegarde
+            this.$parent.isUpdatingFinding = false;
           });
       });
     },
