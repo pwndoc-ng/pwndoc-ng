@@ -120,7 +120,21 @@
                                 <q-toggle 
                                 v-model="totpEnabled" 
                                 label="Two-factor authentication"
-                                @input="getTotpQrcode" 
+                                @update:model-value="getTotpQrcode"
+                                @click="getTotpQrcode" 
+                                />
+                            </q-item-section>
+                        </q-item>
+
+                        <!-- Bouton pour afficher/masquer le QR code existant -->
+                        <q-item v-if="user.totpEnabled">
+                            <q-item-section>
+                                <q-btn 
+                                    :label="totpQrcode ? 'Hide QR Code' : 'Show QR Code'" 
+                                    unelevated 
+                                    :color="totpQrcode ? 'grey' : 'primary'" 
+                                    @click="totpQrcode ? hideTotpQrCode() : showExistingTotpQrCode()"
+                                    :icon="totpQrcode ? 'visibility_off' : 'visibility'"
                                 />
                             </q-item-section>
                         </q-item>
@@ -148,8 +162,12 @@
                                         </li>
                                     </ol>
                                 </q-item-section>
-                                <q-item-section class="col-4">
-                                    <q-img :src="totpQrcode" width="200px" height="200px" />
+                            </q-item>
+                            <q-item v-if="totpQrcode">
+                                <q-item-section class="text-center">
+                                    <div class="row justify-center">
+                                        <q-img :src="totpQrcode" width="250px" height="250px" />
+                                    </div>
                                 </q-item-section>
                             </q-item>
 
@@ -178,6 +196,23 @@
                                 Your account is currently protected by 2 factor authentication.
                             </q-item-section>
                         </q-item>
+
+                        <!-- Affichage du QR code existant -->
+                        <template v-if="user.totpEnabled && totpQrcode">
+                            <q-item>
+                                <q-item-section class="text-grey-7">
+                                    <strong>Your current 2FA QR Code:</strong><br/>
+                                    You can scan this QR code with your authenticator app if you need to add this account to a new device.
+                                </q-item-section>
+                            </q-item>
+                            <q-item>
+                                <q-item-section class="text-center">
+                                    <div class="row justify-center">
+                                        <q-img :src="totpQrcode" width="250px" height="250px" />
+                                    </div>
+                                </q-item-section>
+                            </q-item>
+                        </template>
 
                         <!-- Cancel TOTP -->
                         <template v-if="!totpEnabled && user.totpEnabled">

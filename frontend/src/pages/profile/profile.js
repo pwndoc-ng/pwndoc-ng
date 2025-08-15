@@ -28,6 +28,10 @@ export default {
             .then((data) => {
                 this.user = data.data.datas;
                 this.totpEnabled = this.user.totpEnabled;
+                // Si la 2FA est déjà activée, récupérer le QR code
+                if(this.user.totpEnabled) {
+                    this.showExistingTotpQrCode();
+                }
             })
             .catch((err) => {
                 console.log(err)
@@ -35,31 +39,120 @@ export default {
         },
 
         getTotpQrcode: function() {
-            if(this.totpEnabled && !this.user.totpEnabled){
+            console.log('=== getTotpQrcode called ===');
+            console.log('Current state:', {
+                totpEnabled: this.totpEnabled,
+                userTotpEnabled: this.user.totpEnabled,
+                currentQrCode: this.totpQrcode ? 'Present' : 'Not present'
+            });
+
+            // Si le toggle est activé, on récupère TOUJOURS le QR code
+            if (this.totpEnabled) {
+                console.log('Toggle is ON - fetching QR code...');
                 UserService.getTotpQrCode()
-                .then((data)=>{
+                .then((data) => {
                     let res = data.data.datas;
+                    console.log('QR code received successfully:', {
+                        hasQrCode: !!res.totpQrCode,
+                        hasSecret: !!res.totpSecret,
+                        secretLength: res.totpSecret ? res.totpSecret.length : 0
+                    });
+                    
                     this.totpQrcode = res.totpQrCode;
                     this.totpSecret = res.totpSecret;
-                    this.$refs.totpEnableInput.focus();
+                    
+                    console.log('State updated:', {
+                        totpQrcode: this.totpQrcode ? 'Present' : 'Not present',
+                        totpSecret: this.totpSecret ? 'Present' : 'Not present'
+                    });
+
+                    // Focus sur l'input si c'est une activation
+                    if (!this.user.totpEnabled && this.$refs.totpEnableInput) {
+                        console.log('Focusing on enable input...');
+                        this.$refs.totpEnableInput.focus();
+                    }
                 })
-                .catch((err)=>{
-                    console.log(err);
-                })
-            }
-            else if (!this.totpEnabled && this.user.totpEnabled) {
-                nextTick(() => {this.$refs.totpDisableInput.focus()})
-            }
-            else {
+                .catch((err) => {
+                    console.error('Error getting QR code:', err);
+                    Notify.create({
+                        message: 'Failed to get TOTP QR code: ' + (err.response?.data?.datas || err.message || 'Unknown error'),
+                        color: 'negative',
+                        textColor: 'white',
+                        position: 'top-right'
+                    });
+                });
+            } else {
+                // Toggle désactivé - reset des valeurs
+                console.log('Toggle is OFF - resetting values...');
                 this.totpQrcode = "";
                 this.totpSecret = "";
                 this.totpToken = "";
+                
+                // Focus sur l'input de désactivation si nécessaire
+                if (this.user.totpEnabled && this.$refs.totpDisableInput) {
+                    console.log('Focusing on disable input...');
+                    nextTick(() => {
+                        this.$refs.totpDisableInput.focus();
+                    });
+                }
             }
         },
 
+        // Méthode pour afficher le QR code existant
+        showExistingTotpQrCode: function() {
+            UserService.getTotpQrCode()
+            .then((data)=>{
+                let res = data.data.datas;
+                this.totpQrcode = res.totpQrCode;
+                this.totpSecret = res.totpSecret;
+            })
+            .catch((err)=>{
+                console.log(err);
+            })
+        },
+
+        // Méthode pour masquer le QR code
+        hideTotpQrCode: function() {
+            this.totpQrcode = "";
+            this.totpSecret = "";
+        },
+
         setupTotp: function() {
+            console.log('setupTotp called with:', {
+                totpToken: this.totpToken,
+                totpSecret: this.totpSecret,
+                currentQrCode: this.totpQrcode
+            });
+
+            if (!this.totpSecret) {
+                console.error('No TOTP secret available!');
+                Notify.create({
+                    message: 'TOTP secret not available. Please try toggling 2FA again.',
+                    color: 'negative',
+                    textColor: 'white',
+                    position: 'top-right'
+                });
+                return;
+            }
+
             UserService.setupTotp(this.totpToken, this.totpSecret)
             .then((data)=>{
+                console.log('TOTP setup response:', data);
+                
+                // Vérifier si le backend a retourné une erreur
+                if (data.data && data.data.status === 'error') {
+                    console.error('Backend returned error:', data.data.datas);
+                    Notify.create({
+                        message: 'TOTP verification failed: ' + data.data.datas,
+                        color: 'negative',
+                        textColor: 'white',
+                        position: 'top-right'
+                    });
+                    return;
+                }
+                
+                // Si on arrive ici, c'est un succès
+                console.log('TOTP setup successful');
                 this.user.totpEnabled = true;
                 this.totpToken = "";
                 Notify.create({
@@ -70,8 +163,18 @@ export default {
                 })
             })
             .catch((err)=>{
+                console.error('TOTP setup HTTP error:', err);
+                let errorMessage = 'TOTP verification failed';
+                
+                // Essayer d'extraire le message d'erreur du backend
+                if (err.response && err.response.data && err.response.data.datas) {
+                    errorMessage += ': ' + err.response.data.datas;
+                } else if (err.message) {
+                    errorMessage += ': ' + err.message;
+                }
+                
                 Notify.create({
-                    message: 'TOTP verification failed',
+                    message: errorMessage,
                     color: 'negative',
                     textColor: 'white',
                     position: 'top-right'
@@ -81,7 +184,23 @@ export default {
 
         cancelTotp: function() {
             UserService.cancelTotp(this.totpToken)
-            .then(()=>{
+            .then((data)=>{
+                console.log('TOTP cancel response:', data);
+                
+                // Vérifier si le backend a retourné une erreur
+                if (data.data && data.data.status === 'error') {
+                    console.error('Backend returned error:', data.data.datas);
+                    Notify.create({
+                        message: 'TOTP verification failed: ' + data.data.datas,
+                        color: 'negative',
+                        textColor: 'white',
+                        position: 'top-right'
+                    });
+                    return;
+                }
+                
+                // Si on arrive ici, c'est un succès
+                console.log('TOTP cancel successful');
                 this.user.totpEnabled = false;
                 this.totpToken = "";
                 Notify.create({
@@ -91,9 +210,19 @@ export default {
                     position: 'top-right'
                 })
             })
-            .catch(()=>{
+            .catch((err)=>{
+                console.error('TOTP cancel HTTP error:', err);
+                let errorMessage = 'TOTP verification failed';
+                
+                // Essayer d'extraire le message d'erreur du backend
+                if (err.response && err.response.data && err.response.data.datas) {
+                    errorMessage += ': ' + err.response.data.datas;
+                } else if (err.message) {
+                    errorMessage += ': ' + err.message;
+                }
+                
                 Notify.create({
-                    message: 'TOTP verification failed',
+                    message: errorMessage,
                     color: 'negative',
                     textColor: 'white',
                     position: 'top-right'
