@@ -128,7 +128,7 @@
                         {{getDtUpdatedAt(props.row)}}
                     </q-td>
                     <q-td key="action" :props="props" style="width:1px">
-                        <q-btn v-if="UserService.isAllowed('vulnerabilities:update')" size="sm" flat color="blue" icon="fa fa-edit" @click="clone(props.row); (props.row.status === 2)?$refs.updatesModal.show():$refs.editModal.show()">
+                        <q-btn v-if="UserService.isAllowed('vulnerabilities:update')" size="sm" flat class="edit-btn-color" icon="fa fa-edit" @click="clone(props.row); (props.row.status === 2)?$refs.updatesModal.show():$refs.editModal.show()">
                             <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.edit')}}</q-tooltip>                                                    
                         </q-btn>
                         <q-btn v-else size="sm" flat color="primary" icon="fa fa-eye" @click="clone(props.row); $refs.editModal.show()">

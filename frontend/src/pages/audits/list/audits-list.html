@@ -166,7 +166,7 @@
                 <audit-state-icon v-if="$settings.reviews.enabled" :approvals="props.row.approvals" :state="props.row.state" />
               </q-td>
               <q-td key="action">
-                <q-btn size="sm" flat color="blue" :to="`/audits/${props.row._id}/general`" icon="fa fa-edit">
+                <q-btn size="sm" flat class="edit-btn-color" :to="`/audits/${props.row._id}/general`" icon="fa fa-edit">
                   <q-tooltip>{{ $t('tooltip.editAudit') }}</q-tooltip>
                 </q-btn>
                 <q-btn size="sm" flat color="info" @click="generateReport(props.row._id)" icon="fa fa-download">

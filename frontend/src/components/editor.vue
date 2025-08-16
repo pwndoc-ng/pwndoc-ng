@@ -760,13 +760,13 @@ export default defineComponent({
           })
           .configure({ lowlight }),
         Underline,
+        Table.configure({
+          resizable: true,
+        }),
         TableRow,
         TableHeader,
         TableCell,
         TriggerMenuExtension,
-        Table.configure({
-          resizable: true,
-        }),
         CustomImage.configure({
           HTMLAttributes: {
             class: "custom-image",
