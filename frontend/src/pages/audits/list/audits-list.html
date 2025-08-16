@@ -49,7 +49,7 @@
             />
             
             <q-dialog v-model="showCreateModal">
-                <q-card style="min-width: 400px">
+                <q-card style="min-width: 600px">
                   <q-card-section>
                     <div class="text-h6">{{ $t('newAudit') }}</div>
                   </q-card-section>
@@ -62,34 +62,64 @@
                       :error-message="errors.name"
                       outlined
                     />
-              
-                    <q-select
-                      v-model="currentAudit.language"
-                      :label="$t('language')"
-                      :options="languages"
-                      option-value="locale"
-                      option-label="language"
-                      emit-value
-                      map-options
-                      :error="!!errors.language"
-                      :error-message="errors.language"
-                      outlined
+
+                    <q-toggle
+                      v-model="cloneExistingReport"
+                      :label="$t('cloneExistingReport')"
                       class="q-mt-md"
                     />
-              
-                    <q-select
-                      v-model="currentAudit.auditType"
-                      :label="$t('auditType')"
-                      :options="auditTypes"
-                      option-value="_id"
-                      option-label="name"
-                      emit-value
-                      map-options
-                      :error="!!errors.auditType"
-                      :error-message="errors.auditType"
-                      outlined
-                      class="q-mt-md"
-                    />
+
+                    <!-- Champs de base (affichés quand cloneExistingReport est false) -->
+                    <div v-if="!cloneExistingReport">
+                      <q-select
+                        v-model="currentAudit.language"
+                        :label="$t('language')"
+                        :options="languages"
+                        option-value="locale"
+                        option-label="language"
+                        emit-value
+                        map-options
+                        :error="!!errors.language"
+                        :error-message="errors.language"
+                        outlined
+                        class="q-mt-md"
+                      />
+                    
+                      <q-select
+                        v-model="currentAudit.auditType"
+                        :label="$t('auditType')"
+                        :options="auditTypes"
+                        option-value="_id"
+                        option-label="name"
+                        emit-value
+                        map-options
+                        :error="!!errors.auditType"
+                        :error-message="errors.auditType"
+                        outlined
+                        class="q-mt-md"
+                      />
+                    </div>
+
+                    <!-- Liste des audits existants (affichée quand cloneExistingReport est true) -->
+                    <div v-if="cloneExistingReport">
+                      <q-select
+                        v-model="selectedAuditToClone"
+                        :label="$t('selectAuditToClone')"
+                        :options="availableAuditsForCloning"
+                        option-value="_id"
+                        :option-label="(item) => `${item.name} (${item.company?.name || 'No company'} - ${item.language})`"
+                        emit-value
+                        map-options
+                        :error="!!errors.selectedAudit"
+                        :error-message="errors.selectedAudit"
+                        outlined
+                        class="q-mt-md"
+                        use-input
+                        input-debounce="300"
+                        @filter="filterAuditsForCloning"
+                        clearable
+                      />
+                    </div>
                   </q-card-section>
               
                   <q-card-actions align="right">

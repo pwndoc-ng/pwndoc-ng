@@ -84,6 +84,20 @@ module.exports = function(app, io) {
         .catch(err => Response.Internal(res, err))
     });
 
+    // Clone existing audit
+    app.post("/api/audits/:auditId/clone", acl.hasPermission('audits:create'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
+        if (!req.body.name) {
+            Response.BadParameters(res, 'Missing required parameter: name');
+            return;
+        }
+
+        Audit.clone(req.params.auditId, req.body.name, req.decodedToken.id)
+        .then(inserted => Response.Created(res, {message: 'Audit cloned successfully', audit: inserted}))
+        .catch(err => Response.Internal(res, err))
+    });
+
     // Delete audit if creator or admin
     app.delete("/api/audits/:auditId", acl.hasPermission('audits:delete'), function(req, res) {
         // #swagger.tags = ['Audit']

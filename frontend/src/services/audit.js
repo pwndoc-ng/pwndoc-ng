@@ -17,6 +17,10 @@ export default {
     return  api.post('audits', audit)
   },
 
+  createClonedAudit: function(auditId, newName) {
+    return  api.post(`audits/${auditId}/clone`, { name: newName })
+  },
+
   deleteAudit: function(auditId) {
     return  api.delete(`audits/${auditId}`)
   },

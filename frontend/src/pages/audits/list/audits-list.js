@@ -59,9 +59,15 @@ export default {
             displayConnected: false,
             displayReadyForReview: false,
             // Errors messages
-            errors: {name: '', language: '', auditType: ''},
+            errors: {name: '', language: '', auditType: '', selectedAudit: ''},
             // Selected or New Audit
-            currentAudit: {name: '', language: '', auditType: ''}
+            currentAudit: {name: '', language: '', auditType: ''},
+            // Clone existing report toggle
+            cloneExistingReport: false,
+            // Selected audit to clone
+            selectedAuditToClone: null,
+            // Available audits for cloning
+            availableAuditsForCloning: []
         }
     },
 
@@ -82,6 +88,7 @@ export default {
         this.getLanguages();
         this.getAuditTypes();
         this.getCompanies();
+        this.getAvailableAuditsForCloning();
     },
 
     methods: {
@@ -116,6 +123,33 @@ export default {
             })
         },
 
+        // Get available audits for cloning
+        getAvailableAuditsForCloning: function() {
+            AuditService.getAudits()
+            .then((data) => {
+                this.availableAuditsForCloning = data.data.datas;
+            })
+            .catch((err) => {
+                console.log(err)
+            })
+        },
+
+        // Filter audits for cloning
+        filterAuditsForCloning: function(val, update) {
+            if (val === '') {
+                update(() => this.availableAuditsForCloning = this.audits)
+                return
+            }
+            update(() => {
+                const needle = val.toLowerCase()
+                this.availableAuditsForCloning = this.audits.filter(v => 
+                    v.name.toLowerCase().indexOf(needle) > -1 ||
+                    (v.company && v.company.name && v.company.name.toLowerCase().indexOf(needle) > -1) ||
+                    v.language.toLowerCase().indexOf(needle) > -1
+                )
+            })
+        },
+
         getAudits: function() {
             this.loading = true
             AuditService.getAudits({findingTitle: this.search.finding})
@@ -135,19 +169,57 @@ export default {
           },
         createAudit: function() {
             this.cleanErrors();
-            this.currentAudit.auditType = this.currentAudit.auditType.name;
-            if (!this.currentAudit.name)
-                this.errors.name = "Name required";
-            if (!this.currentAudit.language)
-                this.errors.language = "Language required";
-            if (!this.currentAudit.auditType)
-                this.errors.auditType = "Assessment required";
-                
             
-            if (this.errors.name || this.errors.language || this.errors.auditType)
-                return;
+            if (this.cloneExistingReport) {
+                // Mode clonage
+                if (!this.currentAudit.name)
+                    this.errors.name = "Name required";
+                if (!this.selectedAuditToClone)
+                    this.errors.selectedAudit = "Please select an audit to clone";
+                
+                if (this.errors.name || this.errors.selectedAudit)
+                    return;
 
+                // Créer un audit cloné
+                this.createClonedAudit();
+            } else {
+                // Mode création normale
+                this.currentAudit.auditType = this.currentAudit.auditType.name;
+                if (!this.currentAudit.name)
+                    this.errors.name = "Name required";
+                if (!this.currentAudit.language)
+                    this.errors.language = "Language required";
+                if (!this.currentAudit.auditType)
+                    this.errors.auditType = "Assessment required";
+                    
+                if (this.errors.name || this.errors.language || this.errors.auditType)
+                    return;
+
+                this.createNormalAudit();
+            }
+        },
+
+        // Créer un audit normal
+        createNormalAudit: function() {
             AuditService.createAudit(this.currentAudit)
+            .then((response) => {
+                this.showCreateModal = false;
+                this.getAudits();
+                this.$router.push("/audits/" + response.data.datas.audit._id)
+            })
+            .catch((err) => {
+                Notify.create({
+                    message: err.response.data.datas,
+                    color: 'negative',
+                    textColor:'white',
+                    position: 'top-right'
+                })
+            })
+        },
+
+        // Créer un audit cloné
+        createClonedAudit: function() {
+            AuditService.createClonedAudit(this.selectedAuditToClone, this.currentAudit.name)
             .then((response) => {
                 this.showCreateModal = false;
                 this.getAudits();
@@ -262,6 +334,7 @@ export default {
             this.errors.name = '';
             this.errors.language = '';
             this.errors.auditType = '';
+            this.errors.selectedAudit = '';
         },
 
         cleanCurrentAudit: function() {
@@ -269,6 +342,8 @@ export default {
             this.currentAudit.name = '';
             this.currentAudit.language = '';
             this.currentAudit.auditType = '';
+            this.cloneExistingReport = false;
+            this.selectedAuditToClone = null;
         },
 
         // Convert language locale of audit for table display

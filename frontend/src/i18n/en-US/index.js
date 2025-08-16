@@ -309,6 +309,8 @@ export default {
     usersConnected: 'Users Connected',
     awaitingMyReview: 'Awaiting my review',
     newAudit: 'New Audit',
+    cloneExistingReport: 'Clone existing report',
+    selectAuditToClone: 'Select audit to clone',
     search: 'Search',
     users: 'Users',
     auditNum1: 'Audit',
