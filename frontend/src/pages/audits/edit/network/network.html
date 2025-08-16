@@ -67,19 +67,19 @@
                                 <q-btn round dense flat icon="add" @click.close="updateScopeHosts(scope)" />
                               </template>
                             </q-select>
-                            <div v-for="(host, index) of scope.hosts">
+                            <div v-for="(host, index) of scope.hosts" :key="`${scope.name}-${host.ip || host}-${index}`" 
+                                 @click="onHostClick(host, scope)"
+                                 class="cursor-pointer">
                             <q-chip 
-                            :key="host.ip"
                             color="blue-grey-7"
                             text-color="white"
                             dense
                             square
-                            class="col-md-6 cursor-pointer"
-                            @click.native="currentHost = $_.cloneDeep(host)"
+                            class="col-md-6"
                             removable
                             @remove="scope.hosts.splice(index, 1)"
                             >
-                            {{host.ip}}
+                            {{host.ip || host}}
                             </q-chip>
                         </div>
                     </div>
@@ -89,7 +89,7 @@
     <div v-if="currentHost !== null" class="col-md-6">
         <q-table
         :title="`${currentHost.ip} (${currentHost.hostname})`"
-        :data="currentHost.services"
+        :rows="currentHost.services"
         :columns="dtHostHeaders"
         v-model:pagination="hostPagination"
         row-key="port"
