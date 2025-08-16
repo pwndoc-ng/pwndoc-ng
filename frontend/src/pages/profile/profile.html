@@ -118,6 +118,16 @@
                         <q-item>
                             <q-item-section>
                                 <q-toggle 
+                                v-model="autoCorrectionEnabled" 
+                                :label="$t('autoCorrection')"
+                                @update:model-value="toggleAutoCorrection"
+                                />
+                                <div class="text-caption text-grey-7 q-mt-xs">{{$t('autoCorrectionInfo')}}</div>
+                            </q-item-section>
+                        </q-item>
+                        <q-item>
+                            <q-item-section>
+                                <q-toggle 
                                 v-model="totpEnabled" 
                                 label="Two-factor authentication"
                                 @update:model-value="getTotpQrcode"

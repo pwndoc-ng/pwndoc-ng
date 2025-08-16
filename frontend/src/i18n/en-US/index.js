@@ -3,6 +3,8 @@ export default {
     dangerSettings: 'Dangerous Settings',
     changeDisplayLanguage: 'Display Language',
     changeDisplayLanguageInfo: 'Choose your preferred default language',
+    autoCorrection: 'Disable auto-correction',
+    autoCorrectionInfo: 'Check this box to disable automatic text correction while typing',
     nav: {
         audits: 'Audits',
         vulnerabilities: 'Vulnerabilities',

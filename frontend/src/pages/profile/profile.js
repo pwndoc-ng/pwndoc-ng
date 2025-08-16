@@ -3,6 +3,7 @@ import Vue, { nextTick } from 'vue';
 
 import UserService from '@/services/user'
 import Utils from '@/services/utils'
+import AutoCorrectionService from '@/services/autoCorrection'
 
 import { $t } from 'boot/i18n'
 
@@ -14,12 +15,14 @@ export default {
             totpQrcode: "",
             totpSecret: "",
             totpToken: "",
+            autoCorrectionEnabled: false,
             errors: {username: "", firstname:"", lastname: "", currentPassword: "", newPassword: ""}
         }
     },
 
     mounted: function() {
         this.getProfile();
+        this.loadAutoCorrectionSetting();
     },
 
     methods: {
@@ -36,6 +39,32 @@ export default {
             .catch((err) => {
                 console.log(err)
             })
+        },
+
+        loadAutoCorrectionSetting: function() {
+            // Inverser la logique : le toggle est coché quand la correction est désactivée
+            this.autoCorrectionEnabled = !AutoCorrectionService.isAutoCorrectionEnabled();
+        },
+
+        toggleAutoCorrection: function() {
+            // Inverser la logique : si le toggle est coché, on désactive la correction
+            if (this.autoCorrectionEnabled) {
+                AutoCorrectionService.disable();
+            } else {
+                AutoCorrectionService.enable();
+            }
+            
+            // Notifier tous les éditeurs actifs de mettre à jour leur état LanguageTool
+            this.notifyEditorsUpdate();
+        },
+
+        notifyEditorsUpdate: function() {
+            // Émettre un événement personnalisé que les éditeurs peuvent écouter
+            window.dispatchEvent(new CustomEvent('autoCorrectionToggleChanged', {
+                detail: {
+                    enabled: !this.autoCorrectionEnabled
+                }
+            }));
         },
 
         getTotpQrcode: function() {

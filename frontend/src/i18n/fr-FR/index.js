@@ -3,6 +3,8 @@ export default {
     dangerSettings:'Paramètres dangereux',
     changeDisplayLanguage: 'Langue d\'affichage',
     changeDisplayLanguageInfo: 'Choisissez votre langue par défaut préférée',
+    autoCorrection: 'Désactiver la correction automatique',
+    autoCorrectionInfo: 'Cochez cette case pour désactiver la correction automatique du texte lors de la saisie',
     nav: {
         audits: 'Audits',
         vulnerabilities: 'Vulnérabilités',

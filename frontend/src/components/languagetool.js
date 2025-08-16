@@ -263,6 +263,16 @@ export const LanguageTool = Extension.create({
     storage.proofreadNodeAndUpdateItsDecorations = async (node, offset, cur) => {
       if (!storage.editorView?.state || !node.textContent) return;
       
+      // Vérifier si la correction automatique est activée
+      const autoCorrectionEnabled = sessionStorage.getItem('autoCorrectionEnabled');
+      if (autoCorrectionEnabled === 'false') {
+        // Si désactivée, supprimer les décorations existantes et sortir
+        if (storage.decorationSet) {
+          storage.decorationSet = storage.decorationSet.remove(storage.decorationSet.find(offset, offset + node.nodeSize));
+        }
+        return;
+      }
+      
       storage.dispatch(storage.editorView.state.tr.setMeta(LanguageToolHelpingWords.LoadingTransactionName, true));
       
       // Vérifier le cache d'abord
@@ -319,9 +329,38 @@ export const LanguageTool = Extension.create({
       setTimeout(() => storage.addEventListenersToDecorations(), 0);
     };
     
+    // Fonction pour nettoyer toutes les décorations LanguageTool
+    storage.clearAllDecorations = () => {
+      if (storage.decorationSet && storage.editorView) {
+        storage.decorationSet = DecorationSet.empty;
+        storage.dispatch(storage.editorView.state.tr.setMeta(LanguageToolHelpingWords.LanguageToolTransactionName, true));
+      }
+    };
+
+    // Fonction pour mettre à jour l'état de LanguageTool en fonction du toggle
+    storage.updateLanguageToolState = () => {
+      const autoCorrectionEnabled = sessionStorage.getItem('autoCorrectionEnabled');
+      if (autoCorrectionEnabled === 'false') {
+        storage.clearAllDecorations();
+      } else {
+        // Si réactivé, relancer la vérification sur le document actuel
+        if (storage.editorView && storage.editorView.state) {
+          storage.proofreadAndDecorateWholeDoc(storage.editorView.state.doc);
+        }
+      }
+    };
+
     // Fonction optimisée pour vérifier tout le document
     storage.proofreadAndDecorateWholeDoc = async (doc) => {
       if (!doc || !storage.editorView) return;
+      
+      // Vérifier si la correction automatique est activée
+      const autoCorrectionEnabled = sessionStorage.getItem('autoCorrectionEnabled');
+      if (autoCorrectionEnabled === 'false') {
+        // Si désactivée, supprimer toutes les décorations existantes et sortir
+        storage.clearAllDecorations();
+        return;
+      }
       
       storage.textNodesWithPosition = [];
       let index = 0;

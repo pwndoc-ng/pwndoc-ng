@@ -836,6 +836,14 @@ export default defineComponent({
       disablePasteRules: true,
     });
 
+    // Écouter les changements du toggle de correction automatique
+    this.autoCorrectionToggleListener = (event) => {
+      if (this.editor && this.editor.extensionStorage.languagetool) {
+        this.editor.extensionStorage.languagetool.updateLanguageToolState();
+      }
+    };
+    window.addEventListener('autoCorrectionToggleChanged', this.autoCorrectionToggleListener);
+
     this.affixRelativeElement += "-" +  this.ClassEditor;
     //this.editor.setOptions({ editable: this.editable });
     this.editor.setEditable(this.editable && this.initialeDataUpdated);
@@ -861,6 +869,12 @@ export default defineComponent({
     if(this.collab){
       this.provider.destroy()
     }
+    
+    // Nettoyer l'écouteur de correction automatique
+    if (this.autoCorrectionToggleListener) {
+      window.removeEventListener('autoCorrectionToggleChanged', this.autoCorrectionToggleListener);
+    }
+    
     this.editor.destroy();
   },
 
