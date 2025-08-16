@@ -418,17 +418,40 @@ expressions.filters.NewLines = function(input) {
 }
 
 // Embeds input within OOXML paragraph tags, applying an optional style name to it: {@input | p: 'Some style'}
-expressions.filters.p = function(input, style = null) {
-    let result = '<w:p>';
 
-    if (style !== null ) {
+
+expressions.filters.p = function(input, style = null) {
+    // Ne pas créer de paragraphe si le contenu est vide
+    if (!input || input === "" || input === "undefined" || input === null) {
+        return "";
+    }
+
+    // Si l'input contient déjà un paragraphe, ne pas en créer un nouveau
+    if (input.includes('<w:p>') && input.includes('</w:p>')) {
+        // Si un style est demandé, l'ajouter au paragraphe existant
+        if (style) {
+            let style_parsed = style.replaceAll(' ', '');
+            if (style_parsed === 'Bullets') {
+                return input.replace('<w:p>', '<w:p><w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr>');
+            }
+        }
+        return input;
+    }
+
+    // Créer un nouveau paragraphe si nécessaire
+    let result = '<w:p>';
+    if (style !== null) {
         let style_parsed = style.replaceAll(' ', '');
-        result += '<w:pPr><w:pStyle w:val="' + style_parsed + '"/></w:pPr>';
+        if (style_parsed === 'Bullets') {
+            result += '<w:pPr><w:pStyle w:val="ListParagraph"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr>';
+        } else {
+            result += '<w:pPr><w:pStyle w:val="' + style_parsed + '"/></w:pPr>';
+        }
     }
     result += '<w:r><w:t>' + input + '</w:t></w:r></w:p>';
-
     return result;
 }
+
 
 // Reverses the input array: {input | reverse}
 expressions.filters.reverse = function(input) {
