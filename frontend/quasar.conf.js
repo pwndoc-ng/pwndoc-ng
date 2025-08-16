@@ -66,6 +66,18 @@ module.exports = function (ctx) {
     },
     // framework: 'all' --- includes everything; for dev only!
     framework: {
+      config: {
+        brand: {
+          primary: '#3c4759',
+          secondary: '#26A69A',
+          tertiary: '#555',
+          neutral: '#E0E1E2',
+          positive: '#21BA45',
+          negative: '#DB2828',
+          info: '#31CCEC',
+          warning: '#F2C037'
+        }
+      },
       components: [
         'QAvatar',
         'QBadge',

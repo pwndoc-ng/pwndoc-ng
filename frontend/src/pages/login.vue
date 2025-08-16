@@ -278,6 +278,8 @@ export default defineComponent({
 </script>
 
 <style lang="stylus">
+@import '~src/css/quasar.variables.styl'
+
 .login-background {
     background: linear-gradient(45deg, $blue, transparent)
 }
