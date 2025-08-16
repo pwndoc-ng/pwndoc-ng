@@ -187,6 +187,22 @@ export default {
             }
         },
 
+        // Method to handle host click
+        onHostClick: function(host, scope) {
+            // Handle different host structures
+            let hostObj = host;
+            if (typeof host === 'string') {
+                // If host is just a string (IP), create a basic object
+                hostObj = {
+                    ip: host,
+                    hostname: 'Unknown',
+                    services: []
+                };
+            }
+            
+            this.currentHost = hostObj;
+        },
+
         // Function for helping parsing Nmap XML
         getXmlElementByAttribute: function(elmts, attr, val) {
             for (var i=0; i<elmts.length; i++) {
