@@ -182,7 +182,7 @@ function html2ooxml(html, style = "") {;
             list_state.push("number");
             break;
           case 'li':
-            let level = list_state.length - 1;
+	    let level = Math.min(list_state.length - 1, 8); // Limite à 8 (niveaux 0-8, max Word = 9)
             if (level >= 0 && list_state[level] === "bullet")
               cParagraphProperties.bullet = { level: level };
             else if (level >= 0 && list_state[level] === "number")
