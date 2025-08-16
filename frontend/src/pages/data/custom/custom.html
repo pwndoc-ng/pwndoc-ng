@@ -56,7 +56,7 @@
                                 <q-toolbar>
                                     <div class="text-grey-8">{{$t('listOfLanguages')}}</div>
                                     <q-space />
-                                    <q-btn v-if="UserService.isAllowed('languages:update')" flat color="blue" icon="fa fa-edit" @click="editLanguage = true; editLanguages = $_.cloneDeep(languages)">
+                                    <q-btn v-if="UserService.isAllowed('languages:update')" flat class="edit-btn-color" icon="fa fa-edit" @click="editLanguage = true; editLanguages = $_.cloneDeep(languages)">
                                         <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.edit')}}</q-tooltip> 
                                     </q-btn>
                                 </q-toolbar>
@@ -239,7 +239,7 @@
                                 <q-toolbar>
                                     <div class="text-grey-8">{{$t('listOfAuditTypes')}}</div>
                                     <q-space />
-                                    <q-btn v-if="UserService.isAllowed('audit-types:update')" flat color="blue" icon="fa fa-edit" @click="editAuditType = true; editAuditTypes = $_.cloneDeep(auditTypes)">
+                                    <q-btn v-if="UserService.isAllowed('audit-types:update')" flat class="edit-btn-color" icon="fa fa-edit" @click="editAuditType = true; editAuditTypes = $_.cloneDeep(auditTypes)">
                                         <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.edit')}}</q-tooltip> 
                                     </q-btn>
                                 </q-toolbar>
@@ -507,7 +507,7 @@
                           <q-btn
                             v-if="UserService.isAllowed('vulnerability-types:update')"
                             flat
-                            color="blue"
+                            class="edit-btn-color"
                             icon="fa fa-edit"
                             @click="startEditingVulnTypes"
                           >
@@ -646,7 +646,7 @@
                                 <q-toolbar>
                                     <div class="text-grey-8">{{$t('listOfCategories')}}</div>
                                     <q-space />
-                                    <q-btn v-if="UserService.isAllowed('vulnerability-categories:update')" flat color="blue" icon="fa fa-edit" @click="editCategory = true; editCategories = $_.cloneDeep(vulnCategories)">
+                                    <q-btn v-if="UserService.isAllowed('vulnerability-categories:update')" flat class="edit-btn-color" icon="fa fa-edit" @click="editCategory = true; editCategories = $_.cloneDeep(vulnCategories)">
                                         <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.edit')}}</q-tooltip> 
                                     </q-btn>
                                 </q-toolbar>
@@ -975,7 +975,7 @@
                             <!-- Boutons (éditer, supprimer, déplacer) à gauche et VERTICALEMENT -->
                             <q-item-section avatar top v-if="UserService.isAllowed('custom-fields:update')" class="q-pr-sm">
                               <div class="column items-center q-gutter-y-xs">
-                                <q-btn flat color="primary" icon="mdi-pencil" dense size="sm">
+                                <q-btn flat class="edit-btn-color" icon="mdi-pencil" dense size="sm">
                                   <q-menu content-style="width: 300px" anchor="top left" self="top end">
                                     <q-item v-if="field.fieldType !== 'space'">
                                       <q-item-section>
@@ -1209,7 +1209,7 @@
                                 <q-toolbar>
                                     <div class="text-grey-8">{{$t('listOfSections')}}</div>
                                     <q-space />
-                                    <q-btn v-if="UserService.isAllowed('sections:update')" flat color="blue" icon="fa fa-edit" @click="editSection = true; editSections = $_.cloneDeep(sections)">
+                                    <q-btn v-if="UserService.isAllowed('sections:update')" flat class="edit-btn-color" icon="fa fa-edit" @click="editSection = true; editSections = $_.cloneDeep(sections)">
                                         <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">Edit</q-tooltip> 
                                     </q-btn>
                                 </q-toolbar>
