@@ -351,10 +351,14 @@ expressions.filters.lines = function(input) {
 
 // Creates a hyperlink: {@input | linkTo: 'https://example.com' | p}
 expressions.filters.linkTo = function(input, url) {
-
     // fix breaking word with special characters in reference
-    var entityencodedurl = url.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'); // encode to prevent xml issues
     var entityencodedinput = input.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'); // encode to prevent xml issues
+
+    if(typeof url === 'undefined') {
+        var entityencodedurl = entityencodedinput
+    } else {
+        var entityencodedurl = url.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'); // encode to prevent xml issues
+    }
     
     return `<w:p><w:r>
     <w:fldChar w:fldCharType="begin"/></w:r><w:r>
