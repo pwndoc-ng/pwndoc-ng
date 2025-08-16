@@ -131,7 +131,9 @@ function html2ooxml(html, style = "") {;
             cParagraph = new docx.Paragraph({ style: "Code" });
             break;
           case 'br':
-            cParagraph.addChildElement(new docx.Run({ break: 1 }))
+            if (cParagraph) {
+              cParagraph.addChildElement(new docx.Run({ break: 1 }));
+            }
             break;
           case 'b':
           case 'strong':
@@ -176,18 +178,31 @@ function html2ooxml(html, style = "") {;
             cRunProperties.link = attribs.href;
             break;
           case 'ul':
-            list_state.push("bullet");
+            // Réinitialiser l'état de la liste pour commencer au niveau 0
+            list_state = ["bullet"];
             break;
           case 'ol':
-            list_state.push("number");
+            // Réinitialiser l'état de la liste pour commencer au niveau 0
+            list_state = ["number"];
             break;
           case 'li':
-	    let level = Math.min(list_state.length - 1, 8); // Limite à 8 (niveaux 0-8, max Word = 9)
-            if (level >= 0 && list_state[level] === "bullet")
+            // Calculer le niveau de la liste basé sur la profondeur d'imbrication
+            let level = Math.min(list_state.length - 1, 8); // Limite à 8 (niveaux 0-8, max Word = 9)
+            
+            // Déterminer le type de liste (bullet ou numbering) basé sur le dernier type ajouté
+            let listType = list_state[list_state.length - 1];
+            
+            if (level >= 0 && listType === "bullet") {
               cParagraphProperties.bullet = { level: level };
-            else if (level >= 0 && list_state[level] === "number")
+            } else if (level >= 0 && listType === "number") {
               cParagraphProperties.numbering = { reference: 2, level: level };
-            else cParagraphProperties.bullet = { level: 0 };
+            } else {
+              // Fallback par défaut
+              cParagraphProperties.bullet = { level: 0 };
+            }
+            
+            // Créer le paragraphe avec les propriétés de liste
+            cParagraph = new docx.Paragraph(cParagraphProperties);
             break;
           case 'code':
             if (inCodeBlockHighlight) {
@@ -257,7 +272,8 @@ function html2ooxml(html, style = "") {;
             "table",
              "tr",
             "th", 
-            "td"
+            "td",
+            "li"
           ].includes(tag)) {
 
           if (inTableCell) {
@@ -283,7 +299,13 @@ function html2ooxml(html, style = "") {;
             }
           }  else if (tag === "ul" || tag === "ol") {
             list_state.pop();
-            if (list_state.length === 0) cParagraphProperties = {};
+            if (list_state.length === 0) {
+              cParagraphProperties = {};
+            }
+          } else if (tag === "li") {
+            // Réinitialiser les propriétés de paragraphe après chaque élément de liste
+            // pour éviter que les propriétés de puce persistent
+            cParagraphProperties = {};
           } else if (tag === "tr") {
             inTableRow = false;
             tableHeader = false;
