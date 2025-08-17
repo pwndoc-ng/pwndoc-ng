@@ -694,6 +694,7 @@
                                     <template v-slot="control">
                                         <basic-editor  v-sticky="{ top: 10 }" 
                                         v-model="update.description" 
+                                        :collab="false"
                                         :idUnique="currentVulnerability._id+'-description'"
                                         :diff="currentVulnerability.details[currentDetailsIndex].description || ''" 
                                         :editable=false />
@@ -715,6 +716,7 @@
                                     <template v-slot="control">
                                         <basic-editor  v-sticky="{ top: 10 }" 
                                         v-model="update.observation"
+                                        :collab="false"
                                         :idUnique="currentVulnerability._id+'-observation'"
                                         :diff="currentVulnerability.details[currentDetailsIndex].observation || ''"
                                         :editable=false />
@@ -744,6 +746,7 @@
                                     <template v-slot="control">
                                         <basic-editor  v-sticky="{ top: 10 }" 
                                         v-model="update.remediation" 
+                                        :collab="false"
                                         :idUnique="currentVulnerability._id+'-remediation'"
                                         :diff="currentVulnerability.details[currentDetailsIndex].remediation || ''"
                                         :editable=false />
@@ -797,6 +800,7 @@
                                 <div v-if="update.customFields">
                                     <custom-fields 
                                     ref="customfields" 
+                                    :collab="false"
                                     v-model="update.customFields"
                                     :idUnique="currentDetailsIndex+currentVulnerability._id" 
                                     custom-element="QCardSection"
