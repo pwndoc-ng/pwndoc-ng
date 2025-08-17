@@ -55,7 +55,7 @@ const HIGHLIGHT_COLOR_MAP = {
 
 
 
-function html2ooxml(html, style = "") {;
+function html2ooxml(html, style = "", listIds = []) {;
   if (html === "") return html;
   if (!html.match(/^<.+>/)) html = `<p>${html}</p>`;
   console.log(html);
@@ -65,6 +65,8 @@ function html2ooxml(html, style = "") {;
   let cRunProperties = {};
   let cParagraphProperties = {};
   let list_state = [];
+  let availableListIds = [...listIds]; // Copie des IDs disponibles pour les listes numérotées
+  let currentListId = 0; // ID de la liste actuellement en cours
   let inCodeBlock = false;
   let inCodeBlockHighlight = false;
   let inTable = false;
@@ -182,8 +184,10 @@ function html2ooxml(html, style = "") {;
             list_state = ["bullet"];
             break;
           case 'ol':
-            // Réinitialiser l'état de la liste pour commencer au niveau 0
+            // Prendre le prochain ID disponible ou en créer un nouveau
+            currentListId = availableListIds.length > 0 ? availableListIds.shift() : Math.floor(Math.random() * 90000) + 10000;
             list_state = ["number"];
+            console.log(`🔢 Liste numérotée créée avec ID: ${currentListId}`);
             break;
           case 'li':
             // Calculer le niveau de la liste basé sur la profondeur d'imbrication
@@ -195,7 +199,9 @@ function html2ooxml(html, style = "") {;
             if (level >= 0 && listType === "bullet") {
               cParagraphProperties.bullet = { level: level };
             } else if (level >= 0 && listType === "number") {
-              cParagraphProperties.numbering = { reference: 2, level: level };
+              // Utiliser l'ID de la liste actuelle
+              cParagraphProperties.numbering = { reference: currentListId, level: level };
+              console.log(`📝 Élément de liste avec référence: ${currentListId}`);
             } else {
               // Fallback par défaut
               cParagraphProperties.bullet = { level: 0 };
@@ -421,7 +427,7 @@ let filteredXml = prepXml["w:body"].filter((e) => {
 });
 
   let dataXml = xml(filteredXml);
-  dataXml = dataXml.replace(/w:numId w:val="{2-0}"/g, 'w:numId w:val="2"'); // Replace numbering to have correct value
+  dataXml = dataXml.replace(/w:numId w:val="{(\d+)-0}"/g, 'w:numId w:val="$1"'); // Replace numbering to have correct value
   //a little dirty but until we do better it works
   dataXml = dataXml.replace(/\{_\|link\|_\{(.*?)\|\-\|(.*?)\}_\|link\|_\}/gm, '<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> HYPERLINK $2 </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:rPr><w:rStyle w:val="PwndocLink"/></w:rPr><w:t> $1 </w:t> </w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>')
   console.log(dataXml)

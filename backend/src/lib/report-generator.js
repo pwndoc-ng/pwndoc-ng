@@ -531,13 +531,115 @@ expressions.filters.where = function(input, query) {
     });
 };
 
-// Convert HTML data to Open Office XML format: {@input | convertHTML: 'customStyle'}
-expressions.filters.convertHTML = function(input, style) {
-    if (typeof input === 'undefined')
+// Convert HTML data to Open Office XML format: {@input | convertHTML: 'customStyle' | 'listIds'}
+expressions.filters.convertHTML = function(input, style, listIds) {
+    if (typeof input === 'undefined') {
         var result = html2ooxml('')
-    else
-        var result = html2ooxml(input.replace(/(<p><\/p>)+$/, ''), style)
+    } else {
+        // Compter les balises <ol> dans l'input HTML
+        let olCount = 0;
+        let ulCount = 0;
+        
+        if (input && typeof input === 'string') {
+            olCount = (input.match(/<ol/g) || []).length;
+            ulCount = (input.match(/<ul/g) || []).length;
+        }
+        
+        console.log(`📊 Comptage des listes dans convertHTML:`);
+        console.log(`   🔢 Listes numérotées (<ol>): ${olCount}`);
+        console.log(`   🔘 Listes à puces (<ul>): ${ulCount}`);
+        
+        // Convertir listIds en array si c'est une string
+        let listIdsArray = [];
+        if (listIds) {
+            if (typeof listIds === 'string') {
+                try {
+                    listIdsArray = JSON.parse(listIds);
+                } catch (e) {
+                    listIdsArray = [listIds];
+                }
+            } else if (Array.isArray(listIds)) {
+                listIdsArray = listIds;
+            } else {
+                listIdsArray = [listIds];
+            }
+        }
+        
+        // Si on n'a pas d'IDs fournis mais qu'on a des listes numérotées, en générer automatiquement
+        if (olCount > 0 && listIdsArray.length === 0) {
+            // Générer des IDs imprévisibles entre 10000 et 99999
+            listIdsArray = Array.from({length: olCount}, () => Math.floor(Math.random() * 90000) + 10000);
+            console.log(`🎲 Génération automatique des IDs imprévisibles:`, listIdsArray);
+        }
+        
+        console.log(`🆔 IDs des listes à utiliser:`, listIdsArray);
+        
+        // Si on a des listes, modifier le numbering.xml
+        if (olCount > 0 || ulCount > 0) {
+            modifyNumberingXml(olCount, ulCount, listIdsArray);
+        }
+        
+        var result = html2ooxml(input.replace(/(<p><\/p>)+$/, ''), style, listIdsArray)
+    }
     return result;
+}
+
+// Fonction pour modifier le numbering.xml du document DOCX
+function modifyNumberingXml(olCount, ulCount, listIdsArray = []) {
+    try {
+        // Lire le numbering.xml existant
+        const numberingPath = "word/numbering.xml";
+        let numberingXml = zip.files[numberingPath].asText();
+        
+        // Si le fichier n'existe pas, le créer avec la structure complète
+        if (!numberingXml) {
+            numberingXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering mc:Ignorable="w14 w15 wp14" xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:w10="urn:schemas-microsoft-com:office:word" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup" xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk" xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">
+</w:numbering>`;
+        }
+        
+        // Trouver le prochain abstractNumId disponible
+        let nextAbstractNumId = 1;
+        if (numberingXml.includes('w:abstractNum w:abstractNumId="')) {
+            const matches = numberingXml.match(/w:abstractNum w:abstractNumId="(\d+)"/g);
+            if (matches) {
+                const ids = matches.map(match => parseInt(match.match(/"(\d+)"/)[1]));
+                nextAbstractNumId = Math.max(...ids) + 1;
+            }
+        }
+        
+        // Créer une définition abstraite pour les listes numérotées
+        const decimalAbstract = `<w:abstractNum w:abstractNumId="${nextAbstractNumId}" w15:restartNumberingAfterBreak="0"><w:multiLevelType w:val="hybridMultilevel"/><w:lvl w:ilvl="0" w15:tentative="1"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/><w:lvlJc w:val="start"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl></w:abstractNum>`;
+        
+        numberingXml = numberingXml.replace('</w:numbering>', `${decimalAbstract}\n</w:numbering>`);
+        
+        // Créer des numérotations concrètes uniques pour chaque liste
+        listIdsArray.forEach((listId, index) => {
+            const concreteNumbering = `<w:num w:numId="${listId}"><w:abstractNumId w:val="${nextAbstractNumId}"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num>`;
+            
+            numberingXml = numberingXml.replace('</w:numbering>', `${concreteNumbering}\n</w:numbering>`);
+        });
+        
+        // Ajouter la définition pour les puces si nécessaire
+        if (ulCount > 0) {
+            const bulletAbstract = `<w:abstractNum w:abstractNumId="${nextAbstractNumId + 1}" w15:restartNumberingAfterBreak="0"><w:multiLevelType w:val="hybridMultilevel"/><w:lvl w:ilvl="0" w15:tentative="1"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="●"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl></w:abstractNum>`;
+            
+            numberingXml = numberingXml.replace('</w:numbering>', `${bulletAbstract}\n</w:numbering>`);
+            
+            const bulletNumbering = `<w:num w:numId="99999"><w:abstractNumId w:val="${nextAbstractNumId + 1}"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num>`;
+            
+            numberingXml = numberingXml.replace('</w:numbering>', `${bulletNumbering}\n</w:numbering>`);
+        }
+        
+        zip.file(numberingPath, numberingXml);
+        
+        console.log(`✅ numbering.xml modifié avec succès`);
+        console.log(`   🔢 AbstractNumId utilisé: ${nextAbstractNumId}`);
+        console.log(`   🔢 IDs des listes numérotées: ${listIdsArray.join(', ')}`);
+        console.log(`   🔘 ID des puces: 99999`);
+        
+    } catch (error) {
+        console.log(`❌ Erreur lors de la modification du numbering.xml:`, error);
+    }
 }
 
 // Count vulnerability by severity
