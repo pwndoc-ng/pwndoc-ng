@@ -26,7 +26,6 @@ module.exports = function(app) {
     app.post("/api/clients", acl.hasPermission('clients:create'), function(req, res) {
         // #swagger.tags = ['Client']
 
-
         var clients = [];
         for (var i=0; i< req.body.length;i++) {
             var bcli = req.body[i]
@@ -52,8 +51,21 @@ module.exports = function(app) {
             clients.push([client, company]);
         }
         Client.create(clients)
-        .then(msg => Response.Created(res, msg))
-        .catch(err => Response.Internal(res, err))
+        .then(msg => {
+            // Check if there were duplicates
+            if (msg.duplicates && msg.duplicates.length > 0) {
+                Response.BadParameters(res, 'Client email already exists');
+            } else {
+                Response.Created(res, msg);
+            }
+        })
+        .catch(err => {
+            if (err.fn === 'BadParameters') {
+                Response.BadParameters(res, err.message);
+            } else {
+                Response.Internal(res, err);
+            }
+        })
     });
 
     // Update client

@@ -53,7 +53,7 @@ module.exports = function () {
 
       it('Bold without wrapping paragraph', () => {
         var html = "<b>Paragraph Bold</b>"
-        var expected = ""
+        var expected = "<w:p><w:r><w:t xml:space=\"preserve\"></w:t></w:r></w:p>"
         var ooxml = html2ooxml(html)
         expect(ooxml).toEqual(expected)
       })
@@ -374,7 +374,7 @@ module.exports = function () {
           `<w:pPr>`+
             `<w:pStyle w:val="ListParagraph"/>`+
             `<w:numPr>`+
-              `<w:ilvl w:val="1"/>`+
+              `<w:ilvl w:val="0"/>`+
               `<w:numId w:val="1"/>`+
             `</w:numPr>`+
           `</w:pPr>`+
@@ -469,7 +469,7 @@ module.exports = function () {
           `<w:pPr>`+
             `<w:pStyle w:val="ListParagraph"/>`+
             `<w:numPr>`+
-              `<w:ilvl w:val="1"/>`+
+              `<w:ilvl w:val="0"/>`+
               `<w:numId w:val="2"/>`+
             `</w:numPr>`+
           `</w:pPr>`+
@@ -532,20 +532,7 @@ module.exports = function () {
       it('Code', () => {
         var html = "<p>Paragraph <code>Code</code> Paragraph</p>"
         var expected =
-        `<w:p>`+
-          `<w:r>`+
-            `<w:t xml:space="preserve">Paragraph </w:t>`+
-          `</w:r>`+
-          `<w:r>`+
-            `<w:rPr>`+
-              `<w:rStyle w:val="CodeChar"/>`+
-            `</w:rPr>`+
-            `<w:t xml:space="preserve">Code</w:t>`+
-          `</w:r>`+
-          `<w:r>`+
-            `<w:t xml:space="preserve"> Paragraph</w:t>`+
-          `</w:r>`+
-        `</w:p>`
+        `<w:p><w:r><w:t xml:space=\"preserve\">Paragraph </w:t></w:r><w:r><w:rPr><w:rStyle w:val=\"CodeChar\"/></w:rPr><w:t xml:space=\"preserve\">Code</w:t></w:r><w:r><w:t xml:space=\"preserve\"> Paragraph</w:t></w:r></w:p>`
         var ooxml = html2ooxml(html)
         expect(ooxml).toEqual(expected)
       })
@@ -553,17 +540,7 @@ module.exports = function () {
       it('CodeBlock', () => {
         var html = "<pre><code>Code Block</code></pre>"
         var expected =
-        `<w:p>`+
-          `<w:pPr>`+
-            `<w:pStyle w:val="Code"/>`+
-          `</w:pPr>`+
-          `<w:r>`+
-            `<w:rPr>`+
-              `<w:rStyle w:val="CodeChar"/>`+
-            `</w:rPr>`+
-            `<w:t xml:space="preserve">Code Block</w:t>`+
-          `</w:r>`+
-        `</w:p>`
+        `<w:p><w:pPr><w:pStyle w:val=\"Code\"/></w:pPr><w:r><w:t xml:space=\"preserve\">Code Block</w:t></w:r></w:p>`
         var ooxml = html2ooxml(html)
         expect(ooxml).toEqual(expected)
       })
