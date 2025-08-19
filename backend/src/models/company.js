@@ -51,13 +51,8 @@ CompanySchema.statics.create = (companies) => {
         })
         .catch((err) => {
             if (err.code === 11000) {
-                if (err.result.nInserted === 0)
-                    reject({fn: 'BadParameters', message: 'Company name already exists'});
-                else {
-                    var errorMessages = [] 
-                    err.writeErrors.forEach(e => errorMessages.push(e.errmsg || "no errmsg"))
-                    resolve({created: err.result.nInserted, duplicates: errorMessages});
-                }
+                // Always reject when there are duplicates, even if some insertions succeeded
+                reject({fn: 'BadParameters', message: 'Company name already exists'});
             }
             else
                 reject(err);
