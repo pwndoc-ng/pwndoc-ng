@@ -65,6 +65,7 @@ function html2ooxml(html, style = "", listIds = []) {;
   let cRunProperties = {};
   let cParagraphProperties = {};
   let list_state = [];
+  let bullet_state = []; // État séparé pour les puces
   let availableListIds = [...listIds]; // Copie des IDs disponibles pour les listes numérotées
   let currentListId = 0; // ID de la liste actuellement en cours
   let listIdsByLevel = {}; // IDs de liste par niveau d'imbrication
@@ -181,9 +182,9 @@ function html2ooxml(html, style = "", listIds = []) {;
             cRunProperties.link = attribs.href;
             break;
           case 'ul':
-            // Empiler le type de liste pour gérer l'imbrication
-            list_state.push("bullet");
-            console.log(`🔘 Liste à puces créée, niveau: ${list_state.length - 1}`);
+            // Empiler dans le système de puces séparé
+            bullet_state.push("bullet");
+            console.log(`🔘 Liste à puces créée, niveau: ${bullet_state.length - 1}`);
             break;
           case 'ol':
             // Empiler le type de liste pour gérer l'imbrication
@@ -203,22 +204,22 @@ function html2ooxml(html, style = "", listIds = []) {;
             }
             break;
           case 'li':
-            // Calculer le niveau de la liste basé sur la profondeur d'imbrication
-            let level = Math.min(list_state.length - 1, 8); // Limite à 8 (niveaux 0-8, max Word = 9)
-            
-            // Déterminer le type de liste (bullet ou numbering) basé sur le dernier type ajouté
-            let listType = list_state[list_state.length - 1];
-            
-            if (level >= 0 && listType === "bullet") {
-              cParagraphProperties.bullet = { level: level };
-            } else if (level >= 0 && listType === "number") {
-              // Utiliser l'ID correspondant au niveau de cet élément
-              const elementListId = listIdsByLevel[level];
-              cParagraphProperties.numbering = { reference: elementListId, level: level };
-              console.log(`📝 Élément de liste numérotée - ID: ${elementListId}, niveau: ${level}`);
+            // Déterminer si on est dans une liste à puces ou numérotée
+            if (bullet_state.length > 0) {
+              // On est dans une liste à puces - utiliser numId=1 avec la définition bullet
+              let bulletLevel = Math.min(bullet_state.length - 1, 8);
+              cParagraphProperties.numbering = { reference: 1, level: bulletLevel };
+              console.log(`📝 Élément de liste à puces - ID: 1, niveau: ${bulletLevel}`);
+            } else if (list_state.length > 0) {
+              // On est dans une liste numérotée
+              let numberLevel = Math.min(list_state.length - 1, 8);
+              const elementListId = listIdsByLevel[numberLevel];
+              cParagraphProperties.numbering = { reference: elementListId, level: numberLevel };
+              console.log(`📝 Élément de liste numérotée - ID: ${elementListId}, niveau: ${numberLevel}`);
             } else {
-              // Fallback par défaut
-              cParagraphProperties.bullet = { level: 0 };
+              // Fallback par défaut - utiliser les puces
+              cParagraphProperties.numbering = { reference: 1, level: 0 };
+              console.log(`📝 Élément de liste fallback - ID: 1, niveau: 0`);
             }
             
             // Créer le paragraphe avec les propriétés de liste
@@ -278,29 +279,33 @@ function html2ooxml(html, style = "", listIds = []) {;
         console.log(`🔚 Fermeture du tag: ${tag}`);
         
         // Gérer les listes en premier
-        if (tag === "ul" || tag === "ol") {
+        if (tag === "ul") {
+          const closingBulletLevel = bullet_state.length - 1;
+          bullet_state.pop();
+          console.log(`🔄 Fermeture de liste à puces ${tag} au niveau ${closingBulletLevel}, niveaux restants: ${bullet_state.length}`);
+          
+          if (bullet_state.length === 0) {
+            cParagraphProperties = {};
+            console.log(`🔄 Toutes les listes à puces fermées, réinitialisation`);
+          }
+        } else if (tag === "ol") {
           const closingLevel = list_state.length - 1;
           list_state.pop();
-          console.log(`🔄 Fermeture de liste ${tag} au niveau ${closingLevel}, niveaux restants: ${list_state.length}`);
+          console.log(`🔄 Fermeture de liste numérotée ${tag} au niveau ${closingLevel}, niveaux restants: ${list_state.length}`);
           
           // Nettoyer les IDs des niveaux plus profonds que celui qu'on ferme
-          if (tag === "ol") {
-            Object.keys(listIdsByLevel).forEach(level => {
-              if (parseInt(level) > closingLevel) {
-                delete listIdsByLevel[level];
-                console.log(`🗑️ Suppression de l'ID du niveau ${level}`);
-              }
-            });
-          }
+          Object.keys(listIdsByLevel).forEach(level => {
+            if (parseInt(level) > closingLevel) {
+              delete listIdsByLevel[level];
+              console.log(`🗑️ Suppression de l'ID du niveau ${level}`);
+            }
+          });
           
           if (list_state.length === 0) {
             cParagraphProperties = {};
-            // Réinitialiser complètement quand toutes les listes sont fermées
-            if (tag === "ol") {
-              currentListId = 0;
-              listIdsByLevel = {};
-              console.log(`🔄 Toutes les listes fermées, réinitialisation complète`);
-            }
+            currentListId = 0;
+            listIdsByLevel = {};
+            console.log(`🔄 Toutes les listes numérotées fermées, réinitialisation complète`);
           }
         }
         else if (

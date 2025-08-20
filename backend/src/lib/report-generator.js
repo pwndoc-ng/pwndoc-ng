@@ -23,6 +23,7 @@ var chartRelXml = ''
 var chartContentTypeXml = ''
 var globalAbstractNumId = null // Variable globale pour partager l'abstractNumId entre toutes les sections
 var abstractNumCreated = false // Flag pour éviter de créer l'abstractNum plusieurs fois
+var bulletDefinitionCreated = false // Flag pour éviter de créer la définition bullet plusieurs fois
 
 const encodeHTMLEntities = s => s.replace(/[\u00A0-\u9999<>&]/g, i => '&#'+i.charCodeAt(0)+';')
 
@@ -32,6 +33,7 @@ async function generateDoc(audit) {
     // Réinitialiser les variables globales pour chaque génération de document
     globalAbstractNumId = null;
     abstractNumCreated = false;
+    bulletDefinitionCreated = false;
 
     var templatePath = `${__basedir}/../report-templates/${audit.template.name}.${audit.template.ext || 'docx'}`
     var content = fs.readFileSync(templatePath, "binary");
@@ -667,23 +669,43 @@ function modifyNumberingXml(olCount, ulCount, listIdsArray = []) {
             numberingXml = numberingXml.replace('</w:numbering>', `${concreteNumbering}\n</w:numbering>`);
         });
         
-        // Ajouter la définition pour les puces si nécessaire
-        if (ulCount > 0) {
-            const bulletAbstract = `<w:abstractNum w:abstractNumId="${nextAbstractNumId + 1}" w15:restartNumberingAfterBreak="0"><w:multiLevelType w:val="hybridMultilevel"/><w:lvl w:ilvl="0" w15:tentative="1"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="●"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl></w:abstractNum>`;
+        // Ajouter la définition pour les puces si nécessaire (une seule fois pour tout le document)
+        if (ulCount > 0 && !bulletDefinitionCreated) {
+            // Créer une définition abstraite simple pour les puces
+            let bulletAbstract = `<w:abstractNum w:abstractNumId="${nextAbstractNumId + 1}" w15:restartNumberingAfterBreak="0">
+                <w:multiLevelType w:val="hybridMultilevel"/>
+                <w:lvl w:ilvl="0" w15:tentative="1">
+                    <w:start w:val="1"/>
+                    <w:numFmt w:val="bullet"/>
+                    <w:lvlText w:val="•"/>
+                    <w:lvlJc w:val="left"/>
+                    <w:pPr>
+                        <w:ind w:left="720" w:hanging="360"/>
+                    </w:pPr>
+                </w:lvl>
+            </w:abstractNum>`;
             
             numberingXml = numberingXml.replace('</w:numbering>', `${bulletAbstract}\n</w:numbering>`);
             
-            const bulletNumbering = `<w:num w:numId="99999"><w:abstractNumId w:val="${nextAbstractNumId + 1}"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num>`;
+            const bulletNumbering = `<w:num w:numId="1"><w:abstractNumId w:val="${nextAbstractNumId + 1}"/></w:num>`;
             
             numberingXml = numberingXml.replace('</w:numbering>', `${bulletNumbering}\n</w:numbering>`);
+            
+            bulletDefinitionCreated = true;
+            console.log(`📝 Définition simple créée pour les puces (ID: 1, abstractNumId: ${nextAbstractNumId + 1})`);
+        } else if (ulCount > 0 && bulletDefinitionCreated) {
+            console.log(`♻️ Définition bullet déjà créée, réutilisation de l'ID: 1`);
         }
+        
         
         zip.file(numberingPath, numberingXml);
         
         console.log(`✅ numbering.xml modifié avec succès`);
         console.log(`   🔢 AbstractNumId utilisé: ${nextAbstractNumId}`);
         console.log(`   🔢 IDs des listes numérotées: ${listIdsArray.join(', ')}`);
-        console.log(`   🔘 ID des puces: 99999`);
+        if (bulletDefinitionCreated) {
+            console.log(`   🔘 ID des puces: 1`);
+        }
         
     } catch (error) {
         console.log(`❌ Erreur lors de la modification du numbering.xml:`, error);
