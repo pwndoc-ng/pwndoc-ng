@@ -21,11 +21,17 @@ var numberOfPieChart = 0
 var numberOfBarChart = 0
 var chartRelXml = ''
 var chartContentTypeXml = ''
+var globalAbstractNumId = null // Variable globale pour partager l'abstractNumId entre toutes les sections
+var abstractNumCreated = false // Flag pour éviter de créer l'abstractNum plusieurs fois
 
 const encodeHTMLEntities = s => s.replace(/[\u00A0-\u9999<>&]/g, i => '&#'+i.charCodeAt(0)+';')
 
 // Generate document with docxtemplater
 async function generateDoc(audit) {
+
+    // Réinitialiser les variables globales pour chaque génération de document
+    globalAbstractNumId = null;
+    abstractNumCreated = false;
 
     var templatePath = `${__basedir}/../report-templates/${audit.template.name}.${audit.template.ext || 'docx'}`
     var content = fs.readFileSync(templatePath, "binary");
@@ -597,20 +603,62 @@ function modifyNumberingXml(olCount, ulCount, listIdsArray = []) {
 </w:numbering>`;
         }
         
-        // Trouver le prochain abstractNumId disponible
-        let nextAbstractNumId = 1;
-        if (numberingXml.includes('w:abstractNum w:abstractNumId="')) {
-            const matches = numberingXml.match(/w:abstractNum w:abstractNumId="(\d+)"/g);
-            if (matches) {
-                const ids = matches.map(match => parseInt(match.match(/"(\d+)"/)[1]));
-                nextAbstractNumId = Math.max(...ids) + 1;
+        // Utiliser l'abstractNumId global ou en créer un nouveau s'il n'existe pas
+        let nextAbstractNumId;
+        if (globalAbstractNumId === null) {
+            // Premier appel : trouver le prochain abstractNumId disponible
+            nextAbstractNumId = 1;
+            if (numberingXml.includes('w:abstractNum w:abstractNumId="')) {
+                const matches = numberingXml.match(/w:abstractNum w:abstractNumId="(\d+)"/g);
+                if (matches) {
+                    const ids = matches.map(match => parseInt(match.match(/"(\d+)"/)[1]));
+                    nextAbstractNumId = Math.max(...ids) + 1;
+                }
             }
+            globalAbstractNumId = nextAbstractNumId;
+            console.log(`🆕 Premier abstractNumId créé: ${globalAbstractNumId}`);
+        } else {
+            // Réutiliser l'abstractNumId existant
+            nextAbstractNumId = globalAbstractNumId;
+            console.log(`♻️ Réutilisation de l'abstractNumId: ${globalAbstractNumId}`);
         }
         
-        // Créer une définition abstraite pour les listes numérotées
-        const decimalAbstract = `<w:abstractNum w:abstractNumId="${nextAbstractNumId}" w15:restartNumberingAfterBreak="0"><w:multiLevelType w:val="hybridMultilevel"/><w:lvl w:ilvl="0" w15:tentative="1"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/><w:lvlJc w:val="start"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl></w:abstractNum>`;
-        
-        numberingXml = numberingXml.replace('</w:numbering>', `${decimalAbstract}\n</w:numbering>`);
+        // Créer une définition abstraite pour les listes numérotées seulement si c'est la première fois
+        if (!abstractNumCreated) {
+            // Créer une définition multi-niveaux (0-8) pour les listes numérotées
+            let decimalAbstract = `<w:abstractNum w:abstractNumId="${nextAbstractNumId}" w15:restartNumberingAfterBreak="0">
+                <w:multiLevelType w:val="hybridMultilevel"/>`;
+            
+            // Générer les définitions pour chaque niveau (0 à 8)
+            for (let i = 0; i <= 8; i++) {
+                const leftIndent = 720 + (i * 720); // Indentation progressive : 720, 1440, 2160, etc.
+                const hanging = 360; // Espacement constant pour les numéros
+                
+                // Types de numérotation alternés par niveau
+                const numFormats = ["decimal", "lowerLetter", "lowerRoman"];
+                const numFormat = numFormats[i % numFormats.length];
+                const lvlText = `%${i+1}.`; // Chaque niveau utilise son propre compteur
+                
+                decimalAbstract += `
+                <w:lvl w:ilvl="${i}" w15:tentative="1">
+                    <w:start w:val="1"/>
+                    <w:numFmt w:val="${numFormat}"/>
+                    <w:lvlText w:val="${lvlText}"/>
+                    <w:lvlJc w:val="start"/>
+                    <w:pPr>
+                        <w:ind w:left="${leftIndent}" w:hanging="${hanging}"/>
+                    </w:pPr>
+                </w:lvl>`;
+            }
+            
+            decimalAbstract += `\n</w:abstractNum>`;
+            
+            numberingXml = numberingXml.replace('</w:numbering>', `${decimalAbstract}\n</w:numbering>`);
+            abstractNumCreated = true;
+            console.log(`📝 Définition abstraite multi-niveaux créée pour abstractNumId: ${nextAbstractNumId}`);
+        } else {
+            console.log(`🚫 Définition abstraite ignorée (déjà créée) pour abstractNumId: ${nextAbstractNumId}`);
+        }
         
         // Créer des numérotations concrètes uniques pour chaque liste
         listIdsArray.forEach((listId, index) => {
