@@ -27,6 +27,27 @@
                     <q-toggle :label="$t('btn.enable')" v-model="settings.report.public.extendCvssTemporalEnvironment" />
                 </q-item-section>
             </q-item>
+          </q-card-section>
+          <q-card-section>
+            <div class="text-bold">{{$t('defaultCvssVersion')}}</div>
+            <br/>
+            <div class="text-grey-8">{{$t('defaultCvssVersionInfo')}}</div>
+            <br/>
+            <q-item>
+                <q-item-section class="col-md-2">
+                    <q-select
+                        v-model="settings.report.public.defaultCvssVersion"
+                        :options="cvssVersionOptions"
+                        option-label="label"
+                        option-value="value"
+                        emit-value
+                        map-options
+                        outlined
+                        dense
+                        :disable="!canEdit"
+                    />
+                </q-item-section>
+            </q-item>
         </q-card-section>
         </q-card>
 

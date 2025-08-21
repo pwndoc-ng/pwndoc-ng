@@ -389,6 +389,8 @@ export default {
     reports: 'Rapports',
     reportsImagesBorder: 'Bordures d\'Images de Rapport',
     extendCvssTemporalEnvironment: 'Etendre les rubriques cvss Temporal et Environmental par défaut',
+    defaultCvssVersion: 'Version CVSS par défaut',
+    defaultCvssVersionInfo: 'Choisir la version CVSS par défaut pour les nouvelles vulnérabilités',
     addBorderToImages: 'Ajouter une bordure aux images dans le rapport généré.',
     currentColor: 'Couleur actuelle',
     cvssColors: 'Couleurs du CVSS',

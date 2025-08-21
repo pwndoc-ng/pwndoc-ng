@@ -506,6 +506,8 @@ export default {
     reports: 'Reports',
     reportsImagesBorder: 'Report Images border',
     extendCvssTemporalEnvironment: 'Extend Default Temporal and Environmental cvss topics',
+    defaultCvssVersion: 'Default CVSS Version',
+    defaultCvssVersionInfo: 'Choose the default CVSS version for new vulnerabilities',
     addBorderToImages: 'Add border to images in the generated report.',
     currentColor: 'Current color',
     cvssColors: 'CVSS colors',

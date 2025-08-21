@@ -107,15 +107,15 @@ CVSS40.getMetricValue = function(cvssSelected, metric) {
     var selected = cvssSelected[metric];
 
     // Handle default values for undefined metrics
-    if (metric === "E" && selected === "X") return "A";
-    if (metric === "CR" && selected === "X") return "H";
-    if (metric === "IR" && selected === "X") return "H";
-    if (metric === "AR" && selected === "X") return "H";
+    if (metric === "E" && (selected === "X" || !selected)) return "A";
+    if (metric === "CR" && (selected === "X" || !selected)) return "H";
+    if (metric === "IR" && (selected === "X" || !selected)) return "H";
+    if (metric === "AR" && (selected === "X" || !selected)) return "H";
 
-    // Handle modified metrics
+    // Handle modified metrics - if a modified metric exists and is not X, use it instead of base metric
     if (cvssSelected.hasOwnProperty("M" + metric)) {
         var modifiedSelected = cvssSelected["M" + metric];
-        if (modifiedSelected !== "X") {
+        if (modifiedSelected && modifiedSelected !== "X") {
             return modifiedSelected;
         }
     }
@@ -430,6 +430,27 @@ CVSS40.parseVectorString = function(vectorString) {
     if (!metrics.CR) metrics.CR = "X";
     if (!metrics.IR) metrics.IR = "X";
     if (!metrics.AR) metrics.AR = "X";
+    
+    // Set default values for all modified metrics (Environmental)
+    if (!metrics.MAV) metrics.MAV = "X";
+    if (!metrics.MAC) metrics.MAC = "X";
+    if (!metrics.MAT) metrics.MAT = "X";
+    if (!metrics.MPR) metrics.MPR = "X";
+    if (!metrics.MUI) metrics.MUI = "X";
+    if (!metrics.MVC) metrics.MVC = "X";
+    if (!metrics.MVI) metrics.MVI = "X";
+    if (!metrics.MVA) metrics.MVA = "X";
+    if (!metrics.MSC) metrics.MSC = "X";
+    if (!metrics.MSI) metrics.MSI = "X";
+    if (!metrics.MSA) metrics.MSA = "X";
+    
+    // Set default values for Supplemental metrics
+    if (!metrics.S) metrics.S = "X";
+    if (!metrics.AU) metrics.AU = "X";
+    if (!metrics.R) metrics.R = "X";
+    if (!metrics.V) metrics.V = "X";
+    if (!metrics.RE) metrics.RE = "X";
+    if (!metrics.U) metrics.U = "X";
 
     return { success: true, metrics: metrics };
 };
@@ -453,16 +474,61 @@ CVSS40.calculateCVSSFromVector = function(vectorString) {
         threatScore = Math.round(baseScore * (eWeight[metrics.E] || 1.0) * 10) / 10;
     }
 
+    // Calculate environmental score
+    var environmentalScore = CVSS40.calculateEnvironmentalScore(metrics, macroVector);
+
     return {
         success: true,
         baseMetricScore: baseScore,
         baseSeverity: CVSS40.severityRating(baseScore),
         threatMetricScore: threatScore,
         threatSeverity: CVSS40.severityRating(threatScore),
-        environmentalMetricScore: baseScore, // Simplified for now
-        environmentalSeverity: CVSS40.severityRating(baseScore),
+        environmentalMetricScore: environmentalScore,
+        environmentalSeverity: CVSS40.severityRating(environmentalScore),
         macroVector: macroVector
     };
+};
+
+// Calculate environmental score using modified metrics
+CVSS40.calculateEnvironmentalScore = function(metrics, baseMacroVector) {
+    // Check if any environmental metrics are defined (not X)
+    var hasEnvironmentalMetrics = false;
+    var envMetrics = ['MAV', 'MAC', 'MAT', 'MPR', 'MUI', 'MVC', 'MVI', 'MVA', 'MSC', 'MSI', 'MSA'];
+    
+    for (var i = 0; i < envMetrics.length; i++) {
+        if (metrics[envMetrics[i]] && metrics[envMetrics[i]] !== 'X') {
+            hasEnvironmentalMetrics = true;
+            break;
+        }
+    }
+    
+    // If no environmental metrics are set, return base score
+    if (!hasEnvironmentalMetrics) {
+        var baseScore = CVSS40.MacroVectorLookup[baseMacroVector];
+        return baseScore || 0.0;
+    }
+    
+    // Create modified metrics object for environmental calculation
+    var envMetricsObj = {};
+    
+    // Copy base metrics
+    var baseMetrics = ['AV', 'AC', 'AT', 'PR', 'UI', 'VC', 'VI', 'VA', 'SC', 'SI', 'SA'];
+    for (var i = 0; i < baseMetrics.length; i++) {
+        var metric = baseMetrics[i];
+        envMetricsObj[metric] = CVSS40.getMetricValue(metrics, metric);
+    }
+    
+    // Add threat and requirements metrics
+    envMetricsObj.E = CVSS40.getMetricValue(metrics, 'E');
+    envMetricsObj.CR = CVSS40.getMetricValue(metrics, 'CR');
+    envMetricsObj.IR = CVSS40.getMetricValue(metrics, 'IR');
+    envMetricsObj.AR = CVSS40.getMetricValue(metrics, 'AR');
+    
+    // Calculate environmental macro vector and score
+    var envMacroVector = CVSS40.calculateMacroVector(envMetricsObj);
+    var envScore = CVSS40.calculateScore(envMetricsObj, envMacroVector);
+    
+    return envScore;
 };
 
 // Severity rating function

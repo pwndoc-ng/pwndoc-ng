@@ -319,11 +319,269 @@
                     </div>
                     
                     <div class="col-md-6">
-                        <!-- Modified Base Metrics (simplified for now) -->
-                        <div class="text-subtitle2 text-grey-7">
-                            Métriques de base modifiées disponibles mais non affichées pour simplifier l'interface.
-                            Utilisez "X" (Non défini) par défaut.
+                        <!-- Modified Attack Vector -->
+                        <div class="q-my-sm text-weight-bold">
+                            <span>Vecteur d'Attaque Modifié (MAV)</span>
                         </div>
+                        <q-btn-toggle
+                            class="group-btn"
+                            v-model="cvss40Obj.MAV"
+                            toggle-color="grey-5"
+                            toggle-text-color="black"
+                            no-caps
+                            :options="cvss40Items.MAV || []"
+                            :readonly="readonly"
+                        />
+
+                        <!-- Modified Attack Complexity -->
+                        <div class="q-my-sm text-weight-bold">
+                            <span>Complexité d'Attaque Modifiée (MAC)</span>
+                        </div>
+                        <q-btn-toggle
+                            class="group-btn"
+                            v-model="cvss40Obj.MAC"
+                            toggle-color="grey-5"
+                            toggle-text-color="black"
+                            no-caps
+                            :options="cvss40Items.MAC || []"
+                            :readonly="readonly"
+                        />
+
+                        <!-- Modified Attack Requirements -->
+                        <div class="q-my-sm text-weight-bold">
+                            <span>Exigences d'Attaque Modifiées (MAT)</span>
+                        </div>
+                        <q-btn-toggle
+                            class="group-btn"
+                            v-model="cvss40Obj.MAT"
+                            toggle-color="grey-5"
+                            toggle-text-color="black"
+                            no-caps
+                            :options="cvss40Items.MAT || []"
+                            :readonly="readonly"
+                        />
+                    </div>
+                </q-card-section>
+                
+                <q-separator />
+                
+                <!-- Additional Environmental Metrics -->
+                <q-card-section class="row q-col-gutter-md">
+                    <div class="col-md-6">
+                        <!-- Modified Privileges Required -->
+                        <div class="q-my-sm text-weight-bold">
+                            <span>Privilèges Requis Modifiés (MPR)</span>
+                        </div>
+                        <q-btn-toggle
+                            class="group-btn"
+                            v-model="cvss40Obj.MPR"
+                            toggle-color="grey-5"
+                            toggle-text-color="black"
+                            no-caps
+                            :options="cvss40Items.MPR || []"
+                            :readonly="readonly"
+                        />
+
+                        <!-- Modified User Interaction -->
+                        <div class="q-my-sm text-weight-bold">
+                            <span>Interaction Utilisateur Modifiée (MUI)</span>
+                        </div>
+                        <q-btn-toggle
+                            class="group-btn"
+                            v-model="cvss40Obj.MUI"
+                            toggle-color="grey-5"
+                            toggle-text-color="black"
+                            no-caps
+                            :options="cvss40Items.MUI || []"
+                            :readonly="readonly"
+                        />
+
+                        <!-- Modified Vulnerable System Confidentiality -->
+                        <div class="q-my-sm text-weight-bold">
+                            <span>Confidentialité Système Vulnérable Modifiée (MVC)</span>
+                        </div>
+                        <q-btn-toggle
+                            class="group-btn"
+                            v-model="cvss40Obj.MVC"
+                            toggle-color="grey-5"
+                            toggle-text-color="black"
+                            no-caps
+                            :options="cvss40Items.MVC || []"
+                            :readonly="readonly"
+                        />
+
+                        <!-- Modified Vulnerable System Integrity -->
+                        <div class="q-my-sm text-weight-bold">
+                            <span>Intégrité Système Vulnérable Modifiée (MVI)</span>
+                        </div>
+                        <q-btn-toggle
+                            class="group-btn"
+                            v-model="cvss40Obj.MVI"
+                            toggle-color="grey-5"
+                            toggle-text-color="black"
+                            no-caps
+                            :options="cvss40Items.MVI || []"
+                            :readonly="readonly"
+                        />
+
+                        <!-- Modified Vulnerable System Availability -->
+                        <div class="q-my-sm text-weight-bold">
+                            <span>Disponibilité Système Vulnérable Modifiée (MVA)</span>
+                        </div>
+                        <q-btn-toggle
+                            class="group-btn"
+                            v-model="cvss40Obj.MVA"
+                            toggle-color="grey-5"
+                            toggle-text-color="black"
+                            no-caps
+                            :options="cvss40Items.MVA || []"
+                            :readonly="readonly"
+                        />
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <!-- Modified Subsequent System Confidentiality -->
+                        <div class="q-my-sm text-weight-bold">
+                            <span>Confidentialité Système Subséquent Modifiée (MSC)</span>
+                        </div>
+                        <q-btn-toggle
+                            class="group-btn"
+                            v-model="cvss40Obj.MSC"
+                            toggle-color="grey-5"
+                            toggle-text-color="black"
+                            no-caps
+                            :options="cvss40Items.MSC || []"
+                            :readonly="readonly"
+                        />
+
+                        <!-- Modified Subsequent System Integrity -->
+                        <div class="q-my-sm text-weight-bold">
+                            <span>Intégrité Système Subséquent Modifiée (MSI)</span>
+                        </div>
+                        <q-btn-toggle
+                            class="group-btn"
+                            v-model="cvss40Obj.MSI"
+                            toggle-color="grey-5"
+                            toggle-text-color="black"
+                            no-caps
+                            :options="cvss40Items.MSI || []"
+                            :readonly="readonly"
+                        />
+
+                        <!-- Modified Subsequent System Availability -->
+                        <div class="q-my-sm text-weight-bold">
+                            <span>Disponibilité Système Subséquent Modifiée (MSA)</span>
+                        </div>
+                        <q-btn-toggle
+                            class="group-btn"
+                            v-model="cvss40Obj.MSA"
+                            toggle-color="grey-5"
+                            toggle-text-color="black"
+                            no-caps
+                            :options="cvss40Items.MSA || []"
+                            :readonly="readonly"
+                        />
+                    </div>
+                </q-card-section>
+                
+                <q-separator />
+                
+                <!-- Supplemental Metrics -->
+                <q-card-section class="row">
+                    <div class="col-md-3" style="align-self:center">
+                        <span class="text-h6">Métriques Supplémentaires</span>
+                    </div>
+                    <q-space />
+                </q-card-section>
+                <q-separator />
+                
+                <q-card-section class="row q-col-gutter-md">
+                    <div class="col-md-6">
+                        <!-- Safety -->
+                        <div class="q-my-sm text-weight-bold">
+                            <span>Sécurité (S)</span>
+                        </div>
+                        <q-btn-toggle
+                            class="group-btn"
+                            v-model="cvss40Obj.S"
+                            toggle-color="grey-5"
+                            toggle-text-color="black"
+                            no-caps
+                            :options="cvss40Items.S || []"
+                            :readonly="readonly"
+                        />
+
+                        <!-- Automatable -->
+                        <div class="q-my-sm text-weight-bold">
+                            <span>Automatisable (AU)</span>
+                        </div>
+                        <q-btn-toggle
+                            class="group-btn"
+                            v-model="cvss40Obj.AU"
+                            toggle-color="grey-5"
+                            toggle-text-color="black"
+                            no-caps
+                            :options="cvss40Items.AU || []"
+                            :readonly="readonly"
+                        />
+
+                        <!-- Recovery -->
+                        <div class="q-my-sm text-weight-bold">
+                            <span>Récupération (R)</span>
+                        </div>
+                        <q-btn-toggle
+                            class="group-btn"
+                            v-model="cvss40Obj.R"
+                            toggle-color="grey-5"
+                            toggle-text-color="black"
+                            no-caps
+                            :options="cvss40Items.R || []"
+                            :readonly="readonly"
+                        />
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <!-- Value Density -->
+                        <div class="q-my-sm text-weight-bold">
+                            <span>Densité de Valeur (V)</span>
+                        </div>
+                        <q-btn-toggle
+                            class="group-btn"
+                            v-model="cvss40Obj.V"
+                            toggle-color="grey-5"
+                            toggle-text-color="black"
+                            no-caps
+                            :options="cvss40Items.V || []"
+                            :readonly="readonly"
+                        />
+
+                        <!-- Response Effort -->
+                        <div class="q-my-sm text-weight-bold">
+                            <span>Effort de Réponse (RE)</span>
+                        </div>
+                        <q-btn-toggle
+                            class="group-btn"
+                            v-model="cvss40Obj.RE"
+                            toggle-color="grey-5"
+                            toggle-text-color="black"
+                            no-caps
+                            :options="cvss40Items.RE || []"
+                            :readonly="readonly"
+                        />
+
+                        <!-- Provider Urgency -->
+                        <div class="q-my-sm text-weight-bold">
+                            <span>Urgence du Fournisseur (U)</span>
+                        </div>
+                        <q-btn-toggle
+                            class="group-btn"
+                            v-model="cvss40Obj.U"
+                            toggle-color="grey-5"
+                            toggle-text-color="black"
+                            no-caps
+                            :options="cvss40Items.U || []"
+                            :readonly="readonly"
+                        />
                     </div>
                 </q-card-section>
             </q-expansion-item>
@@ -334,6 +592,7 @@
 <script>
 import { defineComponent } from 'vue';
 import CvssCalculator from './cvsscalculator.vue';
+import SettingsService from '@/services/settings';
 
 export default defineComponent({
   emits: ['update:modelValue', 'update:cvssv4Value'],
@@ -457,6 +716,110 @@ export default defineComponent({
           { label: 'Low', value: 'L' },
           { label: 'Medium', value: 'M' },
           { label: 'High', value: 'H' }
+        ],
+        
+        // Modified Base Metrics (Environmental)
+        MAV: [
+          { label: 'Not Defined', value: 'X' },
+          { label: 'Network', value: 'N' },
+          { label: 'Adjacent', value: 'A' },
+          { label: 'Local', value: 'L' },
+          { label: 'Physical', value: 'P' }
+        ],
+        MAC: [
+          { label: 'Not Defined', value: 'X' },
+          { label: 'Low', value: 'L' },
+          { label: 'High', value: 'H' }
+        ],
+        MAT: [
+          { label: 'Not Defined', value: 'X' },
+          { label: 'None', value: 'N' },
+          { label: 'Present', value: 'P' }
+        ],
+        MPR: [
+          { label: 'Not Defined', value: 'X' },
+          { label: 'None', value: 'N' },
+          { label: 'Low', value: 'L' },
+          { label: 'High', value: 'H' }
+        ],
+        MUI: [
+          { label: 'Not Defined', value: 'X' },
+          { label: 'None', value: 'N' },
+          { label: 'Passive', value: 'P' },
+          { label: 'Active', value: 'A' }
+        ],
+        MVC: [
+          { label: 'Not Defined', value: 'X' },
+          { label: 'None', value: 'N' },
+          { label: 'Low', value: 'L' },
+          { label: 'High', value: 'H' }
+        ],
+        MVI: [
+          { label: 'Not Defined', value: 'X' },
+          { label: 'None', value: 'N' },
+          { label: 'Low', value: 'L' },
+          { label: 'High', value: 'H' }
+        ],
+        MVA: [
+          { label: 'Not Defined', value: 'X' },
+          { label: 'None', value: 'N' },
+          { label: 'Low', value: 'L' },
+          { label: 'High', value: 'H' }
+        ],
+        MSC: [
+          { label: 'Not Defined', value: 'X' },
+          { label: 'None', value: 'N' },
+          { label: 'Low', value: 'L' },
+          { label: 'High', value: 'H' }
+        ],
+        MSI: [
+          { label: 'Not Defined', value: 'X' },
+          { label: 'None', value: 'N' },
+          { label: 'Low', value: 'L' },
+          { label: 'High', value: 'H' }
+        ],
+        MSA: [
+          { label: 'Not Defined', value: 'X' },
+          { label: 'None', value: 'N' },
+          { label: 'Low', value: 'L' },
+          { label: 'High', value: 'H' }
+        ],
+        
+        // Supplemental Metrics
+        S: [
+          { label: 'Not Defined', value: 'X' },
+          { label: 'None', value: 'N' },
+          { label: 'Present', value: 'P' },
+          { label: 'High', value: 'H' }
+        ],
+        AU: [
+          { label: 'Not Defined', value: 'X' },
+          { label: 'None', value: 'N' },
+          { label: 'Yes', value: 'Y' }
+        ],
+        R: [
+          { label: 'Not Defined', value: 'X' },
+          { label: 'Automatic', value: 'A' },
+          { label: 'User', value: 'U' },
+          { label: 'Irrecoverable', value: 'I' }
+        ],
+        V: [
+          { label: 'Not Defined', value: 'X' },
+          { label: 'Diffuse', value: 'D' },
+          { label: 'Concentrated', value: 'C' }
+        ],
+        RE: [
+          { label: 'Not Defined', value: 'X' },
+          { label: 'Low', value: 'L' },
+          { label: 'Medium', value: 'M' },
+          { label: 'High', value: 'H' }
+        ],
+        U: [
+          { label: 'Not Defined', value: 'X' },
+          { label: 'Clear', value: 'C' },
+          { label: 'Green', value: 'G' },
+          { label: 'Functional', value: 'F' },
+          { label: 'Red', value: 'R' }
         ]
       },
 
@@ -466,7 +829,12 @@ export default defineComponent({
         AV: 'N', AC: 'L', AT: 'N', PR: 'N', UI: 'N',
         VC: 'N', VI: 'N', VA: 'N', SC: 'N', SI: 'N', SA: 'N',
         E: '',
-        CR: '', IR: '', AR: ''
+        CR: '', IR: '', AR: '',
+        // Modified Base Metrics (Environmental)
+        MAV: '', MAC: '', MAT: '', MPR: '', MUI: '',
+        MVC: '', MVI: '', MVA: '', MSC: '', MSI: '', MSA: '',
+        // Supplemental Metrics
+        S: '', AU: '', R: '', V: '', RE: '', U: ''
       },
       
       cvss40: {
@@ -506,7 +874,14 @@ export default defineComponent({
     if (!this.internalCvss3Vector && this.internalCvss4Vector && this.internalCvss4Vector.startsWith('CVSS:4.0')) {
       this.cvssVersion = '4.0';
       this.cvss40StrToObject(this.internalCvss4Vector);
-      this.cvss40 = CVSS40.calculateCVSSFromVector(this.internalCvss4Vector);
+      this.calculateCvss40Score(this.internalCvss4Vector);
+    }
+  },
+
+  mounted() {
+    // Ensure CVSS40 calculations are done after component is fully mounted
+    if (this.cvssVersion === '4.0' && this.internalCvss4Vector) {
+      this.calculateCvss40Score(this.internalCvss4Vector);
     }
   },
 
@@ -536,7 +911,7 @@ export default defineComponent({
       // If we have CVSS 4.0 data and we're currently on CVSS 4.0, update
       if (val && val.startsWith('CVSS:4.0') && this.cvssVersion === '4.0') {
         this.cvss40StrToObject(val);
-        this.cvss40 = CVSS40.calculateCVSSFromVector(val);
+        this.calculateCvss40Score(val);
       }
     },
     cvss40Obj: {
@@ -560,16 +935,21 @@ export default defineComponent({
           AV: 'N', AC: 'L', AT: 'N', PR: 'N', UI: 'N',
           VC: 'N', VI: 'N', VA: 'N', SC: 'N', SI: 'N', SA: 'N',
           E: '',
-          CR: '', IR: '', AR: ''
+          CR: '', IR: '', AR: '',
+          // Modified Base Metrics (Environmental)
+          MAV: '', MAC: '', MAT: '', MPR: '', MUI: '',
+          MVC: '', MVI: '', MVA: '', MSC: '', MSI: '', MSA: '',
+          // Supplemental Metrics
+          S: '', AU: '', R: '', V: '', RE: '', U: ''
         };
         this.cvss40StrToObject(this.cvssv4Value);
-        this.cvss40 = CVSS40.calculateCVSSFromVector(this.cvssv4Value);
+        this.calculateCvss40Score(this.cvssv4Value);
       } else if (this.modelValue && this.modelValue.startsWith('CVSS:3.1')) {
         // We have CVSS 3.1 data, start with CVSS 3.1
         this.cvssVersion = '3.1';
       } else {
-        // No specific data, default to CVSS 3.1
-        this.cvssVersion = '3.1';
+        // No specific data, use platform default
+        this.loadDefaultCvssVersion();
       }
     },
 
@@ -594,12 +974,17 @@ export default defineComponent({
           AV: 'N', AC: 'L', AT: 'N', PR: 'N', UI: 'N',
           VC: 'N', VI: 'N', VA: 'N', SC: 'N', SI: 'N', SA: 'N',
           E: '',
-          CR: '', IR: '', AR: ''
+          CR: '', IR: '', AR: '',
+          // Modified Base Metrics (Environmental)
+          MAV: '', MAC: '', MAT: '', MPR: '', MUI: '',
+          MVC: '', MVI: '', MVA: '', MSC: '', MSI: '', MSA: '',
+          // Supplemental Metrics
+          S: '', AU: '', R: '', V: '', RE: '', U: ''
         };
         
         // Parse existing vector
         this.cvss40StrToObject(cvss4Vector);
-        this.cvss40 = CVSS40.calculateCVSSFromVector(cvss4Vector);
+        this.calculateCvss40Score(cvss4Vector);
         
         // CVSS 4.0: save only to cvssv4Value, don't touch modelValue (cvssv3)
         this.$emit('update:cvssv4Value', cvss4Vector);
@@ -626,7 +1011,71 @@ export default defineComponent({
     },
 
     roundUp1(n) {
-      return CVSS40.roundUp1(n);
+      return window.CVSS40 ? window.CVSS40.roundUp1(n) : n;
+    },
+
+    calculateCvss40Score(vectorString) {
+      if (!vectorString) return;
+      
+      // Wait for CVSS40 to be available
+      if (!window.CVSS40) {
+        // Retry after a short delay
+        setTimeout(() => this.calculateCvss40Score(vectorString), 100);
+        return;
+      }
+      
+      try {
+        this.cvss40 = window.CVSS40.calculateCVSSFromVector(vectorString);
+      } catch (error) {
+        console.error('Error calculating CVSS 4.0 score:', error);
+        // Reset to default values if calculation fails
+        this.cvss40 = {
+          baseMetricScore: '',
+          baseSeverity: '',
+          threatMetricScore: '',
+          threatSeverity: '',
+          environmentalMetricScore: '',
+          environmentalSeverity: '',
+          exploitability: '',
+          vulnerableSystemImpact: '',
+          subsequentSystemImpact: ''
+        };
+      }
+    },
+
+    async loadDefaultCvssVersion() {
+      try {
+        const response = await SettingsService.getPublicSettings();
+        const defaultVersion = response.data?.report?.public?.defaultCvssVersion || '3.1';
+        this.cvssVersion = defaultVersion;
+        
+        // Initialize with default vector for the chosen version
+        if (defaultVersion === '4.0') {
+          const defaultVector = 'CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:N/SC:N/SI:N/SA:N';
+          this.internalCvss4Vector = defaultVector;
+          this.cvss40Obj = {
+            version: '4.0',
+            AV: 'N', AC: 'L', AT: 'N', PR: 'N', UI: 'N',
+            VC: 'N', VI: 'N', VA: 'N', SC: 'N', SI: 'N', SA: 'N',
+            E: '',
+            CR: '', IR: '', AR: '',
+            MAV: '', MAC: '', MAT: '', MPR: '', MUI: '',
+            MVC: '', MVI: '', MVA: '', MSC: '', MSI: '', MSA: '',
+            S: '', AU: '', R: '', V: '', RE: '', U: ''
+          };
+          this.calculateCvss40Score(defaultVector);
+          this.$emit('update:cvssv4Value', defaultVector);
+        } else {
+          // Default to CVSS 3.1
+          const defaultVector = 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:N';
+          this.internalCvss3Vector = defaultVector;
+          this.$emit('update:modelValue', defaultVector);
+        }
+      } catch (error) {
+        console.error('Error loading default CVSS version:', error);
+        // Fallback to CVSS 3.1
+        this.cvssVersion = '3.1';
+      }
     },
 
     cvss40StrToObject(str) {
@@ -659,23 +1108,8 @@ export default defineComponent({
         }
       }
 
-      // Only calculate if we have a complete vector
-      try {
-        this.cvss40 = CVSS40.calculateCVSSFromVector(vectorString);
-      } catch (error) {
-        // Reset to default values if calculation fails
-        this.cvss40 = {
-          baseMetricScore: '',
-          baseSeverity: '',
-          threatMetricScore: '',
-          threatSeverity: '',
-          environmentalMetricScore: '',
-          environmentalSeverity: '',
-          exploitability: '',
-          vulnerableSystemImpact: '',
-          subsequentSystemImpact: ''
-        };
-      }
+      // Calculate CVSS score
+      this.calculateCvss40Score(vectorString);
       
       // Update internal state
       this.internalCvss4Vector = vectorString;

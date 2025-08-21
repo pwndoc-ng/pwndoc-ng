@@ -952,8 +952,13 @@ function cvssStrToObject40(cvss) {
         VC: initialState, VI: initialState, VA: initialState, SC: initialState, SI: initialState, SA: initialState,
         // Threat metrics (replacing Temporal)
         E: initialState,
-        // Environmental metrics
-        CR: initialState, IR: initialState, AR: initialState
+        // Environmental metrics - Requirements
+        CR: initialState, IR: initialState, AR: initialState,
+        // Environmental metrics - Modified Base Metrics
+        MAV: initialState, MAC: initialState, MAT: initialState, MPR: initialState, MUI: initialState,
+        MVC: initialState, MVI: initialState, MVA: initialState, MSC: initialState, MSI: initialState, MSA: initialState,
+        // Supplemental metrics
+        S: initialState, AU: initialState, R: initialState, V: initialState, RE: initialState, U: initialState
     };
     
     if (cvss) {
@@ -1059,6 +1064,125 @@ function cvssStrToObject40(cvss) {
                     else if (elt[1] === "M") res.AR = "Medium"
                     else if (elt[1] === "H") res.AR = "High"
                     res.AR = $t(res.AR)
+                    break;
+                // Modified Base Metrics (Environmental)
+                case "MAV":
+                    if (elt[1] === "X") res.MAV = "Not Defined"
+                    else if (elt[1] === "N") res.MAV = "Network"
+                    else if (elt[1] === "A") res.MAV = "Adjacent Network"
+                    else if (elt[1] === "L") res.MAV = "Local"
+                    else if (elt[1] === "P") res.MAV = "Physical"
+                    res.MAV = $t(res.MAV)
+                    break;
+                case "MAC":
+                    if (elt[1] === "X") res.MAC = "Not Defined"
+                    else if (elt[1] === "L") res.MAC = "Low"
+                    else if (elt[1] === "H") res.MAC = "High"
+                    res.MAC = $t(res.MAC)
+                    break;
+                case "MAT":
+                    if (elt[1] === "X") res.MAT = "Not Defined"
+                    else if (elt[1] === "N") res.MAT = "None"
+                    else if (elt[1] === "P") res.MAT = "Present"
+                    res.MAT = $t(res.MAT)
+                    break;
+                case "MPR":
+                    if (elt[1] === "X") res.MPR = "Not Defined"
+                    else if (elt[1] === "N") res.MPR = "None"
+                    else if (elt[1] === "L") res.MPR = "Low"
+                    else if (elt[1] === "H") res.MPR = "High"
+                    res.MPR = $t(res.MPR)
+                    break;
+                case "MUI":
+                    if (elt[1] === "X") res.MUI = "Not Defined"
+                    else if (elt[1] === "N") res.MUI = "None"
+                    else if (elt[1] === "P") res.MUI = "Passive"
+                    else if (elt[1] === "A") res.MUI = "Active"
+                    res.MUI = $t(res.MUI)
+                    break;
+                case "MVC":
+                    if (elt[1] === "X") res.MVC = "Not Defined"
+                    else if (elt[1] === "N") res.MVC = "None"
+                    else if (elt[1] === "L") res.MVC = "Low"
+                    else if (elt[1] === "H") res.MVC = "High"
+                    res.MVC = $t(res.MVC)
+                    break;
+                case "MVI":
+                    if (elt[1] === "X") res.MVI = "Not Defined"
+                    else if (elt[1] === "N") res.MVI = "None"
+                    else if (elt[1] === "L") res.MVI = "Low"
+                    else if (elt[1] === "H") res.MVI = "High"
+                    res.MVI = $t(res.MVI)
+                    break;
+                case "MVA":
+                    if (elt[1] === "X") res.MVA = "Not Defined"
+                    else if (elt[1] === "N") res.MVA = "None"
+                    else if (elt[1] === "L") res.MVA = "Low"
+                    else if (elt[1] === "H") res.MVA = "High"
+                    res.MVA = $t(res.MVA)
+                    break;
+                case "MSC":
+                    if (elt[1] === "X") res.MSC = "Not Defined"
+                    else if (elt[1] === "N") res.MSC = "None"
+                    else if (elt[1] === "L") res.MSC = "Low"
+                    else if (elt[1] === "H") res.MSC = "High"
+                    res.MSC = $t(res.MSC)
+                    break;
+                case "MSI":
+                    if (elt[1] === "X") res.MSI = "Not Defined"
+                    else if (elt[1] === "N") res.MSI = "None"
+                    else if (elt[1] === "L") res.MSI = "Low"
+                    else if (elt[1] === "H") res.MSI = "High"
+                    res.MSI = $t(res.MSI)
+                    break;
+                case "MSA":
+                    if (elt[1] === "X") res.MSA = "Not Defined"
+                    else if (elt[1] === "N") res.MSA = "None"
+                    else if (elt[1] === "L") res.MSA = "Low"
+                    else if (elt[1] === "H") res.MSA = "High"
+                    res.MSA = $t(res.MSA)
+                    break;
+                // Supplemental Metrics
+                case "S":
+                    if (elt[1] === "X") res.S = "Not Defined"
+                    else if (elt[1] === "N") res.S = "None"
+                    else if (elt[1] === "P") res.S = "Present"
+                    else if (elt[1] === "H") res.S = "High"
+                    res.S = $t(res.S)
+                    break;
+                case "AU":
+                    if (elt[1] === "X") res.AU = "Not Defined"
+                    else if (elt[1] === "N") res.AU = "None"
+                    else if (elt[1] === "Y") res.AU = "Yes"
+                    res.AU = $t(res.AU)
+                    break;
+                case "R":
+                    if (elt[1] === "X") res.R = "Not Defined"
+                    else if (elt[1] === "A") res.R = "Automatic"
+                    else if (elt[1] === "U") res.R = "User"
+                    else if (elt[1] === "I") res.R = "Irrecoverable"
+                    res.R = $t(res.R)
+                    break;
+                case "V":
+                    if (elt[1] === "X") res.V = "Not Defined"
+                    else if (elt[1] === "D") res.V = "Diffuse"
+                    else if (elt[1] === "C") res.V = "Concentrated"
+                    res.V = $t(res.V)
+                    break;
+                case "RE":
+                    if (elt[1] === "X") res.RE = "Not Defined"
+                    else if (elt[1] === "L") res.RE = "Low"
+                    else if (elt[1] === "M") res.RE = "Medium"
+                    else if (elt[1] === "H") res.RE = "High"
+                    res.RE = $t(res.RE)
+                    break;
+                case "U":
+                    if (elt[1] === "X") res.U = "Not Defined"
+                    else if (elt[1] === "C") res.U = "Clear"
+                    else if (elt[1] === "G") res.U = "Green"
+                    else if (elt[1] === "F") res.U = "Functional"
+                    else if (elt[1] === "R") res.U = "Red"
+                    res.U = $t(res.U)
                     break;
             }
         }
