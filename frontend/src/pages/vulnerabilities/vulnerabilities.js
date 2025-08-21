@@ -310,6 +310,8 @@ export default {
                     vuln.customFields = Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, vuln.customFields, vuln.locale)
                 })
                 if (this.vulnUpdates.length > 0) {
+                    // Sort by modification date (newest first)
+                    this.vulnUpdates.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
                     this.currentUpdate = this.vulnUpdates[0]._id || null;
                     this.currentLanguage = this.vulnUpdates[0].locale || null;
                 }
