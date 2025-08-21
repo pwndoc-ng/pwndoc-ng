@@ -69,12 +69,12 @@ export default {
             return typeof logo === 'string' && logo.startsWith('data:image');
           },
         
-          // Ajoute le préfixe si ce n'est pas déjà le cas
+          // Add the prefix if it's not already there
           getImageSrc(logo) {
             if (this.isBase64Image(logo)) {
               return logo;
             }
-            // Adapte en fonction du format réel de ton image (png, jpeg, etc.)
+            // Adapt according to the actual format of your image (png, jpeg, etc.)
             return `data:image/png;base64,${logo}`;
           },
         createCompany: function() {

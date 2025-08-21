@@ -741,7 +741,7 @@ export default defineComponent({
 
     let extensionEditor = [
         StarterKit.configure({
-          codeBlock: false, // Désactive le codeBlock standard pour mettre le code block highlight
+          codeBlock: false, // Disable standard codeBlock to use code block highlight
         }),
 
         Highlight.configure({
@@ -778,7 +778,7 @@ export default defineComponent({
          apiUrl: `https://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/v2/check`, 
           //apiUrl: `https://127.0.0.1:8443/v2/check`, 
           language: 'auto',   
-          automaticMode: true, // 1 seconde de délai avant vérification
+          automaticMode: true, // 1 second delay before verification
         }),
       ]
      if(this.collab){
@@ -836,7 +836,7 @@ export default defineComponent({
       disablePasteRules: true,
     });
 
-    // Écouter les changements du toggle de correction automatique
+    // Listen to auto correction toggle changes
     this.autoCorrectionToggleListener = (event) => {
       if (this.editor && this.editor.extensionStorage.languagetool) {
         this.editor.extensionStorage.languagetool.updateLanguageToolState();
@@ -870,7 +870,7 @@ export default defineComponent({
       this.provider.destroy()
     }
     
-    // Nettoyer l'écouteur de correction automatique
+    // Clean up auto correction listener
     if (this.autoCorrectionToggleListener) {
       window.removeEventListener('autoCorrectionToggleChanged', this.autoCorrectionToggleListener);
     }

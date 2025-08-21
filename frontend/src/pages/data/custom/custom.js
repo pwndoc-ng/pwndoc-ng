@@ -309,7 +309,7 @@ export default {
             })
         },
         startEditingVulnTypes() {
-            this.editVulnTypes = this.vulnTypesFiltered.map(v => ({ ...v })); // Copie indépendante
+            this.editVulnTypes = this.vulnTypesFiltered.map(v => ({ ...v })); // Independent copy
             this.editVulnType = true;
           },
         // Create vulnerability type
@@ -467,7 +467,7 @@ export default {
 getFieldValue(field) {
     const localeEntry = field.text.find((e) => e.locale === this.cfLocale);
     if (!localeEntry) {
-      // Si aucune entrée pour la langue, on en crée une nouvelle
+      // If no entry for the language, create a new one
       const newEntry = { locale: this.cfLocale, value: field.fieldType === 'checkbox' || field.fieldType === 'select-multiple' ? [] : '' };
       field.text.push(newEntry);
       return newEntry.value;
@@ -475,13 +475,13 @@ getFieldValue(field) {
     return localeEntry.value;
   },
 
-  // Mettre à jour la valeur du champ selon la langue sélectionnée
+  // Update the field value according to the selected language
   setFieldValue(field, newValue) {
     const localeEntry = field.text.find((e) => e.locale === this.cfLocale);
     if (localeEntry) {
       localeEntry.value = newValue;
     } else {
-      // Sécurité : normalement inutile car getFieldValue gère déjà ça
+      // Safety: normally unnecessary since getFieldValue already handles this
       field.text.push({ locale: this.cfLocale, value: newValue });
     }
   },

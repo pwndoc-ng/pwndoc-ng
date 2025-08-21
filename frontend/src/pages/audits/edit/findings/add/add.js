@@ -23,7 +23,7 @@ export default {
                 description: '',
                 observation: '',
                 references: [],
-                status: 1, // 1 = En cours, 0 = Terminé (à adapter selon tes valeurs)
+                status: 1, // 1 = In progress, 0 = Completed (adapt according to your values)
                 customFields: [],
                 poc: '',
                 scope: '',
@@ -58,7 +58,7 @@ export default {
             pagination: {
                 page: 1,
                 rowsPerPage: 25,
-                pagesNumber: 1  // Ajoutez cette ligne
+                pagesNumber: 1  // Add this line
             },
             rowsPerPageOptions: [
                 {label:'25', value:25},
@@ -132,7 +132,7 @@ export default {
             );
           },
           filteredVulnerabilities() {
-            if (!this.dtLanguage) return this.vulnerabilities; // Si aucune langue sélectionnée, affiche tout
+            if (!this.dtLanguage) return this.vulnerabilities; // If no language selected, display all
             return this.vulnerabilities.filter(vuln => vuln.locale === this.dtLanguage);
           },
         vulnCategoriesOptions: function() {
@@ -147,7 +147,7 @@ export default {
             );
           },
           filteredVulnerabilities() {
-            if (!this.dtLanguage) return this.vulnerabilities; // Si aucune langue sélectionnée, affiche tout
+            if (!this.dtLanguage) return this.vulnerabilities; // If no language selected, display all
             return this.vulnerabilities.filter(vuln => vuln.locale === this.dtLanguage);
           }    
     },

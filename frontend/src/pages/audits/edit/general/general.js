@@ -115,7 +115,7 @@ export default {
           handler(newCompany, oldCompany) {
             this.filterClients();
           },
-          deep: true, // au cas où l'objet est modifié en profondeur
+          deep: true, // in case the object is modified deeply
         },
       },
       

@@ -21,17 +21,17 @@ var numberOfPieChart = 0
 var numberOfBarChart = 0
 var chartRelXml = ''
 var chartContentTypeXml = ''
-var globalAbstractNumId = null // Variable globale pour partager l'abstractNumId entre toutes les sections
-var abstractNumCreated = false // Flag pour éviter de créer l'abstractNum plusieurs fois
-var bulletDefinitionCreated = false // Flag pour éviter de créer la définition bullet plusieurs fois
-var globalBulletNumId = null // Variable globale pour stocker l'ID dynamique des puces
+var globalAbstractNumId = null // Global variable to share abstractNumId between all sections
+var abstractNumCreated = false // Flag to avoid creating abstractNum multiple times
+var bulletDefinitionCreated = false // Flag to avoid creating bullet definition multiple times
+var globalBulletNumId = null // Global variable to store dynamic bullet ID
 
 const encodeHTMLEntities = s => s.replace(/[\u00A0-\u9999<>&]/g, i => '&#'+i.charCodeAt(0)+';')
 
 // Generate document with docxtemplater
 async function generateDoc(audit) {
 
-    // Réinitialiser les variables globales pour chaque génération de document
+    // Reset global variables for each document generation
     globalAbstractNumId = null;
     abstractNumCreated = false;
     bulletDefinitionCreated = false;
@@ -431,14 +431,14 @@ expressions.filters.NewLines = function(input) {
 
 
 expressions.filters.p = function(input, style = null) {
-    // Ne pas créer de paragraphe si le contenu est vide
+    // Don't create paragraph if content is empty
     if (!input || input === "" || input === "undefined" || input === null) {
         return "";
     }
 
-    // Si l'input contient déjà un paragraphe, ne pas en créer un nouveau
+    // If input already contains a paragraph, don't create a new one
     if (input.includes('<w:p>') && input.includes('</w:p>')) {
-        // Si un style est demandé, l'ajouter au paragraphe existant
+        // If a style is requested, add it to existing paragraph
         if (style) {
             let style_parsed = style.replaceAll(' ', '');
             if (style_parsed === 'Bullets') {
@@ -448,7 +448,7 @@ expressions.filters.p = function(input, style = null) {
         return input;
     }
 
-    // Créer un nouveau paragraphe si nécessaire
+    // Create a new paragraph if necessary
     let result = '<w:p>';
     if (style !== null) {
         let style_parsed = style.replaceAll(' ', '');
@@ -555,9 +555,9 @@ expressions.filters.convertHTML = function(input, style, listIds) {
             ulCount = (input.match(/<ul/g) || []).length;
         }
         
-        console.log(`📊 Comptage des listes dans convertHTML:`);
-        console.log(`   🔢 Listes numérotées (<ol>): ${olCount}`);
-        console.log(`   🔘 Listes à puces (<ul>): ${ulCount}`);
+        console.log(`📄 List count in convertHTML:`);
+        console.log(`   🔢 Numbered lists (<ol>): ${olCount}`);
+        console.log(`   🔘 Bullet lists (<ul>): ${ulCount}`);
         
         // Convertir listIds en array si c'est une string
         let listIdsArray = [];
@@ -575,18 +575,18 @@ expressions.filters.convertHTML = function(input, style, listIds) {
             }
         }
         
-        // Si on n'a pas d'IDs fournis mais qu'on a des listes numérotées, en générer automatiquement
+        // If we don't have provided IDs but have numbered lists, generate them automatically
         if (olCount > 0 && listIdsArray.length === 0) {
-            // Générer des IDs imprévisibles entre 10000 et 99999
+            // Generate unpredictable IDs between 10000 and 99999
             listIdsArray = Array.from({length: olCount}, () => Math.floor(Math.random() * 90000) + 10000);
-            console.log(`🎲 Génération automatique des IDs imprévisibles:`, listIdsArray);
+            console.log(`🎲 Automatic generation of unpredictable IDs:`, listIdsArray);
         }
         
-        console.log(`🆔 IDs des listes à utiliser:`, listIdsArray);
+        console.log(`🆔 List IDs to use:`, listIdsArray);
         
-        // ÉLIMINATION TOTALE : Ne plus modifier le numbering.xml du tout
-        // Utiliser UNIQUEMENT les définitions existantes du template
-        console.log(`🚫 ÉLIMINATION : Pas de modification du numbering.xml (olCount: ${olCount}, ulCount: ${ulCount})`);
+        // TOTAL ELIMINATION: No longer modify numbering.xml at all
+        // Use ONLY existing template definitions
+        console.log(`🚫 ELIMINATION: No modification of numbering.xml (olCount: ${olCount}, ulCount: ${ulCount})`);
         
         var result = html2ooxml(input.replace(/(<p><\/p>)+$/, ''), style, listIdsArray)
     }
@@ -600,17 +600,17 @@ function modifyNumberingXml(olCount, ulCount, listIdsArray = []) {
         const numberingPath = "word/numbering.xml";
         let numberingXml = zip.files[numberingPath].asText();
         
-        // Si le fichier n'existe pas, le créer avec la structure complète
+        // Save modified file doesn't exist, create it with complete structure
         if (!numberingXml) {
             numberingXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering mc:Ignorable="w14 w15 wp14" xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:w10="urn:schemas-microsoft-com:office:word" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup" xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk" xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">
 </w:numbering>`;
         }
         
-        // Utiliser l'abstractNumId global ou en créer un nouveau SEULEMENT si on a des listes numérotées
+        // Use global abstractNumId or create a new one ONLY if we have numbered lists
         let nextAbstractNumId = null;
         if (olCount > 0) {
             if (globalAbstractNumId === null) {
-                // Premier appel : trouver le prochain abstractNumId disponible
+                // First call: find next available abstractNumId
                 nextAbstractNumId = 1;
                 if (numberingXml.includes('w:abstractNum w:abstractNumId="')) {
                     const matches = numberingXml.match(/w:abstractNum w:abstractNumId="(\d+)"/g);
@@ -620,30 +620,30 @@ function modifyNumberingXml(olCount, ulCount, listIdsArray = []) {
                     }
                 }
                 globalAbstractNumId = nextAbstractNumId;
-                console.log(`🆕 Premier abstractNumId créé pour listes numérotées: ${globalAbstractNumId}`);
+                console.log(`🆕 First abstractNumId created for numbered lists: ${globalAbstractNumId}`);
             } else {
-                // Réutiliser l'abstractNumId existant
+                // Reuse existing abstractNumId
                 nextAbstractNumId = globalAbstractNumId;
-                console.log(`♻️ Réutilisation de l'abstractNumId: ${globalAbstractNumId}`);
+                console.log(`♻️ Reusing abstractNumId: ${globalAbstractNumId}`);
             }
         } else {
-            console.log(`ℹ️ Aucune liste numérotée (<ol>) détectée, pas de création d'abstractNumId`);
+            console.log(`ℹ️ No numbered list (<ol>) detected, no abstractNumId creation`);
         }
         
-        // Créer une définition abstraite pour les listes numérotées seulement si c'est la première fois ET qu'on a des listes numérotées
+        // Create abstract definition for numbered lists only if it's the first time AND we have numbered lists
         if (olCount > 0 && !abstractNumCreated) {
-            // Créer une définition multi-niveaux (0-8) pour les listes numérotées
+            // Create multi-level definition (0-8) for numbered lists
             let decimalAbstract = `<w:abstractNum w:abstractNumId="${nextAbstractNumId}" w15:restartNumberingAfterBreak="0">
                 <w:multiLevelType w:val="hybridMultilevel"/>`;
             
-            // Générer les définitions pour chaque niveau (0 à 8)
+            // Generate definitions for each level (0 to 8)
             for (let i = 0; i <= 8; i++) {
-                const leftIndent = 720 + (i * 720); // Indentation progressive : 720, 1440, 2160, etc.
-                const hanging = 360; // Espacement constant pour les numéros
+                const leftIndent = 720 + (i * 720); // Progressive indentation: 720, 1440, 2160, etc.
+                const hanging = 360; // Constant spacing for numbers
                 
-                // Utiliser SEULEMENT decimal pour éviter les conflits avec le sommaire
+                // Use ONLY decimal to avoid conflicts with table of contents
                 const numFormat = "decimal";
-                const lvlText = `%${i+1}.`; // Chaque niveau utilise son propre compteur
+                const lvlText = `%${i+1}.`; // Each level uses its own counter
                 
                 decimalAbstract += `
                 <w:lvl w:ilvl="${i}" w15:tentative="1">
@@ -661,12 +661,12 @@ function modifyNumberingXml(olCount, ulCount, listIdsArray = []) {
             
             numberingXml = numberingXml.replace('</w:numbering>', `${decimalAbstract}\n</w:numbering>`);
             abstractNumCreated = true;
-            console.log(`📝 Définition abstraite multi-niveaux créée pour abstractNumId: ${nextAbstractNumId}`);
+            console.log(`📝 Multi-level abstract definition created for abstractNumId: ${nextAbstractNumId}`);
         } else {
-            console.log(`🚫 Définition abstraite ignorée (déjà créée) pour abstractNumId: ${nextAbstractNumId}`);
+            console.log(`🚫 Abstract definition ignored (already created) for abstractNumId: ${nextAbstractNumId}`);
         }
         
-        // Créer des numérotations concrètes uniques pour chaque liste (seulement si on a des listes numérotées et un abstractNumId valide)
+        // Create unique concrete numberings for each list (only if we have numbered lists and valid abstractNumId)
         if (olCount > 0 && nextAbstractNumId !== null) {
             listIdsArray.forEach((listId, index) => {
                 const concreteNumbering = `<w:num w:numId="${listId}"><w:abstractNumId w:val="${nextAbstractNumId}"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num>`;
@@ -675,9 +675,9 @@ function modifyNumberingXml(olCount, ulCount, listIdsArray = []) {
             });
         }
         
-        // Ajouter la définition pour les puces si nécessaire (une seule fois pour tout le document)
+        // Add bullet definition if necessary (only once for entire document)
         if (ulCount > 0 && !bulletDefinitionCreated) {
-            // Trouver le prochain numId disponible en analysant le numbering.xml existant
+            // Find next available numId by analyzing existing numbering.xml
             let nextBulletNumId = 1;
             if (numberingXml.includes('w:numId="')) {
                 const numIdMatches = numberingXml.match(/w:numId="(\d+)"/g);
@@ -697,7 +697,7 @@ function modifyNumberingXml(olCount, ulCount, listIdsArray = []) {
                 }
             }
             
-            // Créer une définition abstraite simple pour les puces
+            // Create simple abstract definition for bullets
             let bulletAbstract = `<w:abstractNum w:abstractNumId="${bulletAbstractNumId}" w15:restartNumberingAfterBreak="0">
                 <w:multiLevelType w:val="hybridMultilevel"/>
                 <w:lvl w:ilvl="0" w15:tentative="1">
@@ -718,30 +718,31 @@ function modifyNumberingXml(olCount, ulCount, listIdsArray = []) {
             numberingXml = numberingXml.replace('</w:numbering>', `${bulletNumbering}\n</w:numbering>`);
             
             bulletDefinitionCreated = true;
-            // Stocker l'ID dynamique pour réutilisation
+            // Store dynamic ID for reuse
             globalBulletNumId = nextBulletNumId;
-            console.log(`📝 Définition simple créée pour les puces (ID: ${nextBulletNumId}, abstractNumId: ${bulletAbstractNumId})`);
+            console.log(`📝 Simple definition created for bullets (ID: ${nextBulletNumId}, abstractNumId: ${bulletAbstractNumId})`);
         } else if (ulCount > 0 && bulletDefinitionCreated) {
-            console.log(`♻️ Définition bullet déjà créée, réutilisation de l'ID: ${globalBulletNumId}`);
+            console.log(`♻️ Bullet definition already created, reusing ID: ${globalBulletNumId}`);
         }
         
         
         zip.file(numberingPath, numberingXml);
         
-        console.log(`✅ numbering.xml modifié avec succès`);
+        console.log(`✅ numbering.xml modified with success`);
+        console.log(`✅ numbering.xml modified successfully`);
         if (olCount > 0 && nextAbstractNumId !== null) {
-            console.log(`   🔢 AbstractNumId utilisé pour les listes numérotées: ${nextAbstractNumId}`);
-            console.log(`   🔢 IDs des listes numérotées: ${listIdsArray.join(', ')}`);
+            console.log(`   🔢 AbstractNumId used for numbered lists: ${nextAbstractNumId}`);
+            console.log(`   🔢 Numbered list IDs: ${listIdsArray.join(', ')}`);
         }
         if (bulletDefinitionCreated) {
-            console.log(`   🔘 ID des puces: ${globalBulletNumId}`);
+            console.log(`   🔘 Bullet ID: ${globalBulletNumId}`);
         }
         if (olCount === 0 && ulCount === 0) {
-            console.log(`   ℹ️ Aucune liste détectée, numbering.xml non modifié`);
+            console.log(`   ℹ️ No list detected, numbering.xml not modified`);
         }
         
     } catch (error) {
-        console.log(`❌ Erreur lors de la modification du numbering.xml:`, error);
+        console.log(`❌ Error modifying numbering.xml:`, error);
     }
 }
 

@@ -11,7 +11,7 @@ export default boot(async ({ app }) => {
     console.error('Failed to load settings:', err)
   }
 
-  // Ajout de la méthode `refresh`
+  // Add the `refresh` method
   settingsData.refresh = async () => {
     try {
       const response = await Settings.getPublicSettings()
@@ -21,6 +21,6 @@ export default boot(async ({ app }) => {
     }
   }
 
-  // Ajoute `$settings` dans l'app (Vue 3)
+  // Add `$settings` to the app (Vue 3)
   app.config.globalProperties.$settings = settingsData
 })

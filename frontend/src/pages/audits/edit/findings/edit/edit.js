@@ -178,11 +178,11 @@ export default {
       });
     },
     initCustomFieldsForFinding() {
-        // Définir la catégorie et la langue à utiliser
+        // Define the category and language to use
         const categoryForFilter = this.finding.category || 'default';
         const languageForFilter = (this.audit && this.audit.language) || 'en';
         
-        // Si aucun champ custom n'est défini, on crée la structure par défaut
+        // If no custom field is defined, we create the default structure
         if (!this.finding.customFields || this.finding.customFields.length === 0) {
 
          const  findingCustomField = this.$_.cloneDeep(
@@ -207,7 +207,7 @@ export default {
           this.finding.customFields = [ ...findingCustomField,...vulnerabilityCustomField ];
         }
         else {
-          // Récupération des champs existants pour éviter les doublons
+          // Retrieve existing fields to avoid duplicates
           const existingKeys = new Set(this.finding.customFields.map(field => field.key));
         
           const newFindingFields = this.$_.cloneDeep(
@@ -216,7 +216,7 @@ export default {
         
           const newVulnerabilityFields = this.$_.cloneDeep(
             Utils.filterCustomFields('vulnerability', categoryForFilter, this.customFields, this.finding.customFields, languageForFilter)
-          ).filter(field => !existingKeys.has(field.key)); // Supprimer les doublons
+          ).filter(field => !existingKeys.has(field.key)); // Remove duplicates
         
           this.finding.customFields = [...newFindingFields, ...newVulnerabilityFields];
         } 
@@ -228,18 +228,18 @@ export default {
           .then((data) => {
             this.finding = data.data.datas || {};
       
-            // Forcer l'initialisation de customFields si elle est undefined
+            // Force initialization of customFields if it's undefined
             if (typeof this.finding.customFields === 'undefined') {
               this.finding.customFields = [];
             }
       
-            // Assurer que certains champs texte sont initialisés
+            // Ensure that certain text fields are initialized
             ['description', 'observation', 'poc', 'scope', 'remediation'].forEach(field => {
               this.finding[field] = this.finding[field] || '';
             });
             this.finding.references = this.finding.references || [];
       
-            // Initialiser les champs custom (même s'ils étaient vides)
+            // Initialize custom fields (even if they were empty)
             this.initCustomFieldsForFinding();
       
             this.$nextTick(() => {

@@ -1,6 +1,6 @@
 /**
- * Service de correction automatique
- * Gère l'activation/désactivation de la correction automatique
+ * Auto correction service
+ * Manages activation/deactivation of auto correction
  */
 
 class AutoCorrectionService {
@@ -9,19 +9,19 @@ class AutoCorrectionService {
     }
 
     /**
-     * Charge le paramètre de correction automatique depuis le sessionStorage
-     * @returns {boolean} true si activé, false sinon
+     * Loads the auto correction setting from sessionStorage
+     * @returns {boolean} true if enabled, false otherwise
      */
     loadSetting() {
         const setting = sessionStorage.getItem('autoCorrectionEnabled');
-        // Par défaut, la correction automatique est activée (true)
-        // Si une valeur est stockée, on l'utilise, sinon on retourne true
+        // By default, auto correction is enabled (true)
+        // If a value is stored, we use it, otherwise we return true
         return setting !== null ? setting === 'true' : true;
     }
 
     /**
-     * Sauvegarde le paramètre de correction automatique dans le sessionStorage
-     * @param {boolean} enabled - true pour activer, false pour désactiver
+     * Saves the auto correction setting in sessionStorage
+     * @param {boolean} enabled - true to enable, false to disable
      */
     saveSetting(enabled) {
         this.isEnabled = enabled;
@@ -29,27 +29,27 @@ class AutoCorrectionService {
     }
 
     /**
-     * Vérifie si la correction automatique est activée
-     * @returns {boolean} true si activé, false sinon
+     * Checks if auto correction is enabled
+     * @returns {boolean} true if enabled, false otherwise
      */
     isAutoCorrectionEnabled() {
         return this.isEnabled;
     }
 
     /**
-     * Active la correction automatique
+     * Enables auto correction
      */
     enable() {
         this.saveSetting(true);
     }
 
     /**
-     * Désactive la correction automatique
+     * Disables auto correction
      */
     disable() {
         this.saveSetting(false);
     }
 }
 
-// Export d'une instance singleton
+// Export a singleton instance
 export default new AutoCorrectionService();

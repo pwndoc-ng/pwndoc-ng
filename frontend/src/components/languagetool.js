@@ -13,7 +13,7 @@ export var LanguageToolHelpingWords
   LanguageToolHelpingWords['LoadingTransactionName'] = 'languageToolLoading'
 })(LanguageToolHelpingWords || (LanguageToolHelpingWords = {}))
 
-// Singleton DB pour éviter de créer plusieurs instances
+// Singleton DB to avoid creating multiple instances
 let sharedDb = null;
 const getDb = (documentId) => {
   if (sharedDb) return sharedDb;
@@ -29,7 +29,7 @@ const getDb = (documentId) => {
   return sharedDb;
 };
 
-// Fonction utilitaire pour la sélection de texte
+// Utility function for text selection
 const selectElementText = (el) => {
   const range = document.createRange()
   range.selectNode(el)
@@ -38,20 +38,20 @@ const selectElementText = (el) => {
   sel === null || sel === void 0 ? void 0 : sel.addRange(range)
 }
 
-// Cache de requêtes pour éviter de vérifier le même texte plusieurs fois
+// Request cache to avoid checking the same text multiple times
 const requestCache = new Map();
 const MAX_CACHE_SIZE = 100;
 
-// Fonction pour vérifier si le texte est dans le cache
+// Function to check if text is in cache
 const getCachedResponse = (text) => {
   return requestCache.get(text);
 };
 
-// Fonction pour ajouter une réponse au cache
+// Function to add response to cache
 const addToCache = (text, response) => {
-  // Limiter la taille du cache
+  // Limit cache size
   if (requestCache.size >= MAX_CACHE_SIZE) {
-    // Supprimer la plus ancienne entrée
+    // Remove oldest entry
     const firstKey = requestCache.keys().next().value;
     requestCache.delete(firstKey);
   }
@@ -87,7 +87,7 @@ const gimmeDecoration = (from, to, match) =>
 
 const moreThan500Words = (s) => s.trim().split(/\s+/).length >= 500
 
-// Registre des instances d'éditeur actives
+// Registry of active editor instances
 const activeEditors = new Set();
 
 export const LanguageTool = Extension.create({
@@ -99,10 +99,10 @@ export const LanguageTool = Extension.create({
       apiUrl:'http://127.0.0.1:8010/v2/check',
       automaticMode: true,
       documentId: undefined,
-      // Paramètres pour l'optimisation (réduits pour garantir le déclenchement)
-      debounceDelay: 800,         // Délai de debounce plus court
-      minTextLengthForCheck: 3,   // Seuil de texte minimum très bas
-      checkThrottle: 1000,        // Temps minimum entre les vérifications
+      // Parameters for optimization (reduced to ensure triggering)
+      debounceDelay: 800,         // Shorter debounce delay
+      minTextLengthForCheck: 3,   // Very low minimum text threshold
+      checkThrottle: 1000,        // Minimum time between checks
     }
   },
   
@@ -117,10 +117,10 @@ export const LanguageTool = Extension.create({
       extensionDocId: null,
       textNodesWithPosition: [],
       proofReadInitially: false,
-      editorId: uuidv4(),          // ID unique pour chaque instance d'éditeur
-      lastCheckTime: 0,            // Horodatage de la dernière vérification
-      pendingCheck: false,         // Indique si une vérification est en attente
-      currentDecoElements: new Set(), // Éléments de décoration actuels pour nettoyage
+      editorId: uuidv4(),          // Unique ID for each editor instance
+      lastCheckTime: 0,            // Timestamp of last check
+      pendingCheck: false,         // Indicates if a check is pending
+      currentDecoElements: new Set(), // Current decoration elements for cleanup
     }
   },
   
@@ -164,13 +164,13 @@ export const LanguageTool = Extension.create({
     const storage = this.storage;
     storage.apiUrl = this.options.apiUrl;
     
-    // Initialisation de la base de données partagée
+    // Initialize shared database
     if (this.options.documentId) {
       storage.extensionDocId = this.options.documentId;
       storage.db = getDb(this.options.documentId);
     }
     
-    // Déplacer cleanupEventListeners dans le storage
+    // Move cleanupEventListeners to storage
     storage.cleanupEventListeners = () => {
       if (storage.currentDecoElements.size > 0) {
         storage.currentDecoElements.forEach(el => {
@@ -187,11 +187,11 @@ export const LanguageTool = Extension.create({
   },
   
   onDestroy() {
-    // Nettoyage quand l'extension est détruite
+    // Cleanup when extension is destroyed
     const storage = this.storage;
     activeEditors.delete(storage.editorId);
     
-    // Nettoyer les écouteurs d'événements
+    // Clean up event listeners
     if (storage.cleanupEventListeners) {
       storage.cleanupEventListeners();
     }
@@ -201,17 +201,17 @@ export const LanguageTool = Extension.create({
     const { apiUrl, documentId, automaticMode, debounceDelay, minTextLengthForCheck, checkThrottle } = this.options;
     const storage = this.storage;
     
-    // Ajouter l'éditeur au registre des instances actives
+    // Add editor to active instances registry
     activeEditors.add(storage.editorId);
     
-    // Fonction dispatch optimisée
+    // Optimized dispatch function
     storage.dispatch = (tr) => {
       if (storage.editorView) {
         storage.editorView.dispatch(tr);
       }
     };
     
-    // Mise à jour du match
+    // Update match
     storage.updateMatch = (m) => {
       if (!storage.editorView) return;
       
@@ -223,18 +223,18 @@ export const LanguageTool = Extension.create({
       );
     };
     
-    // Gestion optimisée des écouteurs d'événements
+    // Optimized event listener management
     storage.addEventListenersToDecorations = () => {
       if (!storage.editorView) return;
       
-      // Nettoyer les anciens écouteurs d'abord
+      // Clean up old listeners first
       storage.cleanupEventListeners();
       
       const decos = document.querySelectorAll('span.lt');
       if (!decos.length) return;
       
       decos.forEach((el) => {
-        // Créer les écouteurs une seule fois par élément
+        // Create listeners only once per element
         const mouseEnterListener = (e) => {
           if (!e.target) return;
           selectElementText(e.target);
@@ -247,26 +247,26 @@ export const LanguageTool = Extension.create({
           storage.updateMatch(undefined);
         };
         
-        // Stocker les références pour pouvoir les nettoyer plus tard
+        // Store references to clean them up later
         el._mouseEnterListener = mouseEnterListener;
         el._mouseLeaveListener = mouseLeaveListener;
         
         el.addEventListener('click', mouseEnterListener);
         el.addEventListener('mouseleave', mouseLeaveListener);
         
-        // Ajouter à l'ensemble des éléments actuels
+        // Add to current elements set
         storage.currentDecoElements.add(el);
       });
     };
     
-    // Fonction optimisée pour vérifier un nœud de texte
+    // Optimized function to check a text node
     storage.proofreadNodeAndUpdateItsDecorations = async (node, offset, cur) => {
       if (!storage.editorView?.state || !node.textContent) return;
       
-      // Vérifier si la correction automatique est activée
+      // Check if auto correction is enabled
       const autoCorrectionEnabled = sessionStorage.getItem('autoCorrectionEnabled');
       if (autoCorrectionEnabled === 'false') {
-        // Si désactivée, supprimer les décorations existantes et sortir
+        // If disabled, remove existing decorations and exit
         if (storage.decorationSet) {
           storage.decorationSet = storage.decorationSet.remove(storage.decorationSet.find(offset, offset + node.nodeSize));
         }
@@ -275,7 +275,7 @@ export const LanguageTool = Extension.create({
       
       storage.dispatch(storage.editorView.state.tr.setMeta(LanguageToolHelpingWords.LoadingTransactionName, true));
       
-      // Vérifier le cache d'abord
+      // Check cache first
       let ltRes = getCachedResponse(node.textContent);
       
       if (!ltRes) {
@@ -298,7 +298,7 @@ export const LanguageTool = Extension.create({
         }
       }
       
-      if (!storage.editorView) return; // Au cas où l'éditeur a été détruit entre-temps
+      if (!storage.editorView) return; // In case the editor was destroyed in the meantime
       
       storage.decorationSet = storage.decorationSet.remove(storage.decorationSet.find(offset, offset + node.nodeSize));
       const nodeSpecificDecorations = [];
@@ -319,17 +319,17 @@ export const LanguageTool = Extension.create({
         }
       }
       
-      if (!storage.editorView) return; // Vérifier à nouveau si l'éditeur existe toujours
+      if (!storage.editorView) return; // Check again if the editor still exists
       
       storage.decorationSet = storage.decorationSet.add(cur, nodeSpecificDecorations);
       storage.dispatch(storage.editorView.state.tr.setMeta(LanguageToolHelpingWords.LanguageToolTransactionName, true));
       storage.dispatch(storage.editorView.state.tr.setMeta(LanguageToolHelpingWords.LoadingTransactionName, false));
       
-      // Ajouter les écouteurs d'événements aux décorations
+      // Add event listeners to decorations
       setTimeout(() => storage.addEventListenersToDecorations(), 0);
     };
     
-    // Fonction pour nettoyer toutes les décorations LanguageTool
+    // Function to clean all LanguageTool decorations
     storage.clearAllDecorations = () => {
       if (storage.decorationSet && storage.editorView) {
         storage.decorationSet = DecorationSet.empty;
@@ -337,27 +337,27 @@ export const LanguageTool = Extension.create({
       }
     };
 
-    // Fonction pour mettre à jour l'état de LanguageTool en fonction du toggle
+    // Function to update LanguageTool state based on toggle
     storage.updateLanguageToolState = () => {
       const autoCorrectionEnabled = sessionStorage.getItem('autoCorrectionEnabled');
       if (autoCorrectionEnabled === 'false') {
         storage.clearAllDecorations();
       } else {
-        // Si réactivé, relancer la vérification sur le document actuel
+        // If reactivated, restart verification on current document
         if (storage.editorView && storage.editorView.state) {
           storage.proofreadAndDecorateWholeDoc(storage.editorView.state.doc);
         }
       }
     };
 
-    // Fonction optimisée pour vérifier tout le document
+    // Optimized function to check entire document
     storage.proofreadAndDecorateWholeDoc = async (doc) => {
       if (!doc || !storage.editorView) return;
       
-      // Vérifier si la correction automatique est activée
+      // Check if auto correction is enabled
       const autoCorrectionEnabled = sessionStorage.getItem('autoCorrectionEnabled');
       if (autoCorrectionEnabled === 'false') {
-        // Si désactivée, supprimer toutes les décorations existantes et sortir
+        // If disabled, remove all existing decorations and exit
         storage.clearAllDecorations();
         return;
       }
@@ -365,7 +365,7 @@ export const LanguageTool = Extension.create({
       storage.textNodesWithPosition = [];
       let index = 0;
       
-      // Collecter tous les nœuds de texte
+      // Collect all text nodes
       doc.descendants((node, pos) => {
         if (node.isText) {
           if (storage.textNodesWithPosition[index]) {
@@ -386,10 +386,10 @@ export const LanguageTool = Extension.create({
       
       storage.textNodesWithPosition = storage.textNodesWithPosition.filter(Boolean);
       
-      // Si aucun texte à vérifier, sortir
+      // If no text to check, exit
       if (storage.textNodesWithPosition.length === 0) return;
       
-      // Diviser en chunks pour éviter de surcharger l'API
+      // Split into chunks to avoid overloading the API
       let finalText = '';
       const chunksOf500Words = [];
       let upperFrom = 0;
@@ -426,17 +426,17 @@ export const LanguageTool = Extension.create({
         });
       }
       
-      // Aucun chunk à vérifier
+      // No chunk to verify
       if (chunksOf500Words.length === 0) return;
       
-      // Indiquer le chargement
+      // Indicate loading
       storage.dispatch(storage.editorView.state.tr.setMeta(LanguageToolHelpingWords.LoadingTransactionName, true));
       
-      // Fonction optimisée pour vérifier un chunk de texte
+      // Optimized function to check a text chunk
       const getMatchAndSetDecorations = async (doc, text, originalFrom) => {
         if (!text || !storage.editorView) return;
         
-        // Vérifier le cache d'abord
+        // Check cache first
         let ltRes = getCachedResponse(text);
         
         if (!ltRes) {
@@ -458,7 +458,7 @@ export const LanguageTool = Extension.create({
           }
         }
         
-        if (!storage.editorView) return; // Au cas où l'éditeur a été détruit entre-temps
+        if (!storage.editorView) return; // In case the editor was destroyed in the meantime
         
         const { matches } = ltRes;
         const decorations = [];
@@ -478,7 +478,7 @@ export const LanguageTool = Extension.create({
           }
         }
         
-        if (!storage.editorView) return; // Vérifier à nouveau si l'éditeur existe toujours
+        if (!storage.editorView) return; // Check again if editor still exists
         
         storage.decorationSet = storage.decorationSet.remove(storage.decorationSet.find(originalFrom, originalFrom + text.length));
         storage.decorationSet = storage.decorationSet.add(doc, decorations);
@@ -488,24 +488,21 @@ export const LanguageTool = Extension.create({
         }
       };
       
-      // Traiter les chunks en série plutôt qu'en parallèle pour réduire la charge
-      for (const { text, from } of chunksOf500Words) {
+      // Process all chunks in parallel rather than sequentially to reduce load
+      await Promise.all(chunksOf500Words.map(async ({ text, from }) => {
         await getMatchAndSetDecorations(doc, text, from);
-        
-        // Pause entre les chunks pour ne pas surcharger le serveur
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
+      }));
       
       if (storage.editorView) {
         storage.dispatch(storage.editorView.state.tr.setMeta(LanguageToolHelpingWords.LoadingTransactionName, false));
         storage.proofReadInitially = true;
         
-        // Ajouter les écouteurs d'événements aux décorations
+        // Add event listeners to decorations
         setTimeout(() => storage.addEventListenersToDecorations(), 0);
       }
     };
     
-    // Créer des versions debouncées des méthodes
+    // Create debounced versions of methods
     storage.debouncedProofreadNodeAndUpdateItsDecorations = debounce(
       (node, offset, cur) => {
         storage.proofreadNodeAndUpdateItsDecorations(node, offset, cur);
@@ -522,7 +519,7 @@ export const LanguageTool = Extension.create({
     
     return [
       new Plugin({
-        key: new PluginKey(`languagetool-${storage.editorId}`), // Clé unique par instance
+        key: new PluginKey(`languagetool-${storage.editorId}`), // Unique key per instance
         props: {
           decorations(state) {
             return this.getState(state);
@@ -552,12 +549,12 @@ export const LanguageTool = Extension.create({
             const languageToolDecorations = tr.getMeta(LanguageToolHelpingWords.LanguageToolTransactionName);
             if (languageToolDecorations) return storage.decorationSet;
             
-            // Vérifier les modifications du document
+            // Check document changes
             if (tr.docChanged && automaticMode && storage.editorView) {
               if (!storage.proofReadInitially) {
                 storage.debouncedProofreadAndDecorate(tr.doc);
               } else {
-                // Vérifier uniquement les parties modifiées
+                // Check only modified parts
                 changedDescendants(
                   oldEditorState.doc, 
                   tr.doc, 
@@ -567,19 +564,19 @@ export const LanguageTool = Extension.create({
               }
             }
             
-            // Mettre à jour les décorations en fonction des modifications du document
+            // Update decorations based on document changes
             storage.decorationSet = storage.decorationSet.map(tr.mapping, tr.doc);
             
             return storage.decorationSet;
           },
         },
         view: (view) => {
-          // Stocker l'éditeur dans le storage
+          // Store editor in storage
           storage.editorView = view;
           
-          // Initialiser la vérification immédiatement au chargement si le mode auto est activé
+          // Initialize verification immediately on load if auto mode is enabled
           if (automaticMode) {
-            // Délai court pour laisser l'éditeur s'initialiser complètement
+            // Short delay to let the editor initialize completely
             setTimeout(() => {
               if (storage.editorView) {
                 storage.proofreadAndDecorateWholeDoc(view.state.doc);
