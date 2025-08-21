@@ -55,7 +55,7 @@ const HIGHLIGHT_COLOR_MAP = {
 
 
 
-function html2ooxml(html, style = "") {;
+function html2ooxml(html, style = "", listIds = []) {;
   if (html === "") return html;
   if (!html.match(/^<.+>/)) html = `<p>${html}</p>`;
   console.log(html);
@@ -65,6 +65,10 @@ function html2ooxml(html, style = "") {;
   let cRunProperties = {};
   let cParagraphProperties = {};
   let list_state = [];
+  let bullet_state = []; // État séparé pour les puces
+  let availableListIds = [...listIds]; // Copie des IDs disponibles pour les listes numérotées
+  let currentListId = 0; // ID de la liste actuellement en cours
+  let listIdsByLevel = {}; // IDs de liste par niveau d'imbrication
   let inCodeBlock = false;
   let inCodeBlockHighlight = false;
   let inTable = false;
@@ -178,27 +182,44 @@ function html2ooxml(html, style = "") {;
             cRunProperties.link = attribs.href;
             break;
           case 'ul':
-            // Réinitialiser l'état de la liste pour commencer au niveau 0
-            list_state = ["bullet"];
+            // Empiler dans le système de puces séparé
+            bullet_state.push("bullet");
+            console.log(`🔘 Liste à puces créée, niveau: ${bullet_state.length - 1}`);
             break;
           case 'ol':
-            // Réinitialiser l'état de la liste pour commencer au niveau 0
-            list_state = ["number"];
+            // Empiler le type de liste pour gérer l'imbrication
+            list_state.push("number");
+            
+            // Calculer le niveau actuel (après avoir empilé)
+            const currentLevel = list_state.length - 1;
+            
+            // Si on n'a pas encore d'ID pour ce niveau, en créer un nouveau
+            if (!listIdsByLevel[currentLevel]) {
+              currentListId = availableListIds.length > 0 ? availableListIds.shift() : Math.floor(Math.random() * 90000) + 10000;
+              listIdsByLevel[currentLevel] = currentListId;
+              console.log(`🔢 Nouvelle liste numérotée créée - ID: ${currentListId}, niveau: ${currentLevel}`);
+            } else {
+              currentListId = listIdsByLevel[currentLevel];
+              console.log(`♻️ Liste numérotée réutilisée - ID: ${currentListId}, niveau: ${currentLevel}`);
+            }
             break;
           case 'li':
-            // Calculer le niveau de la liste basé sur la profondeur d'imbrication
-            let level = Math.min(list_state.length - 1, 8); // Limite à 8 (niveaux 0-8, max Word = 9)
-            
-            // Déterminer le type de liste (bullet ou numbering) basé sur le dernier type ajouté
-            let listType = list_state[list_state.length - 1];
-            
-            if (level >= 0 && listType === "bullet") {
-              cParagraphProperties.bullet = { level: level };
-            } else if (level >= 0 && listType === "number") {
-              cParagraphProperties.numbering = { reference: 2, level: level };
+            // Déterminer si on est dans une liste à puces ou numérotée
+            if (bullet_state.length > 0) {
+              // On est dans une liste à puces - utiliser la définition existante du template (numId="1")
+              let bulletLevel = Math.min(bullet_state.length - 1, 8);
+              const bulletId = 1; // Utiliser la définition existante du template
+              cParagraphProperties.numbering = { reference: bulletId, level: bulletLevel };
+              console.log(`📝 Élément de liste à puces - ID: ${bulletId} (template), niveau: ${bulletLevel}`);
+            } else if (list_state.length > 0) {
+              // On est dans une liste numérotée
+              let numberLevel = Math.min(list_state.length - 1, 8);
+              const elementListId = listIdsByLevel[numberLevel];
+              cParagraphProperties.numbering = { reference: elementListId, level: numberLevel };
+              console.log(`📝 Élément de liste numérotée - ID: ${elementListId}, niveau: ${numberLevel}`);
             } else {
-              // Fallback par défaut
-              cParagraphProperties.bullet = { level: 0 };
+              // Pas de numérotation si on n'est pas dans une vraie liste - laisser par défaut
+              console.log(`📝 Élément <li> sans liste parente - pas de numérotation appliquée`);
             }
             
             // Créer le paragraphe avec les propriétés de liste
@@ -255,7 +276,39 @@ function html2ooxml(html, style = "") {;
       },
 
       onclosetag(tag) {
-        if (
+        console.log(`🔚 Fermeture du tag: ${tag}`);
+        
+        // Gérer les listes en premier
+        if (tag === "ul") {
+          const closingBulletLevel = bullet_state.length - 1;
+          bullet_state.pop();
+          console.log(`🔄 Fermeture de liste à puces ${tag} au niveau ${closingBulletLevel}, niveaux restants: ${bullet_state.length}`);
+          
+          if (bullet_state.length === 0) {
+            cParagraphProperties = {};
+            console.log(`🔄 Toutes les listes à puces fermées, réinitialisation`);
+          }
+        } else if (tag === "ol") {
+          const closingLevel = list_state.length - 1;
+          list_state.pop();
+          console.log(`🔄 Fermeture de liste numérotée ${tag} au niveau ${closingLevel}, niveaux restants: ${list_state.length}`);
+          
+          // Nettoyer les IDs des niveaux plus profonds que celui qu'on ferme
+          Object.keys(listIdsByLevel).forEach(level => {
+            if (parseInt(level) > closingLevel) {
+              delete listIdsByLevel[level];
+              console.log(`🗑️ Suppression de l'ID du niveau ${level}`);
+            }
+          });
+          
+          if (list_state.length === 0) {
+            cParagraphProperties = {};
+            currentListId = 0;
+            listIdsByLevel = {};
+            console.log(`🔄 Toutes les listes numérotées fermées, réinitialisation complète`);
+          }
+        }
+        else if (
           [
             "h1",
             "h2",
@@ -296,11 +349,6 @@ function html2ooxml(html, style = "") {;
           } else if (tag === "span") {
             if (inCodeBlock) {
               delete cRunProperties.color;
-            }
-          }  else if (tag === "ul" || tag === "ol") {
-            list_state.pop();
-            if (list_state.length === 0) {
-              cParagraphProperties = {};
             }
           } else if (tag === "li") {
             // Réinitialiser les propriétés de paragraphe après chaque élément de liste
@@ -421,7 +469,7 @@ let filteredXml = prepXml["w:body"].filter((e) => {
 });
 
   let dataXml = xml(filteredXml);
-  dataXml = dataXml.replace(/w:numId w:val="{2-0}"/g, 'w:numId w:val="2"'); // Replace numbering to have correct value
+  dataXml = dataXml.replace(/w:numId w:val="{(\d+)-0}"/g, 'w:numId w:val="$1"'); // Replace numbering to have correct value
   //a little dirty but until we do better it works
   dataXml = dataXml.replace(/\{_\|link\|_\{(.*?)\|\-\|(.*?)\}_\|link\|_\}/gm, '<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> HYPERLINK $2 </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:rPr><w:rStyle w:val="PwndocLink"/></w:rPr><w:t> $1 </w:t> </w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>')
   console.log(dataXml)
