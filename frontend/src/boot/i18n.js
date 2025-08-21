@@ -21,5 +21,5 @@ export default ({ app }) => {
 
 export { i18n }
 
-// Fonction utilitaire équivalente à $t() dans les fichiers JS purs
+// Utility function equivalent to $t() in pure JS files
 export const $t = (...params) => i18n.global.t(...params)

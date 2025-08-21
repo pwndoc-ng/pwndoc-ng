@@ -180,10 +180,10 @@ export default {
                 if (this.errors.name || this.errors.selectedAudit)
                     return;
 
-                // Créer un audit cloné
+                // Create a cloned audit
                 this.createClonedAudit();
             } else {
-                // Mode création normale
+                // Normal creation mode
                 this.currentAudit.auditType = this.currentAudit.auditType.name;
                 if (!this.currentAudit.name)
                     this.errors.name = "Name required";
@@ -199,7 +199,7 @@ export default {
             }
         },
 
-        // Créer un audit normal
+        // Create a normal audit
         createNormalAudit: function() {
             AuditService.createAudit(this.currentAudit)
             .then((response) => {
@@ -217,7 +217,7 @@ export default {
             })
         },
 
-        // Créer un audit cloné
+        // Create a cloned audit
         createClonedAudit: function() {
             AuditService.createClonedAudit(this.selectedAuditToClone, this.currentAudit.name)
             .then((response) => {

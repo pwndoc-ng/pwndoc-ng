@@ -16,11 +16,11 @@ function updateDarkMode(dark = null) {
   }
 }
 
-// Met à jour dès le chargement
+// Update as soon as loading
 updateDarkMode()
 
 export default ({ app }) => {
-  // Définir les propriétés globales
+  // Define global properties
   app.config.globalProperties.$toggleDarkMode = () => {
     updateDarkMode(!Dark.isActive)
   }

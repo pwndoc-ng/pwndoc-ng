@@ -75,7 +75,7 @@ export const TriggerMenuExtension = Extension.create({
         margin: 4px 0;
       }
 
-      /* Spinner et états */
+      /* Spinner and states */
       .loading-state {
         display: flex;
         align-items: center;
@@ -120,7 +120,7 @@ export const TriggerMenuExtension = Extension.create({
     `;
     document.head.appendChild(style);
 
-    // Fonctions utilitaires pour la gestion des états
+    // Utility functions for state management
 
 
     return [
@@ -128,7 +128,7 @@ export const TriggerMenuExtension = Extension.create({
         key: new PluginKey('triggerMenu'),
         props: {
           handleKeyDown(view, event) {
-            // Vérification de l'audit ID depuis le path
+            // Check audit ID from path
             let auditId = -1;
             try {
               const path = window.location.pathname.split('/');
@@ -138,11 +138,11 @@ export const TriggerMenuExtension = Extension.create({
                 
               }
             } catch (error) {
-              console.error('Erreur lors de la récupération de l\'audit ID:', error);
+              console.error('Error retrieving audit ID:', error);
               return false;
             }
 
-            // Si pas d'audit valide, on ne continue pas
+            // If no valid audit, we don't continue
             if (auditAPI === -1) {
               
               return false;
@@ -150,10 +150,10 @@ export const TriggerMenuExtension = Extension.create({
             if (isMenuVisible && (event.key === 'Backspace' || event.key === 'Delete')) {
                 
                 closeMenu();
-                return false; // Permet à l'événement de se propager et de supprimer le caractère
+                return false; // Allow the event to propagate and delete the character
               }
             
-            // Si le menu est visible, toute touche le ferme sauf les touches de navigation
+            // If the menu is visible, any key closes it except navigation keys
             if (isMenuVisible) {
               const navigationKeys = ['ArrowUp', 'ArrowDown', 'Enter'];
               
@@ -196,7 +196,7 @@ export const TriggerMenuExtension = Extension.create({
               }
             }
             
-            // Détection de :: pour ouvrir le menu
+            // Detection of :: to open the menu
             const { state } = view;
             const { selection } = state;
             const { $from } = selection;
@@ -217,10 +217,10 @@ export const TriggerMenuExtension = Extension.create({
     async function fetchMenuOptions() {
       try {
         if (auditAPI === -1) {
-          throw new Error('Aucun audit ID valide');
+          throw new Error('No valid audit ID');
         }
 
-        // URL avec l'audit ID
+        // URL with audit ID
         const url = auditAPI;
         
 
@@ -282,20 +282,20 @@ export const TriggerMenuExtension = Extension.create({
         const { selection } = state;
         const { $from } = selection;
         
-        // Supprimer les '::'
+        // Delete the '::'
         const deleteFrom = $from.pos - 2;
         tr.delete(deleteFrom, $from.pos);
         const optionElement = menuElement.querySelector(`[data-value="${selectedOption}"]`);
         const index = optionElement ? optionElement.getAttribute('data-index') : 0;
-        // Créer le lien au format texte cliquable
+        // Create the link in clickable text format
         const linkMark = state.schema.marks.link;
-        const linkText = decodeURI(selectedOption); // Vous pouvez personnaliser le texte affiché
-        const linkUrl = decodeURI(selectedOption); // L'URL sera la valeur de l'option
+        const linkText = decodeURI(selectedOption); // You can customize the displayed text
+        const linkUrl = decodeURI(selectedOption); // The URL will be the option value
         
-        // Insérer le texte du lien
+        // Insert the link text
         tr.insertText(linkText, deleteFrom);
         
-        // Ajouter la marque de lien sur le texte inséré
+        // Add the link mark on the inserted text
         tr.addMark(
           deleteFrom,
           deleteFrom + linkText.length,
@@ -304,11 +304,11 @@ export const TriggerMenuExtension = Extension.create({
         tr.removeStoredMark(linkMark);
         const nonLinkMarks = (state.storedMarks || []).filter(mark => mark.type !== linkMark);
 
-        // Ajouter un espace après le lien
+        // Add a space after the link
         const spacePos = deleteFrom + linkText.length;
         tr.insertText(' ', spacePos);
         tr.setStoredMarks(nonLinkMarks);
-        // Déplacer le curseur après l'espace
+        // Move cursor after the space
         const newPos = spacePos + 1;
         tr.setSelection(state.selection.constructor.near(tr.doc.resolve(newPos)));
         view.dispatch(tr);
@@ -366,7 +366,7 @@ export const TriggerMenuExtension = Extension.create({
       isMenuVisible = true;
 
       try {
-        // Simuler un délai réseau (à retirer en production)
+        // Simulate network delay (to be removed in production)
         await new Promise(resolve => setTimeout(resolve, 1000));
         const options = await fetchMenuOptions();
 
@@ -386,7 +386,7 @@ export const TriggerMenuExtension = Extension.create({
         showErrorState(error);
       }
     
-      // Gestionnaire de clic extérieur
+      // Outside click handler
       document.addEventListener('click', function closeMenuOnClick(e) {
         if (!menuElement?.contains(e.target)) {
           closeMenu();

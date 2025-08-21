@@ -8,23 +8,23 @@ const HIGHLIGHT_COLOR_MAP = {
   'hljs-built_in': '#DCDCAA', // Jaune clair
   'hljs-type': '#4EC9B0', // Vert turquoise
   'hljs-literal': '#569CD6', // Bleu vif
-  'hljs-number': '#B5CEA8', // Vert pâle
+  'hljs-number': '#B5CEA8', // Pale green
   'hljs-regexp': '#D16969', // Rouge clair
-  'hljs-string': '#CE9178', // Orange pâle
-  'hljs-subst': '#D4D4D4', // Gris clair
+  'hljs-string': '#CE9178', // Pale orange
+  'hljs-subst': '#D4D4D4', // Light gray
   'hljs-symbol': '#569CD6', // Bleu vif
-  'hljs-class': '#4EC9B0', // Vert turquoise
-  'hljs-function': '#DCDCAA', // Jaune clair
-  'hljs-title': '#DCDCAA', // Jaune clair
-  'hljs-params': '#9CDCFE', // Bleu clair
-  'hljs-comment': '#6A9955', // Vert foncé
+  'hljs-class': '#4EC9B0', // Turquoise green
+  'hljs-function': '#DCDCAA', // Light yellow
+  'hljs-title': '#DCDCAA', // Light yellow
+  'hljs-params': '#9CDCFE', // Light blue
+  'hljs-comment': '#6A9955', // Dark green
   'hljs-doctag': '#C586C0', // Violet
-  'hljs-meta': '#D4D4D4', // Gris clair
+  'hljs-meta': '#D4D4D4', // Light gray
   'hljs-meta-keyword': '#569CD6', // Bleu vif
-  'hljs-meta-string': '#CE9178', // Orange pâle
-  'hljs-section': '#DCDCAA', // Jaune clair
+  'hljs-meta-string': '#CE9178', // Pale orange
+  'hljs-section': '#DCDCAA', // Light yellow
   'hljs-tag': '#569CD6', // Bleu vif
-  'hljs-name': '#9CDCFE', // Bleu clair
+  'hljs-name': '#9CDCFE', // Light blue
   'hljs-attribute': '#9CDCFE', // Bleu clair
   'hljs-variable': '#9CDCFE', // Bleu clair
   'hljs-template-variable': '#9CDCFE', // Bleu clair
@@ -40,12 +40,12 @@ const HIGHLIGHT_COLOR_MAP = {
   'hljs-selector-tag': '#569CD6', // Bleu vif
   'hljs-selector-id': '#DCDCAA', // Jaune clair
   'hljs-selector-class': '#9CDCFE', // Bleu clair
-  'hljs-selector-attr': '#CE9178', // Orange pâle
-  'hljs-selector-pseudo': '#CE9178', // Orange pâle
-  'hljs-addition': '#B5CEA8', // Vert pâle
+  'hljs-selector-attr': '#CE9178', // Pale orange
+  'hljs-selector-pseudo': '#CE9178', // Pale orange
+  'hljs-addition': '#B5CEA8', // Pale green
   'hljs-deletion': '#D16969', // Rouge clair
-  'hljs-char': '#CE9178', // Orange pâle
-  'hljs-selector': '#DCDCAA', // Jaune clair
+  'hljs-char': '#CE9178', // Pale orange
+  'hljs-selector': '#DCDCAA', // Light yellow
   'hljs-template-tag': '#569CD6', // Bleu vif
   'hljs-template-variable': '#9CDCFE', // Bleu clair
   'hljs-root': '#D4D4D4', // Gris clair
@@ -65,10 +65,10 @@ function html2ooxml(html, style = "", listIds = []) {;
   let cRunProperties = {};
   let cParagraphProperties = {};
   let list_state = [];
-  let bullet_state = []; // État séparé pour les puces
-  let availableListIds = [...listIds]; // Copie des IDs disponibles pour les listes numérotées
-  let currentListId = 0; // ID de la liste actuellement en cours
-  let listIdsByLevel = {}; // IDs de liste par niveau d'imbrication
+  let bullet_state = []; // Separate state for bullets
+  let availableListIds = [...listIds]; // Copy of available IDs for numbered lists
+  let currentListId = 0; // ID of the currently active list
+  let listIdsByLevel = {}; // List IDs by nesting level
   let inCodeBlock = false;
   let inCodeBlockHighlight = false;
   let inTable = false;
@@ -83,7 +83,7 @@ function html2ooxml(html, style = "", listIds = []) {;
   let parser = new htmlparser.Parser(
     {
       onopentag(tag, attribs) {
-        console.log("Mon tag actuel est : " + tag);
+        console.log("Current tag is: " + tag);
         switch (tag) {
           case 'h1':
             cParagraph = new docx.Paragraph({ heading: "Heading1" });
@@ -182,47 +182,47 @@ function html2ooxml(html, style = "", listIds = []) {;
             cRunProperties.link = attribs.href;
             break;
           case 'ul':
-            // Empiler dans le système de puces séparé
+            // Stack in the separate bullet system
             bullet_state.push("bullet");
-            console.log(`🔘 Liste à puces créée, niveau: ${bullet_state.length - 1}`);
+            console.log(`🔘 Bullet list created, level: ${bullet_state.length - 1}`);
             break;
           case 'ol':
-            // Empiler le type de liste pour gérer l'imbrication
+            // Stack the list type to handle nesting
             list_state.push("number");
             
-            // Calculer le niveau actuel (après avoir empilé)
+            // Calculate current level (after stacking)
             const currentLevel = list_state.length - 1;
             
-            // Si on n'a pas encore d'ID pour ce niveau, en créer un nouveau
+            // If we don't have an ID for this level yet, create a new one
             if (!listIdsByLevel[currentLevel]) {
               currentListId = availableListIds.length > 0 ? availableListIds.shift() : Math.floor(Math.random() * 90000) + 10000;
               listIdsByLevel[currentLevel] = currentListId;
-              console.log(`🔢 Nouvelle liste numérotée créée - ID: ${currentListId}, niveau: ${currentLevel}`);
+              console.log(`🔢 New numbered list created - ID: ${currentListId}, level: ${currentLevel}`);
             } else {
               currentListId = listIdsByLevel[currentLevel];
-              console.log(`♻️ Liste numérotée réutilisée - ID: ${currentListId}, niveau: ${currentLevel}`);
+              console.log(`♻️ Numbered list reused - ID: ${currentListId}, level: ${currentLevel}`);
             }
             break;
           case 'li':
-            // Déterminer si on est dans une liste à puces ou numérotée
+            // Determine if we're in a bullet or numbered list
             if (bullet_state.length > 0) {
-              // On est dans une liste à puces - utiliser la définition existante du template (numId="1")
+              // We're in a bullet list - use existing template definition (numId="1")
               let bulletLevel = Math.min(bullet_state.length - 1, 8);
-              const bulletId = 1; // Utiliser la définition existante du template
+              const bulletId = 1; // Use existing template definition
               cParagraphProperties.numbering = { reference: bulletId, level: bulletLevel };
-              console.log(`📝 Élément de liste à puces - ID: ${bulletId} (template), niveau: ${bulletLevel}`);
+              console.log(`📝 Bullet list item - ID: ${bulletId} (template), level: ${bulletLevel}`);
             } else if (list_state.length > 0) {
-              // On est dans une liste numérotée
+              // We're in a numbered list
               let numberLevel = Math.min(list_state.length - 1, 8);
               const elementListId = listIdsByLevel[numberLevel];
               cParagraphProperties.numbering = { reference: elementListId, level: numberLevel };
-              console.log(`📝 Élément de liste numérotée - ID: ${elementListId}, niveau: ${numberLevel}`);
+              console.log(`📝 Numbered list item - ID: ${elementListId}, level: ${numberLevel}`);
             } else {
-              // Pas de numérotation si on n'est pas dans une vraie liste - laisser par défaut
-              console.log(`📝 Élément <li> sans liste parente - pas de numérotation appliquée`);
+              // No numbering if we're not in a real list - leave as default
+              console.log(`📝 <li> element without parent list - no numbering applied`);
             }
             
-            // Créer le paragraphe avec les propriétés de liste
+            // Create paragraph with list properties
             cParagraph = new docx.Paragraph(cParagraphProperties);
             break;
           case 'code':
@@ -276,28 +276,29 @@ function html2ooxml(html, style = "", listIds = []) {;
       },
 
       onclosetag(tag) {
-        console.log(`🔚 Fermeture du tag: ${tag}`);
+        console.log(`🔚 Closing tag: ${tag}`);
         
-        // Gérer les listes en premier
+        // Handle lists first
         if (tag === "ul") {
           const closingBulletLevel = bullet_state.length - 1;
           bullet_state.pop();
-          console.log(`🔄 Fermeture de liste à puces ${tag} au niveau ${closingBulletLevel}, niveaux restants: ${bullet_state.length}`);
+          console.log(`🔄 Closing bullet list ${tag} at level ${closingBulletLevel}, remaining levels: ${bullet_state.length}`);
           
           if (bullet_state.length === 0) {
             cParagraphProperties = {};
-            console.log(`🔄 Toutes les listes à puces fermées, réinitialisation`);
+            console.log(`🔄 All bullet lists closed, resetting`);
           }
         } else if (tag === "ol") {
           const closingLevel = list_state.length - 1;
           list_state.pop();
-          console.log(`🔄 Fermeture de liste numérotée ${tag} au niveau ${closingLevel}, niveaux restants: ${list_state.length}`);
+          console.log(`🔄 Closing numbered list ${tag} at level ${closingLevel}, remaining levels: ${list_state.length}`);
           
-          // Nettoyer les IDs des niveaux plus profonds que celui qu'on ferme
+          // Clean up IDs from levels deeper than the one we're closing
           Object.keys(listIdsByLevel).forEach(level => {
             if (parseInt(level) > closingLevel) {
+              const id = listIdsByLevel[level];
               delete listIdsByLevel[level];
-              console.log(`🗑️ Suppression de l'ID du niveau ${level}`);
+              console.log(`🧽 Removing list ID ${id} for level ${level}`);
             }
           });
           
@@ -305,7 +306,7 @@ function html2ooxml(html, style = "", listIds = []) {;
             cParagraphProperties = {};
             currentListId = 0;
             listIdsByLevel = {};
-            console.log(`🔄 Toutes les listes numérotées fermées, réinitialisation complète`);
+            console.log(`🔄 All numbered lists closed, complete reset`);
           }
         }
         else if (
@@ -351,8 +352,8 @@ function html2ooxml(html, style = "", listIds = []) {;
               delete cRunProperties.color;
             }
           } else if (tag === "li") {
-            // Réinitialiser les propriétés de paragraphe après chaque élément de liste
-            // pour éviter que les propriétés de puce persistent
+            // Reset paragraph properties after each list item
+            // to prevent bullet properties from persisting
             cParagraphProperties = {};
           } else if (tag === "tr") {
             inTableRow = false;
@@ -384,7 +385,7 @@ tmpCells.push({
               let isHeader = false
               let widthTotal = row
   .map(cell => parseInt(cell.width || "250", 10))
-  .reduce((prev, next) => prev + next, 0) || 1; // évite division par zéro
+  .reduce((prev, next) => prev + next, 0) || 1; // avoid division by zero
 
 
               row.map((cell) => {

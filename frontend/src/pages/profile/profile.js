@@ -31,7 +31,7 @@ export default {
             .then((data) => {
                 this.user = data.data.datas;
                 this.totpEnabled = this.user.totpEnabled;
-                // Si la 2FA est déjà activée, récupérer le QR code
+                // If 2FA is already enabled, retrieve the QR code
                 if(this.user.totpEnabled) {
                     this.showExistingTotpQrCode();
                 }
@@ -42,24 +42,24 @@ export default {
         },
 
         loadAutoCorrectionSetting: function() {
-            // Inverser la logique : le toggle est coché quand la correction est désactivée
+            // Reverse the logic: the toggle is checked when correction is disabled
             this.autoCorrectionEnabled = !AutoCorrectionService.isAutoCorrectionEnabled();
         },
 
         toggleAutoCorrection: function() {
-            // Inverser la logique : si le toggle est coché, on désactive la correction
+            // Reverse the logic: if the toggle is checked, we disable correction
             if (this.autoCorrectionEnabled) {
                 AutoCorrectionService.disable();
             } else {
                 AutoCorrectionService.enable();
             }
             
-            // Notifier tous les éditeurs actifs de mettre à jour leur état LanguageTool
+            // Notify all active editors to update their LanguageTool state
             this.notifyEditorsUpdate();
         },
 
         notifyEditorsUpdate: function() {
-            // Émettre un événement personnalisé que les éditeurs peuvent écouter
+            // Emit a custom event that editors can listen to
             window.dispatchEvent(new CustomEvent('autoCorrectionToggleChanged', {
                 detail: {
                     enabled: !this.autoCorrectionEnabled
@@ -75,7 +75,7 @@ export default {
                 currentQrCode: this.totpQrcode ? 'Present' : 'Not present'
             });
 
-            // Si le toggle est activé, on récupère TOUJOURS le QR code
+            // If the toggle is enabled, we ALWAYS retrieve the QR code
             if (this.totpEnabled) {
                 console.log('Toggle is ON - fetching QR code...');
                 UserService.getTotpQrCode()
@@ -111,13 +111,13 @@ export default {
                     });
                 });
             } else {
-                // Toggle désactivé - reset des valeurs
+                // Toggle disabled - reset values
                 console.log('Toggle is OFF - resetting values...');
                 this.totpQrcode = "";
                 this.totpSecret = "";
                 this.totpToken = "";
                 
-                // Focus sur l'input de désactivation si nécessaire
+                // Focus on the disable input if necessary
                 if (this.user.totpEnabled && this.$refs.totpDisableInput) {
                     console.log('Focusing on disable input...');
                     nextTick(() => {
@@ -127,7 +127,7 @@ export default {
             }
         },
 
-        // Méthode pour afficher le QR code existant
+        // Method to display existing QR code
         showExistingTotpQrCode: function() {
             UserService.getTotpQrCode()
             .then((data)=>{
@@ -140,7 +140,7 @@ export default {
             })
         },
 
-        // Méthode pour masquer le QR code
+        // Method to hide the QR code
         hideTotpQrCode: function() {
             this.totpQrcode = "";
             this.totpSecret = "";
@@ -168,7 +168,7 @@ export default {
             .then((data)=>{
                 console.log('TOTP setup response:', data);
                 
-                // Vérifier si le backend a retourné une erreur
+                // Check if the backend returned an error
                 if (data.data && data.data.status === 'error') {
                     console.error('Backend returned error:', data.data.datas);
                     Notify.create({
@@ -180,7 +180,7 @@ export default {
                     return;
                 }
                 
-                // Si on arrive ici, c'est un succès
+                // If we get here, it's a success
                 console.log('TOTP setup successful');
                 this.user.totpEnabled = true;
                 this.totpToken = "";
@@ -216,11 +216,11 @@ export default {
             .then((data)=>{
                 console.log('TOTP cancel response:', data);
                 
-                // Vérifier si le backend a retourné une erreur
+                // Check if the backend returned an error
                 if (data.data && data.data.status === 'error') {
                     console.error('Backend returned error:', data.data.datas);
                     Notify.create({
-                        message: 'TOTP verification failed: ' + data.data.datas,
+                        message: 'Failed to cancel TOTP: ' + data.data.datas,
                         color: 'negative',
                         textColor: 'white',
                         position: 'top-right'
@@ -228,7 +228,7 @@ export default {
                     return;
                 }
                 
-                // Si on arrive ici, c'est un succès
+                // If we get here, it's a success
                 console.log('TOTP cancel successful');
                 this.user.totpEnabled = false;
                 this.totpToken = "";

@@ -70,19 +70,19 @@ export default {
             })
         },
         customFilter(rows, terms, cols, getCellValue) {
-            // Vérifier si terms est vide
+            // Check if terms is empty
             if (!terms || (terms.name === '' && terms.ext === '')) {
               return rows;
             }
             
             return rows.filter(row => {
-              // Vérifier name
+              // Check name
               if (terms.name && row.name) {
                 const nameMatch = String(row.name).toLowerCase().includes(String(terms.name).toLowerCase());
                 if (!nameMatch) return false;
               }
               
-              // Vérifier ext
+              // Check ext
               if (terms.ext && row.ext) {
                 const extMatch = String(row.ext).toLowerCase().includes(String(terms.ext).toLowerCase());
                 if (!extMatch) return false;
