@@ -236,8 +236,9 @@
         </q-card-section>
         <q-card-section>
             <div class="col-md-12">
-                <cvss-calculator
+                <cvss-calculator-unified
                 v-model="currentVulnerability.cvssv3"
+                v-model:cvssv4Value="currentVulnerability.cvssv4"
                 @cvssScoreChange="currentVulnerability.cvssScore = $event"
                 />
             </div>
@@ -408,8 +409,9 @@
         </q-card-section>
         <q-card-section>
             <div class="col-md-12">
-                <cvss-calculator
+                <cvss-calculator-unified
                 v-model="currentVulnerability.cvssv3"
+                v-model:cvssv4Value="currentVulnerability.cvssv4"
                 @cvssScoreChange="currentVulnerability.cvssScore = $event"
                 />
             </div>
@@ -558,7 +560,7 @@
                         </q-field>
                     </q-card-section>
                     <q-card-section>
-                        <cvss-calculator
+                        <cvss-calculator-unified
                         v-model="currentVulnerability.cvssv3"
                         @cvssScoreChange="currentVulnerability.cvssScore = $event"
                         />
@@ -722,9 +724,10 @@
                                 </q-field>
                             </q-card-section>
                             <q-card-section>
-                                <cvss-calculator
+                                <cvss-calculator-unified
                                 :class="(currentVulnerability.cvssv3 !== update.cvssv3)?'bg-diffbackground':''"
                                 v-model="update.cvssv3"
+                                v-model:cvssv4Value="update.cvssv4"
                                 @cvssScoreChange="update.cvssScore = $event"
                                 readonly
                                 />
