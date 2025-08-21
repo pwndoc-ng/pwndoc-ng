@@ -24,6 +24,7 @@ var chartContentTypeXml = ''
 var globalAbstractNumId = null // Variable globale pour partager l'abstractNumId entre toutes les sections
 var abstractNumCreated = false // Flag pour éviter de créer l'abstractNum plusieurs fois
 var bulletDefinitionCreated = false // Flag pour éviter de créer la définition bullet plusieurs fois
+var globalBulletNumId = null // Variable globale pour stocker l'ID dynamique des puces
 
 const encodeHTMLEntities = s => s.replace(/[\u00A0-\u9999<>&]/g, i => '&#'+i.charCodeAt(0)+';')
 
@@ -34,6 +35,7 @@ async function generateDoc(audit) {
     globalAbstractNumId = null;
     abstractNumCreated = false;
     bulletDefinitionCreated = false;
+    globalBulletNumId = null;
 
     var templatePath = `${__basedir}/../report-templates/${audit.template.name}.${audit.template.ext || 'docx'}`
     var content = fs.readFileSync(templatePath, "binary");
@@ -582,10 +584,9 @@ expressions.filters.convertHTML = function(input, style, listIds) {
         
         console.log(`🆔 IDs des listes à utiliser:`, listIdsArray);
         
-        // Si on a des listes, modifier le numbering.xml
-        if (olCount > 0 || ulCount > 0) {
-            modifyNumberingXml(olCount, ulCount, listIdsArray);
-        }
+        // ÉLIMINATION TOTALE : Ne plus modifier le numbering.xml du tout
+        // Utiliser UNIQUEMENT les définitions existantes du template
+        console.log(`🚫 ÉLIMINATION : Pas de modification du numbering.xml (olCount: ${olCount}, ulCount: ${ulCount})`);
         
         var result = html2ooxml(input.replace(/(<p><\/p>)+$/, ''), style, listIdsArray)
     }
@@ -605,28 +606,32 @@ function modifyNumberingXml(olCount, ulCount, listIdsArray = []) {
 </w:numbering>`;
         }
         
-        // Utiliser l'abstractNumId global ou en créer un nouveau s'il n'existe pas
-        let nextAbstractNumId;
-        if (globalAbstractNumId === null) {
-            // Premier appel : trouver le prochain abstractNumId disponible
-            nextAbstractNumId = 1;
-            if (numberingXml.includes('w:abstractNum w:abstractNumId="')) {
-                const matches = numberingXml.match(/w:abstractNum w:abstractNumId="(\d+)"/g);
-                if (matches) {
-                    const ids = matches.map(match => parseInt(match.match(/"(\d+)"/)[1]));
-                    nextAbstractNumId = Math.max(...ids) + 1;
+        // Utiliser l'abstractNumId global ou en créer un nouveau SEULEMENT si on a des listes numérotées
+        let nextAbstractNumId = null;
+        if (olCount > 0) {
+            if (globalAbstractNumId === null) {
+                // Premier appel : trouver le prochain abstractNumId disponible
+                nextAbstractNumId = 1;
+                if (numberingXml.includes('w:abstractNum w:abstractNumId="')) {
+                    const matches = numberingXml.match(/w:abstractNum w:abstractNumId="(\d+)"/g);
+                    if (matches) {
+                        const ids = matches.map(match => parseInt(match.match(/"(\d+)"/)[1]));
+                        nextAbstractNumId = Math.max(...ids) + 1;
+                    }
                 }
+                globalAbstractNumId = nextAbstractNumId;
+                console.log(`🆕 Premier abstractNumId créé pour listes numérotées: ${globalAbstractNumId}`);
+            } else {
+                // Réutiliser l'abstractNumId existant
+                nextAbstractNumId = globalAbstractNumId;
+                console.log(`♻️ Réutilisation de l'abstractNumId: ${globalAbstractNumId}`);
             }
-            globalAbstractNumId = nextAbstractNumId;
-            console.log(`🆕 Premier abstractNumId créé: ${globalAbstractNumId}`);
         } else {
-            // Réutiliser l'abstractNumId existant
-            nextAbstractNumId = globalAbstractNumId;
-            console.log(`♻️ Réutilisation de l'abstractNumId: ${globalAbstractNumId}`);
+            console.log(`ℹ️ Aucune liste numérotée (<ol>) détectée, pas de création d'abstractNumId`);
         }
         
-        // Créer une définition abstraite pour les listes numérotées seulement si c'est la première fois
-        if (!abstractNumCreated) {
+        // Créer une définition abstraite pour les listes numérotées seulement si c'est la première fois ET qu'on a des listes numérotées
+        if (olCount > 0 && !abstractNumCreated) {
             // Créer une définition multi-niveaux (0-8) pour les listes numérotées
             let decimalAbstract = `<w:abstractNum w:abstractNumId="${nextAbstractNumId}" w15:restartNumberingAfterBreak="0">
                 <w:multiLevelType w:val="hybridMultilevel"/>`;
@@ -636,9 +641,8 @@ function modifyNumberingXml(olCount, ulCount, listIdsArray = []) {
                 const leftIndent = 720 + (i * 720); // Indentation progressive : 720, 1440, 2160, etc.
                 const hanging = 360; // Espacement constant pour les numéros
                 
-                // Types de numérotation alternés par niveau
-                const numFormats = ["decimal", "lowerLetter", "lowerRoman"];
-                const numFormat = numFormats[i % numFormats.length];
+                // Utiliser SEULEMENT decimal pour éviter les conflits avec le sommaire
+                const numFormat = "decimal";
                 const lvlText = `%${i+1}.`; // Chaque niveau utilise son propre compteur
                 
                 decimalAbstract += `
@@ -662,17 +666,39 @@ function modifyNumberingXml(olCount, ulCount, listIdsArray = []) {
             console.log(`🚫 Définition abstraite ignorée (déjà créée) pour abstractNumId: ${nextAbstractNumId}`);
         }
         
-        // Créer des numérotations concrètes uniques pour chaque liste
-        listIdsArray.forEach((listId, index) => {
-            const concreteNumbering = `<w:num w:numId="${listId}"><w:abstractNumId w:val="${nextAbstractNumId}"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num>`;
-            
-            numberingXml = numberingXml.replace('</w:numbering>', `${concreteNumbering}\n</w:numbering>`);
-        });
+        // Créer des numérotations concrètes uniques pour chaque liste (seulement si on a des listes numérotées et un abstractNumId valide)
+        if (olCount > 0 && nextAbstractNumId !== null) {
+            listIdsArray.forEach((listId, index) => {
+                const concreteNumbering = `<w:num w:numId="${listId}"><w:abstractNumId w:val="${nextAbstractNumId}"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num>`;
+                
+                numberingXml = numberingXml.replace('</w:numbering>', `${concreteNumbering}\n</w:numbering>`);
+            });
+        }
         
         // Ajouter la définition pour les puces si nécessaire (une seule fois pour tout le document)
         if (ulCount > 0 && !bulletDefinitionCreated) {
+            // Trouver le prochain numId disponible en analysant le numbering.xml existant
+            let nextBulletNumId = 1;
+            if (numberingXml.includes('w:numId="')) {
+                const numIdMatches = numberingXml.match(/w:numId="(\d+)"/g);
+                if (numIdMatches) {
+                    const existingIds = numIdMatches.map(match => parseInt(match.match(/"(\d+)"/)[1]));
+                    nextBulletNumId = Math.max(...existingIds) + 1;
+                }
+            }
+            
+            // Trouver le prochain abstractNumId disponible pour les puces
+            let bulletAbstractNumId = 1;
+            if (numberingXml.includes('w:abstractNum w:abstractNumId="')) {
+                const abstractMatches = numberingXml.match(/w:abstractNum w:abstractNumId="(\d+)"/g);
+                if (abstractMatches) {
+                    const existingAbstractIds = abstractMatches.map(match => parseInt(match.match(/"(\d+)"/)[1]));
+                    bulletAbstractNumId = Math.max(...existingAbstractIds) + 1;
+                }
+            }
+            
             // Créer une définition abstraite simple pour les puces
-            let bulletAbstract = `<w:abstractNum w:abstractNumId="${nextAbstractNumId + 1}" w15:restartNumberingAfterBreak="0">
+            let bulletAbstract = `<w:abstractNum w:abstractNumId="${bulletAbstractNumId}" w15:restartNumberingAfterBreak="0">
                 <w:multiLevelType w:val="hybridMultilevel"/>
                 <w:lvl w:ilvl="0" w15:tentative="1">
                     <w:start w:val="1"/>
@@ -687,24 +713,31 @@ function modifyNumberingXml(olCount, ulCount, listIdsArray = []) {
             
             numberingXml = numberingXml.replace('</w:numbering>', `${bulletAbstract}\n</w:numbering>`);
             
-            const bulletNumbering = `<w:num w:numId="1"><w:abstractNumId w:val="${nextAbstractNumId + 1}"/></w:num>`;
+            const bulletNumbering = `<w:num w:numId="${nextBulletNumId}"><w:abstractNumId w:val="${bulletAbstractNumId}"/></w:num>`;
             
             numberingXml = numberingXml.replace('</w:numbering>', `${bulletNumbering}\n</w:numbering>`);
             
             bulletDefinitionCreated = true;
-            console.log(`📝 Définition simple créée pour les puces (ID: 1, abstractNumId: ${nextAbstractNumId + 1})`);
+            // Stocker l'ID dynamique pour réutilisation
+            globalBulletNumId = nextBulletNumId;
+            console.log(`📝 Définition simple créée pour les puces (ID: ${nextBulletNumId}, abstractNumId: ${bulletAbstractNumId})`);
         } else if (ulCount > 0 && bulletDefinitionCreated) {
-            console.log(`♻️ Définition bullet déjà créée, réutilisation de l'ID: 1`);
+            console.log(`♻️ Définition bullet déjà créée, réutilisation de l'ID: ${globalBulletNumId}`);
         }
         
         
         zip.file(numberingPath, numberingXml);
         
         console.log(`✅ numbering.xml modifié avec succès`);
-        console.log(`   🔢 AbstractNumId utilisé: ${nextAbstractNumId}`);
-        console.log(`   🔢 IDs des listes numérotées: ${listIdsArray.join(', ')}`);
+        if (olCount > 0 && nextAbstractNumId !== null) {
+            console.log(`   🔢 AbstractNumId utilisé pour les listes numérotées: ${nextAbstractNumId}`);
+            console.log(`   🔢 IDs des listes numérotées: ${listIdsArray.join(', ')}`);
+        }
         if (bulletDefinitionCreated) {
-            console.log(`   🔘 ID des puces: 1`);
+            console.log(`   🔘 ID des puces: ${globalBulletNumId}`);
+        }
+        if (olCount === 0 && ulCount === 0) {
+            console.log(`   ℹ️ Aucune liste détectée, numbering.xml non modifié`);
         }
         
     } catch (error) {

@@ -206,10 +206,11 @@ function html2ooxml(html, style = "", listIds = []) {;
           case 'li':
             // Déterminer si on est dans une liste à puces ou numérotée
             if (bullet_state.length > 0) {
-              // On est dans une liste à puces - utiliser numId=1 avec la définition bullet
+              // On est dans une liste à puces - utiliser la définition existante du template (numId="1")
               let bulletLevel = Math.min(bullet_state.length - 1, 8);
-              cParagraphProperties.numbering = { reference: 1, level: bulletLevel };
-              console.log(`📝 Élément de liste à puces - ID: 1, niveau: ${bulletLevel}`);
+              const bulletId = 1; // Utiliser la définition existante du template
+              cParagraphProperties.numbering = { reference: bulletId, level: bulletLevel };
+              console.log(`📝 Élément de liste à puces - ID: ${bulletId} (template), niveau: ${bulletLevel}`);
             } else if (list_state.length > 0) {
               // On est dans une liste numérotée
               let numberLevel = Math.min(list_state.length - 1, 8);
@@ -217,9 +218,8 @@ function html2ooxml(html, style = "", listIds = []) {;
               cParagraphProperties.numbering = { reference: elementListId, level: numberLevel };
               console.log(`📝 Élément de liste numérotée - ID: ${elementListId}, niveau: ${numberLevel}`);
             } else {
-              // Fallback par défaut - utiliser les puces
-              cParagraphProperties.numbering = { reference: 1, level: 0 };
-              console.log(`📝 Élément de liste fallback - ID: 1, niveau: 0`);
+              // Pas de numérotation si on n'est pas dans une vraie liste - laisser par défaut
+              console.log(`📝 Élément <li> sans liste parente - pas de numérotation appliquée`);
             }
             
             // Créer le paragraphe avec les propriétés de liste
