@@ -16,6 +16,7 @@
                     style="min-width: 150px"
                     @update:model-value="onVersionChange"
                 />
+
                 <q-space />
             </q-card-section>
         </q-card>
@@ -617,7 +618,7 @@ export default defineComponent({
 
   data() {
     return {
-      cvssVersion: '3.1', // Default to 3.1
+      cvssVersion: '4.0', // Temporairement défini à 4.0 pour tester
       versionOptions: [
         { label: 'CVSS 3.1', value: '3.1' },
         { label: 'CVSS 4.0', value: '4.0' }
@@ -859,7 +860,10 @@ export default defineComponent({
       },
       
       // Flag to prevent infinite loops during version switching
-      isChangingVersion: false
+      isChangingVersion: false,
+      
+      // Flag to prevent watcher from triggering during initialization
+      isInitializing: true
     };
   },
 
@@ -868,14 +872,15 @@ export default defineComponent({
     this.internalCvss3Vector = this.modelValue || '';
     this.internalCvss4Vector = this.cvssv4Value || '';
     
+    // PRIORITÉ AUX PARAMÈTRES DE LA PLATEFORME (pas aux données existantes)
+    this.loadDefaultCvssVersionSimple();
+    
     this.initializeFromModelValue();
     
-    // If we have CVSS 4.0 data but no CVSS 3.1 data, start with CVSS 4.0
-    if (!this.internalCvss3Vector && this.internalCvss4Vector && this.internalCvss4Vector.startsWith('CVSS:4.0')) {
-      this.cvssVersion = '4.0';
-      this.cvss40StrToObject(this.internalCvss4Vector);
-      this.calculateCvss40Score(this.internalCvss4Vector);
-    }
+    // Fin de l'initialisation, permettre au watcher de fonctionner
+    this.$nextTick(() => {
+      this.isInitializing = false;
+    });
   },
 
   mounted() {
@@ -914,6 +919,15 @@ export default defineComponent({
         this.calculateCvss40Score(val);
       }
     },
+    cvssVersion: {
+      handler(newVersion, oldVersion) {
+        // Ne déclencher le changement que si c'est un changement manuel (pas d'initialisation)
+        if (oldVersion && oldVersion !== newVersion && !this.isInitializing) {
+          this.onVersionChange(newVersion);
+        }
+      },
+      deep: true
+    },
     cvss40Obj: {
       handler() {
         if (this.cvssVersion === '4.0' && !this.isChangingVersion) {
@@ -926,30 +940,36 @@ export default defineComponent({
 
   methods: {
     initializeFromModelValue() {
-      // Determine which version to show based on available data
-      if (this.cvssv4Value && this.cvssv4Value.startsWith('CVSS:4.0')) {
-        // We have CVSS 4.0 data, start with CVSS 4.0
-        this.cvssVersion = '4.0';
-        this.cvss40Obj = {
-          version: '4.0',
-          AV: 'N', AC: 'L', AT: 'N', PR: 'N', UI: 'N',
-          VC: 'N', VI: 'N', VA: 'N', SC: 'N', SI: 'N', SA: 'N',
-          E: '',
-          CR: '', IR: '', AR: '',
-          // Modified Base Metrics (Environmental)
-          MAV: '', MAC: '', MAT: '', MPR: '', MUI: '',
-          MVC: '', MVI: '', MVA: '', MSC: '', MSI: '', MSA: '',
-          // Supplemental Metrics
-          S: '', AU: '', R: '', V: '', RE: '', U: ''
-        };
-        this.cvss40StrToObject(this.cvssv4Value);
-        this.calculateCvss40Score(this.cvssv4Value);
-      } else if (this.modelValue && this.modelValue.startsWith('CVSS:3.1')) {
-        // We have CVSS 3.1 data, start with CVSS 3.1
-        this.cvssVersion = '3.1';
-      } else {
-        // No specific data, use platform default
-        this.loadDefaultCvssVersion();
+      // Initialize based on the chosen version (from platform settings)
+      if (this.cvssVersion === '4.0') {
+        if (!this.cvss40Obj || !this.cvss40Obj.version) {
+          this.cvss40Obj = {
+            version: '4.0',
+            AV: 'N', AC: 'L', AT: 'N', PR: 'N', UI: 'N',
+            VC: 'N', VI: 'N', VA: 'N', SC: 'N', SI: 'N', SA: 'N',
+            E: '',
+            CR: '', IR: '', AR: '',
+            // Modified Base Metrics (Environmental)
+            MAV: '', MAC: '', MAT: '', MPR: '', MUI: '',
+            MVC: '', MVI: '', MVA: '', MSC: '', MSI: '', MSA: '',
+            // Supplemental Metrics
+            S: '', AU: '', R: '', V: '', RE: '', U: ''
+          };
+        }
+        
+        // If we have existing CVSS 4.0 data, parse it
+        if (this.cvssv4Value && this.cvssv4Value.startsWith('CVSS:4.0')) {
+          this.cvss40StrToObject(this.cvssv4Value);
+          this.calculateCvss40Score(this.cvssv4Value);
+        }
+        
+        // Convert existing CVSS 3.1 data to CVSS 4.0 if available
+        if (this.modelValue && this.modelValue.startsWith('CVSS:3.1')) {
+          // Si on n'a pas de vraies données CVSS 4.0, convertir depuis CVSS 3.1
+          if (!this.cvssv4Value || this.cvssv4Value === 'CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:N/SC:N/SI:N/SA:N') {
+            this.convertCvss31To40(this.modelValue);
+          }
+        }
       }
     },
 
@@ -968,19 +988,21 @@ export default defineComponent({
         // Update internal state
         this.internalCvss4Vector = cvss4Vector;
         
-        // Initialize CVSS 4.0 object
-        this.cvss40Obj = {
-          version: '4.0',
-          AV: 'N', AC: 'L', AT: 'N', PR: 'N', UI: 'N',
-          VC: 'N', VI: 'N', VA: 'N', SC: 'N', SI: 'N', SA: 'N',
-          E: '',
-          CR: '', IR: '', AR: '',
-          // Modified Base Metrics (Environmental)
-          MAV: '', MAC: '', MAT: '', MPR: '', MUI: '',
-          MVC: '', MVI: '', MVA: '', MSC: '', MSI: '', MSA: '',
-          // Supplemental Metrics
-          S: '', AU: '', R: '', V: '', RE: '', U: ''
-        };
+        // Initialize CVSS 4.0 object ONLY if it doesn't exist
+        if (!this.cvss40Obj || !this.cvss40Obj.version) {
+          this.cvss40Obj = {
+            version: '4.0',
+            AV: 'N', AC: 'L', AT: 'N', PR: 'N', UI: 'N',
+            VC: 'N', VI: 'N', VA: 'N', SC: 'N', SI: 'N', SA: 'N',
+            E: '',
+            CR: '', IR: '', AR: '',
+            // Modified Base Metrics (Environmental)
+            MAV: '', MAC: '', MAT: '', MPR: '', MUI: '',
+            MVC: '', MVI: '', MVA: '', MSC: '', MSI: '', MSA: '',
+            // Supplemental Metrics
+            S: '', AU: '', R: '', V: '', RE: '', U: ''
+          };
+        }
         
         // Parse existing vector
         this.cvss40StrToObject(cvss4Vector);
@@ -1010,6 +1032,56 @@ export default defineComponent({
       });
     },
 
+    convertCvss31To40(cvss31Vector) {
+      try {
+        // Parser le vecteur CVSS 3.1
+        const parts = cvss31Vector.split('/');
+        const cvss31Data = {};
+        
+        parts.forEach(part => {
+          if (part.includes(':')) {
+            const [metric, value] = part.split(':');
+            cvss31Data[metric] = value;
+          }
+        });
+        
+        // Conversion des métriques CVSS 3.1 vers CVSS 4.0
+        const cvss40Data = {
+          AV: cvss31Data.AV || 'N',
+          AC: cvss31Data.AC || 'L',
+          AT: 'N', // Nouveau en CVSS 4.0, par défaut None
+          PR: cvss31Data.PR || 'N',
+          UI: cvss31Data.UI || 'N',
+          VC: cvss31Data.C || 'N', // Confidentiality -> VC
+          VI: cvss31Data.I || 'N', // Integrity -> VI
+          VA: cvss31Data.A || 'N', // Availability -> VA
+          SC: 'N', // Nouveau en CVSS 4.0, par défaut None
+          SI: 'N', // Nouveau en CVSS 4.0, par défaut None
+          SA: 'N'  // Nouveau en CVSS 4.0, par défaut None
+        };
+        
+        // Mettre à jour cvss40Obj
+        Object.keys(cvss40Data).forEach(key => {
+          if (this.cvss40Obj[key] !== undefined) {
+            this.cvss40Obj[key] = cvss40Data[key];
+          }
+        });
+        
+        // Générer le vecteur CVSS 4.0
+        const cvss40Vector = `CVSS:4.0/AV:${cvss40Data.AV}/AC:${cvss40Data.AC}/AT:${cvss40Data.AT}/PR:${cvss40Data.PR}/UI:${cvss40Data.UI}/VC:${cvss40Data.VC}/VI:${cvss40Data.VI}/VA:${cvss40Data.VA}/SC:${cvss40Data.SC}/SI:${cvss40Data.SI}/SA:${cvss40Data.SA}`;
+        
+        // Mettre à jour l'état interne et émettre
+        this.internalCvss4Vector = cvss40Vector;
+        this.$emit('update:cvssv4Value', cvss40Vector);
+        
+        // Calculer le score
+        this.calculateCvss40Score(cvss40Vector);
+        
+      } catch (error) {
+        console.error('Erreur lors de la conversion CVSS 3.1 -> 4.0:', error);
+      }
+    },
+    
     roundUp1(n) {
       return window.CVSS40 ? window.CVSS40.roundUp1(n) : n;
     },
@@ -1027,7 +1099,7 @@ export default defineComponent({
       try {
         this.cvss40 = window.CVSS40.calculateCVSSFromVector(vectorString);
       } catch (error) {
-        console.error('Error calculating CVSS 4.0 score:', error);
+        console.error('Erreur lors du calcul CVSS 4.0:', error);
         // Reset to default values if calculation fails
         this.cvss40 = {
           baseMetricScore: '',
@@ -1043,39 +1115,35 @@ export default defineComponent({
       }
     },
 
-    async loadDefaultCvssVersion() {
-      try {
-        const response = await SettingsService.getPublicSettings();
-        const defaultVersion = response.data?.report?.public?.defaultCvssVersion || '3.1';
-        this.cvssVersion = defaultVersion;
-        
-        // Initialize with default vector for the chosen version
-        if (defaultVersion === '4.0') {
-          const defaultVector = 'CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:N/SC:N/SI:N/SA:N';
-          this.internalCvss4Vector = defaultVector;
-          this.cvss40Obj = {
-            version: '4.0',
-            AV: 'N', AC: 'L', AT: 'N', PR: 'N', UI: 'N',
-            VC: 'N', VI: 'N', VA: 'N', SC: 'N', SI: 'N', SA: 'N',
-            E: '',
-            CR: '', IR: '', AR: '',
-            MAV: '', MAC: '', MAT: '', MPR: '', MUI: '',
-            MVC: '', MVI: '', MVA: '', MSC: '', MSI: '', MSA: '',
-            S: '', AU: '', R: '', V: '', RE: '', U: ''
-          };
-          this.calculateCvss40Score(defaultVector);
-          this.$emit('update:cvssv4Value', defaultVector);
-        } else {
-          // Default to CVSS 3.1
-          const defaultVector = 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:N';
-          this.internalCvss3Vector = defaultVector;
-          this.$emit('update:modelValue', defaultVector);
-        }
-      } catch (error) {
-        console.error('Error loading default CVSS version:', error);
-        // Fallback to CVSS 3.1
-        this.cvssVersion = '3.1';
-      }
+    loadDefaultCvssVersionSimple() {
+      // Use synchronous approach to avoid timing issues
+      SettingsService.getPublicSettings()
+        .then(response => {
+          // Essayer différentes structures possibles
+          const defaultVersion = response.data?.datas?.report?.public?.defaultCvssVersion || 
+                                response.data?.report?.public?.defaultCvssVersion || 
+                                '3.1';
+          
+          this.cvssVersion = defaultVersion;
+          
+          // Initialize the appropriate object for the default version ONLY if it doesn't exist
+          if (defaultVersion === '4.0' && (!this.cvss40Obj || !this.cvss40Obj.version)) {
+            this.cvss40Obj = {
+              version: '4.0',
+              AV: 'N', AC: 'L', AT: 'N', PR: 'N', UI: 'N',
+              VC: 'N', VI: 'N', VA: 'N', SC: 'N', SI: 'N', SA: 'N',
+              E: '',
+              CR: '', IR: '', AR: '',
+              MAV: '', MAC: '', MAT: '', MPR: '', MUI: '',
+              MVC: '', MVI: '', MVA: '', MSC: '', MSI: '', MSA: '',
+              S: '', AU: '', R: '', V: '', RE: '', U: ''
+            };
+          }
+        })
+        .catch(error => {
+          console.error('Erreur lors du chargement des paramètres:', error);
+          this.cvssVersion = '3.1';
+        });
     },
 
     cvss40StrToObject(str) {
