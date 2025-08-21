@@ -12,6 +12,7 @@ var _ = require('lodash');
 var Image = require('mongoose').model('Image');
 var Settings = require('mongoose').model('Settings');
 var CVSS31 = require('./cvsscalc31.js');
+var CVSS40 = require('./cvsscalc40.js');
 var translate = require('../translate')
 var $t
 var pieChartXML
@@ -941,6 +942,130 @@ function cvssStrToObject(cvss) {
     }
     return res
 }
+
+// Parse CVSS 4.0 vector string to object for document generation
+function cvssStrToObject40(cvss) {
+    var initialState = 'Not Defined'
+    var res = {
+        // Base metrics
+        AV: initialState, AC: initialState, AT: initialState, PR: initialState, UI: initialState,
+        VC: initialState, VI: initialState, VA: initialState, SC: initialState, SI: initialState, SA: initialState,
+        // Threat metrics (replacing Temporal)
+        E: initialState,
+        // Environmental metrics
+        CR: initialState, IR: initialState, AR: initialState
+    };
+    
+    if (cvss) {
+        var temp = cvss.split('/');
+        for (var i = 0; i < temp.length; i++) {
+            var elt = temp[i].split(':');
+            switch(elt[0]) {
+                case "AV":
+                    if (elt[1] === "N") res.AV = "Network"
+                    else if (elt[1] === "A") res.AV = "Adjacent Network"
+                    else if (elt[1] === "L") res.AV = "Local"
+                    else if (elt[1] === "P") res.AV = "Physical"
+                    res.AV = $t(res.AV)
+                    break;
+                case "AC":
+                    if (elt[1] === "L") res.AC = "Low"
+                    else if (elt[1] === "H") res.AC = "High"
+                    res.AC = $t(res.AC)
+                    break;
+                case "AT": // New in CVSS 4.0
+                    if (elt[1] === "N") res.AT = "None"
+                    else if (elt[1] === "P") res.AT = "Present"
+                    res.AT = $t(res.AT)
+                    break;
+                case "PR":
+                    if (elt[1] === "N") res.PR = "None"
+                    else if (elt[1] === "L") res.PR = "Low"
+                    else if (elt[1] === "H") res.PR = "High"
+                    res.PR = $t(res.PR)
+                    break;
+                case "UI":
+                    if (elt[1] === "N") res.UI = "None"
+                    else if (elt[1] === "P") res.UI = "Passive"
+                    else if (elt[1] === "A") res.UI = "Active"
+                    res.UI = $t(res.UI)
+                    break;
+                // Vulnerable System Impact
+                case "VC":
+                    if (elt[1] === "N") res.VC = "None"
+                    else if (elt[1] === "L") res.VC = "Low"
+                    else if (elt[1] === "H") res.VC = "High"
+                    res.VC = $t(res.VC)
+                    break;
+                case "VI":
+                    if (elt[1] === "N") res.VI = "None"
+                    else if (elt[1] === "L") res.VI = "Low"
+                    else if (elt[1] === "H") res.VI = "High"
+                    res.VI = $t(res.VI)
+                    break;
+                case "VA":
+                    if (elt[1] === "N") res.VA = "None"
+                    else if (elt[1] === "L") res.VA = "Low"
+                    else if (elt[1] === "H") res.VA = "High"
+                    res.VA = $t(res.VA)
+                    break;
+                // Subsequent System Impact (New in CVSS 4.0)
+                case "SC":
+                    if (elt[1] === "N") res.SC = "None"
+                    else if (elt[1] === "L") res.SC = "Low"
+                    else if (elt[1] === "H") res.SC = "High"
+                    res.SC = $t(res.SC)
+                    break;
+                case "SI":
+                    if (elt[1] === "N") res.SI = "None"
+                    else if (elt[1] === "L") res.SI = "Low"
+                    else if (elt[1] === "H") res.SI = "High"
+                    res.SI = $t(res.SI)
+                    break;
+                case "SA":
+                    if (elt[1] === "N") res.SA = "None"
+                    else if (elt[1] === "L") res.SA = "Low"
+                    else if (elt[1] === "H") res.SA = "High"
+                    res.SA = $t(res.SA)
+                    break;
+                // Threat metrics (replacing Temporal in CVSS 3.1)
+                case "E":
+                    if (elt[1] === "X") res.E = "Not Defined"
+                    else if (elt[1] === "A") res.E = "Attacked"
+                    else if (elt[1] === "U") res.E = "Unreported"
+                    else if (elt[1] === "P") res.E = "Proof-of-Concept"
+                    else if (elt[1] === "F") res.E = "Functional"
+                    else if (elt[1] === "H") res.E = "High"
+                    res.E = $t(res.E)
+                    break;
+                // Environmental metrics
+                case "CR":
+                    if (elt[1] === "X") res.CR = "Not Defined"
+                    else if (elt[1] === "L") res.CR = "Low"
+                    else if (elt[1] === "M") res.CR = "Medium"
+                    else if (elt[1] === "H") res.CR = "High"
+                    res.CR = $t(res.CR)
+                    break;
+                case "IR":
+                    if (elt[1] === "X") res.IR = "Not Defined"
+                    else if (elt[1] === "L") res.IR = "Low"
+                    else if (elt[1] === "M") res.IR = "Medium"
+                    else if (elt[1] === "H") res.IR = "High"
+                    res.IR = $t(res.IR)
+                    break;
+                case "AR":
+                    if (elt[1] === "X") res.AR = "Not Defined"
+                    else if (elt[1] === "L") res.AR = "Low"
+                    else if (elt[1] === "M") res.AR = "Medium"
+                    else if (elt[1] === "H") res.AR = "High"
+                    res.AR = $t(res.AR)
+                    break;
+            }
+        }
+    }
+    return res
+}
+
 function stripParagraphTags(input) {
     console.log("JE STRIP MES PARAMETRES")
     return input
@@ -1051,7 +1176,15 @@ async function prepAuditData(data, settings) {
 
     result.findings = []
     for (finding of data.findings) {
-        var tmpCVSS = CVSS31.calculateCVSSFromVector(finding.cvssv3);
+        // Determine which CVSS version to use
+        var useCVSS40 = finding.cvssv4 && finding.cvssv4.startsWith('CVSS:4.0');
+        var tmpCVSS;
+        
+        if (useCVSS40) {
+            tmpCVSS = CVSS40.calculateCVSSFromVector(finding.cvssv4);
+        } else {
+            tmpCVSS = CVSS31.calculateCVSSFromVector(finding.cvssv3);
+        }
         var tmpFinding = {
             title: finding.title || "",
             vulnType: $t(finding.vulnType) || "",
@@ -1083,53 +1216,117 @@ async function prepAuditData(data, settings) {
         else if (tmpFinding.priority === 4) tmpFinding.remediation.cellColorPriority = cellUrgentColorRemediationPriority
         else tmpFinding.remediation.cellColorPriority = cellNoneColor
 
-        // Handle CVSS
+        // Always create CVSS 3.1 object for backward compatibility
+        var tmpCVSS31 = CVSS31.calculateCVSSFromVector(finding.cvssv3);
         tmpFinding.cvss = {
-            vectorString: tmpCVSS.vectorString || "",
-            baseMetricScore: tmpCVSS.baseMetricScore || "",
-            baseSeverity: tmpCVSS.baseSeverity || "",
-            temporalMetricScore: tmpCVSS.temporalMetricScore || "",
-            temporalSeverity: tmpCVSS.temporalSeverity || "",
-            environmentalMetricScore: tmpCVSS.environmentalMetricScore || "",
-            environmentalSeverity: tmpCVSS.environmentalSeverity || ""
+            version: "3.1",
+            vectorString: tmpCVSS31.vectorString || "",
+            baseMetricScore: tmpCVSS31.baseMetricScore || "",
+            baseSeverity: tmpCVSS31.baseSeverity || "",
+            temporalMetricScore: tmpCVSS31.temporalMetricScore || "",
+            temporalSeverity: tmpCVSS31.temporalSeverity || "",
+            environmentalMetricScore: tmpCVSS31.environmentalMetricScore || "",
+            environmentalSeverity: tmpCVSS31.environmentalSeverity || ""
         }
-        if (tmpCVSS.baseImpact)
-            tmpFinding.cvss.baseImpact = CVSS31.roundUp1(tmpCVSS.baseImpact)
+
+        // Create CVSS 4.0 object if CVSS 4.0 data exists
+        if (useCVSS40) {
+            tmpFinding.cvss4 = {
+                version: "4.0",
+                vectorString: tmpCVSS.vectorString || finding.cvssv4 || "",
+                baseMetricScore: tmpCVSS.baseMetricScore || "",
+                baseSeverity: tmpCVSS.baseSeverity || "",
+                threatMetricScore: tmpCVSS.threatMetricScore || "",
+                threatSeverity: tmpCVSS.threatSeverity || "",
+                environmentalMetricScore: tmpCVSS.environmentalMetricScore || "",
+                environmentalSeverity: tmpCVSS.environmentalSeverity || "",
+                exploitability: tmpCVSS.exploitability || "",
+                vulnerableSystemImpact: tmpCVSS.vulnerableSystemImpact || "",
+                subsequentSystemImpact: tmpCVSS.subsequentSystemImpact || ""
+            }
+        }
+        // Always handle CVSS 3.1 sub-scores
+        if (tmpCVSS31.baseImpact)
+            tmpFinding.cvss.baseImpact = CVSS31.roundUp1(tmpCVSS31.baseImpact)
         else
             tmpFinding.cvss.baseImpact = ""
-        if (tmpCVSS.baseExploitability)
-            tmpFinding.cvss.baseExploitability = CVSS31.roundUp1(tmpCVSS.baseExploitability)
+        if (tmpCVSS31.baseExploitability)
+            tmpFinding.cvss.baseExploitability = CVSS31.roundUp1(tmpCVSS31.baseExploitability)
         else
             tmpFinding.cvss.baseExploitability = ""
 
-        if (tmpCVSS.environmentalModifiedImpact)
-            tmpFinding.cvss.environmentalModifiedImpact = CVSS31.roundUp1(tmpCVSS.environmentalModifiedImpact)
+        if (tmpCVSS31.environmentalModifiedImpact)
+            tmpFinding.cvss.environmentalModifiedImpact = CVSS31.roundUp1(tmpCVSS31.environmentalModifiedImpact)
         else
             tmpFinding.cvss.environmentalModifiedImpact = ""
-        if (tmpCVSS.environmentalModifiedExploitability)
-            tmpFinding.cvss.environmentalModifiedExploitability = CVSS31.roundUp1(tmpCVSS.environmentalModifiedExploitability)
+        if (tmpCVSS31.environmentalModifiedExploitability)
+            tmpFinding.cvss.environmentalModifiedExploitability = CVSS31.roundUp1(tmpCVSS31.environmentalModifiedExploitability)
         else
             tmpFinding.cvss.environmentalModifiedExploitability = ""
 
-        if (tmpCVSS.baseSeverity === "Low") tmpFinding.cvss.cellColor = cellLowColor
-        else if (tmpCVSS.baseSeverity === "Medium") tmpFinding.cvss.cellColor = cellMediumColor
-        else if (tmpCVSS.baseSeverity === "High") tmpFinding.cvss.cellColor = cellHighColor
-        else if (tmpCVSS.baseSeverity === "Critical") tmpFinding.cvss.cellColor = cellCriticalColor
+        // Handle CVSS 4.0 sub-scores if CVSS 4.0 data exists
+        if (useCVSS40) {
+            if (tmpCVSS.exploitability)
+                tmpFinding.cvss4.exploitability = CVSS40.roundUp1(tmpCVSS.exploitability)
+            else
+                tmpFinding.cvss4.exploitability = ""
+            if (tmpCVSS.vulnerableSystemImpact)
+                tmpFinding.cvss4.vulnerableSystemImpact = CVSS40.roundUp1(tmpCVSS.vulnerableSystemImpact)
+            else
+                tmpFinding.cvss4.vulnerableSystemImpact = ""
+            if (tmpCVSS.subsequentSystemImpact)
+                tmpFinding.cvss4.subsequentSystemImpact = CVSS40.roundUp1(tmpCVSS.subsequentSystemImpact)
+            else
+                tmpFinding.cvss4.subsequentSystemImpact = ""
+        }
+
+        // CVSS 3.1 colors (always present for backward compatibility)
+        if (tmpCVSS31.baseSeverity === "Low") tmpFinding.cvss.cellColor = cellLowColor
+        else if (tmpCVSS31.baseSeverity === "Medium") tmpFinding.cvss.cellColor = cellMediumColor
+        else if (tmpCVSS31.baseSeverity === "High") tmpFinding.cvss.cellColor = cellHighColor
+        else if (tmpCVSS31.baseSeverity === "Critical") tmpFinding.cvss.cellColor = cellCriticalColor
         else tmpFinding.cvss.cellColor = cellNoneColor
 
-        if (tmpCVSS.temporalSeverity === "Low") tmpFinding.cvss.temporalCellColor = cellLowColor
-        else if (tmpCVSS.temporalSeverity === "Medium") tmpFinding.cvss.temporalCellColor = cellMediumColor
-        else if (tmpCVSS.temporalSeverity === "High") tmpFinding.cvss.temporalCellColor = cellHighColor
-        else if (tmpCVSS.temporalSeverity === "Critical") tmpFinding.cvss.temporalCellColor = cellCriticalColor
+        if (tmpCVSS31.temporalSeverity === "Low") tmpFinding.cvss.temporalCellColor = cellLowColor
+        else if (tmpCVSS31.temporalSeverity === "Medium") tmpFinding.cvss.temporalCellColor = cellMediumColor
+        else if (tmpCVSS31.temporalSeverity === "High") tmpFinding.cvss.temporalCellColor = cellHighColor
+        else if (tmpCVSS31.temporalSeverity === "Critical") tmpFinding.cvss.temporalCellColor = cellCriticalColor
         else tmpFinding.cvss.temporalCellColor = cellNoneColor
 
-        if (tmpCVSS.environmentalSeverity === "Low") tmpFinding.cvss.environmentalCellColor = cellLowColor
-        else if (tmpCVSS.environmentalSeverity === "Medium") tmpFinding.cvss.environmentalCellColor = cellMediumColor
-        else if (tmpCVSS.environmentalSeverity === "High") tmpFinding.cvss.environmentalCellColor = cellHighColor
-        else if (tmpCVSS.environmentalSeverity === "Critical") tmpFinding.cvss.environmentalCellColor = cellCriticalColor
+        if (tmpCVSS31.environmentalSeverity === "Low") tmpFinding.cvss.environmentalCellColor = cellLowColor
+        else if (tmpCVSS31.environmentalSeverity === "Medium") tmpFinding.cvss.environmentalCellColor = cellMediumColor
+        else if (tmpCVSS31.environmentalSeverity === "High") tmpFinding.cvss.environmentalCellColor = cellHighColor
+        else if (tmpCVSS31.environmentalSeverity === "Critical") tmpFinding.cvss.environmentalCellColor = cellCriticalColor
         else tmpFinding.cvss.environmentalCellColor = cellNoneColor
 
-        tmpFinding.cvssObj = cvssStrToObject(tmpCVSS.vectorString)
+        // CVSS 4.0 colors (only if CVSS 4.0 data exists)
+        if (useCVSS40) {
+            if (tmpCVSS.baseSeverity === "Low") tmpFinding.cvss4.cellColor = cellLowColor
+            else if (tmpCVSS.baseSeverity === "Medium") tmpFinding.cvss4.cellColor = cellMediumColor
+            else if (tmpCVSS.baseSeverity === "High") tmpFinding.cvss4.cellColor = cellHighColor
+            else if (tmpCVSS.baseSeverity === "Critical") tmpFinding.cvss4.cellColor = cellCriticalColor
+            else tmpFinding.cvss4.cellColor = cellNoneColor
+
+            if (tmpCVSS.threatSeverity === "Low") tmpFinding.cvss4.threatCellColor = cellLowColor
+            else if (tmpCVSS.threatSeverity === "Medium") tmpFinding.cvss4.threatCellColor = cellMediumColor
+            else if (tmpCVSS.threatSeverity === "High") tmpFinding.cvss4.threatCellColor = cellHighColor
+            else if (tmpCVSS.threatSeverity === "Critical") tmpFinding.cvss4.threatCellColor = cellCriticalColor
+            else tmpFinding.cvss4.threatCellColor = cellNoneColor
+
+            if (tmpCVSS.environmentalSeverity === "Low") tmpFinding.cvss4.environmentalCellColor = cellLowColor
+            else if (tmpCVSS.environmentalSeverity === "Medium") tmpFinding.cvss4.environmentalCellColor = cellMediumColor
+            else if (tmpCVSS.environmentalSeverity === "High") tmpFinding.cvss4.environmentalCellColor = cellHighColor
+            else if (tmpCVSS.environmentalSeverity === "Critical") tmpFinding.cvss4.environmentalCellColor = cellCriticalColor
+            else tmpFinding.cvss4.environmentalCellColor = cellNoneColor
+        }
+
+        // Always create CVSS 3.1 object for backward compatibility
+        tmpFinding.cvssObj = cvssStrToObject(tmpCVSS31.vectorString);
+
+        // Create CVSS 4.0 object if CVSS 4.0 data exists
+        if (useCVSS40) {
+            tmpFinding.cvss4Obj = cvssStrToObject40(finding.cvssv4);
+        }
 
         if (finding.customFields) {
             for (field of finding.customFields) {
