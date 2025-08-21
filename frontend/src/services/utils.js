@@ -117,7 +117,31 @@ export default {
         var ctx = canvas.getContext("2d");
         ctx.drawImage(this, 0, 0, resize_width, resize_height);
 
-        var result = canvas.toDataURL("image/jpeg");
+        // Detect original format to preserve transparency
+        var originalFormat = "image/jpeg"; // default
+        if (imageB64.startsWith("data:")) {
+          var formatMatch = imageB64.match(/data:([^;]+)/);
+          if (formatMatch) {
+            originalFormat = formatMatch[1];
+          }
+        }
+
+        // Choose output format based on original format
+        var outputFormat = "image/jpeg";
+        var quality = 0.9;
+        
+        // Preserve transparency for formats that support it
+        if (originalFormat === "image/png" || 
+            originalFormat === "image/webp" || 
+            originalFormat === "image/gif") {
+          outputFormat = "image/png";
+          // PNG doesn't use quality parameter, so we don't pass it
+          var result = canvas.toDataURL(outputFormat);
+        } else {
+          // Use JPEG with quality for photos without transparency
+          var result = canvas.toDataURL(outputFormat, quality);
+        }
+
         var newSize = JSON.stringify(result).length;
         if (newSize >= oldSize) resolve(imageB64);
         else resolve(result);
