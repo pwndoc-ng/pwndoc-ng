@@ -17,6 +17,9 @@ export default {
             dtHeaders: [
                 {name: 'name', label: $t('name'), field: 'name', align: 'left', sortable: true},
                 {name: 'shortName', label: $t('shortName'), field: 'shortName', align: 'left', sortable: true},
+                {name: 'address', label: $t('address'), field: 'address', align: 'left', sortable: true},
+                {name: 'postalCode', label: $t('postalCode'), field: 'postalCode', align: 'left', sortable: true},
+                {name: 'city', label: $t('city'), field: 'city', align: 'left', sortable: true},
                 {name: 'logo', label: $t('logo'), field: 'logo', align: 'left', sortable: true},
                 {name: 'action', label: '', field: 'action', align: 'left', sortable: false},
             ],
@@ -41,6 +44,9 @@ export default {
             currentCompany: {
                 name: '', 
                 shortName: '',
+                address: '',
+                postalCode: '',
+                city: '',
                 logo: ''
             },
             // Name for update
@@ -180,6 +186,9 @@ export default {
         cleanCurrentCompany: function() {
             this.currentCompany.name = '';
             this.currentCompany.shortName = '';
+            this.currentCompany.address = '';
+            this.currentCompany.postalCode = '';
+            this.currentCompany.city = '';
             this.currentCompany.logo = '';
         },
 

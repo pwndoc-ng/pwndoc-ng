@@ -4,7 +4,10 @@ var Schema = mongoose.Schema;
 var CompanySchema = new Schema({
     name: {type: String, required: true, unique: true},
     shortName: String,
-    logo: String
+    logo: String,
+    address: String,
+    postalCode: String,
+    city: String
 
 }, {timestamps: true});
 
@@ -16,7 +19,7 @@ var CompanySchema = new Schema({
 CompanySchema.statics.getAll = () => {
     return new Promise((resolve, reject) => {
         var query = Company.find();
-        query.select('name shortName logo');
+        query.select('name shortName logo address postalCode city');
         query.exec()
         .then((rows) => {
             resolve(rows);
@@ -31,7 +34,7 @@ CompanySchema.statics.getAll = () => {
 CompanySchema.statics.export = () => {
     return new Promise((resolve, reject) => {
         var query = Company.find();
-        query.select('name shortName logo -_id')
+        query.select('name shortName logo address postalCode city -_id')
         query.exec()
         .then((rows) => {
             resolve(rows);
