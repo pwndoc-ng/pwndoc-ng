@@ -41,6 +41,9 @@ module.exports = function(app) {
 
             // Optional parameters
             if (cpny.shortName) company.shortName = cpny.shortName;
+            if (cpny.address) company.address = cpny.address;
+            if (cpny.postalCode) company.postalCode = cpny.postalCode;
+            if (cpny.city) company.city = cpny.city;
             if (cpny.logo) company.logo = cpny.logo;
             companies.push(company)
         }
@@ -63,6 +66,9 @@ module.exports = function(app) {
         // Optional parameters
         if (req.body.name) company.name = req.body.name;
         if (req.body.shortName) company.shortName = req.body.shortName;
+        if (req.body.address) company.address = req.body.address;
+        if (req.body.postalCode) company.postalCode = req.body.postalCode;
+        if (req.body.city) company.city = req.body.city;
         if (req.body.logo) company.logo = req.body.logo;
 
         Company.update(req.params.id, company)

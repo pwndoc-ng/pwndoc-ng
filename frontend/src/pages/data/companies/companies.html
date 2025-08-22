@@ -36,6 +36,10 @@
                     </q-td>
                     <q-td></q-td>
                     <q-td></q-td>
+                    <q-td></q-td>
+                    <q-td></q-td>
+                    <q-td></q-td>
+                    <q-td></q-td>
                 </q-tr>
             </template>
 
@@ -142,6 +146,27 @@
                     v-model="currentCompany.shortName" 
                     outlined
                     />
+                <q-input
+                    :label="$t('address')"
+                    class="col-md-12"
+                    @keyup.enter="createCompany()"
+                    v-model="currentCompany.address" 
+                    outlined
+                    />
+                <q-input
+                    :label="$t('postalCode')"
+                    class="col-md-12"
+                    @keyup.enter="createCompany()"
+                    v-model="currentCompany.postalCode" 
+                    outlined
+                    />
+                <q-input
+                    :label="$t('city')"
+                    class="col-md-12"
+                    @keyup.enter="createCompany()"
+                    v-model="currentCompany.city" 
+                    outlined
+                    />
                 <div class="col-md-12">
                     <q-uploader
                         ref="addUploader"
@@ -192,6 +217,27 @@
                     class="col-md-12"
                     @keyup.enter="updateCompany()"
                     v-model="currentCompany.shortName"
+                    outlined
+                    />
+                <q-input
+                    :label="$t('address')"
+                    class="col-md-12"
+                    @keyup.enter="updateCompany()"
+                    v-model="currentCompany.address"
+                    outlined
+                    />
+                <q-input
+                    :label="$t('postalCode')"
+                    class="col-md-12"
+                    @keyup.enter="updateCompany()"
+                    v-model="currentCompany.postalCode"
+                    outlined
+                    />
+                <q-input
+                    :label="$t('city')"
+                    class="col-md-12"
+                    @keyup.enter="updateCompany()"
+                    v-model="currentCompany.city"
                     outlined
                     />
                 <div class="col-md-12">
