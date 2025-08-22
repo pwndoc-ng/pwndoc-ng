@@ -191,8 +191,9 @@
   
             <q-card class="q-mt-md bg-grey-1">
               <div class="col-12">
-                <cvss-calculator
+                <cvss-calculator-unified
                   v-model="finding.cvssv3"
+                  v-model:cvssv4Value="finding.cvssv4"
                   :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
                 />
               </div>
