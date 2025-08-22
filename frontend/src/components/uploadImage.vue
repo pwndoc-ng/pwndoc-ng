@@ -5,7 +5,25 @@
         :src="src"
         :class="{ selected: selected }"
         style="max-width: 600px"
+        @error="handleImageError"
+        spinner-color="primary"
+        spinner-size="82px"
       />
+      <div v-if="imageError" class="text-center q-pa-md">
+        <q-icon name="error" color="negative" size="48px" />
+        <div class="text-caption text-negative q-mt-sm">
+          Impossible de charger l'image
+        </div>
+        <q-btn 
+          flat 
+          color="primary" 
+          size="sm" 
+          @click="retryLoad"
+          class="q-mt-sm"
+        >
+          Réessayer
+        </q-btn>
+      </div>
       <div>
         <q-input
           input-class="text-center cursor-pointer"
@@ -31,6 +49,8 @@
 import { defineComponent } from 'vue';
 
 import { NodeViewWrapper, nodeViewProps } from "@tiptap/vue-3";
+import Utils from "@/services/utils";
+
 export default defineComponent({
   components: {
     NodeViewWrapper,
@@ -39,18 +59,18 @@ export default defineComponent({
   //["node", "updateAttrs", "view", "getPos", "selected"],
   props: nodeViewProps,
 
+  data() {
+    return {
+      imageError: false
+    }
+  },
+
   computed: {
     src: {
       get() {
-        console.log("UploadImage.vue src");
-        //console.log(this.editor.node);
-        //console.log(this);
-        console.log(`this.node.attrs.src :${this.node.attrs.src}`);
-        if (this.node.attrs.src.startsWith("data")) return this.node.attrs.src;
-        else return `api/images/download/${this.node.attrs.src}`;
+        return Utils.normalizeImageUrl(this.node.attrs.src);
       },
       set(src) {
-        console.log(`set src : ${src}`);
         this.updateAttributes({
           src,
         });
@@ -58,8 +78,6 @@ export default defineComponent({
     },
     alt: {
       get() {
-        console.log("UploadImage.vue alt");
-        console.log(`this.node.attrs.alt :${this.node.attrs.alt}`);
         return this.node.attrs.alt;
       },
       set(alt) {
@@ -72,18 +90,21 @@ export default defineComponent({
 
   methods: {
     selectImage() {
-      console.log("selectImage");
-      //console.log(this.editor);
       const { state } = this.editor.view;
       let { tr } = state;
-      console.log(this.getPos());
-      console.log(state.doc);
-
-      const selection = tr.setNodeMarkup(this.getPos(), undefined, state.doc); //NodeSelection.create(state.doc, this.getPos());
-
-      //tr = tr.setSelection(selection);
-      this.editor.view.dispatch(selection); //tr);
+      const selection = tr.setNodeMarkup(this.getPos(), undefined, state.doc);
+      this.editor.view.dispatch(selection);
     },
+
+    handleImageError() {
+      this.imageError = true;
+    },
+
+    retryLoad() {
+      this.imageError = false;
+      // Force re-render of the image
+      this.$forceUpdate();
+    }
   },
 });
 </script>
