@@ -45,9 +45,7 @@ export default Image.extend({
       setImage:
         (options) =>
         ({ tr, dispatch }) => {
-          console.log("editor-image setImage");
           const { selection } = tr;
-          console.log(options);
           const node = this.type.create(options);
 
           if (dispatch) {
@@ -58,15 +56,14 @@ export default Image.extend({
         },
       setImageAttrs:
         (attrs) =>
-        ({ tr, dispatch }) => {
-          const { selection } = tr;
+        ({ tr, dispatch, state }) => {
+          const { selection } = state;
           const options = {
             ...selection.node.attrs,
-            ...attributes,
+            ...attrs,
           };
           const node = this.type.create(options);
           if (dispatch) {
-            console.log(selection.to);
             tr.replaceRangeWith(node);
           }
         },
@@ -88,6 +85,32 @@ export default Image.extend({
               if (path && path.length > 3 && path[1] === "audits")
                 auditId = path[2];
 
+              // Check first if there are image URLs in the text
+              for (let i = 0; i < event.dataTransfer.items.length; i++) {
+                const item = event.dataTransfer.items[i];
+                if (item.type === "text/plain") {
+                  item.getAsString((text) => {
+                    if (Utils.isImageUrl(text)) {
+                      isImage = true;
+                      const { schema } = view.state;
+                      const node = schema.nodes.custom_image.create({
+                        src: text,
+                        alt: "External Image",
+                      });
+                      const { selection } = view.state.tr;
+                      const transaction = view.state.tr.replaceRangeWith(
+                        selection.from,
+                        selection.to,
+                        node
+                      );
+                      view.dispatch(transaction);
+                    }
+                  });
+                  if (isImage) break;
+                }
+              }
+
+              // Process image files
               if (file && file.type.startsWith("image")) {
                 isImage = true;
                 const { schema } = view.state;
@@ -104,8 +127,6 @@ export default Image.extend({
                       });
                     })
                     .then((data) => {
-                      console.log(`drop src: ${data.data.datas._id},
-                      alt: ${file.name},`);
                       const node = schema.nodes.custom_image.create({
                         src: data.data.datas._id,
                         alt: file.name,
@@ -131,34 +152,24 @@ export default Image.extend({
             },
             paste(view, event) {
               var isImage = false;
-              var file = event.clipboardData.items[0];
-
               var auditId = null;
               var path = window.location.pathname.split("/");
               if (path && path.length > 3 && path[1] === "audits")
                 auditId = path[2];
 
-              if (file && file.type.startsWith("image")) {
-                var blob = file.getAsFile()
-                isImage = true;
-                const { schema } = view.state;
-                var fileReader = new FileReader();
-
-                fileReader.onloadend = (e) => {
-                  Utils.resizeImg(fileReader.result)
-                    .then((data) => {
-                      return ImageService.createImage({
-                        value: data,
-                        name: file.name,
-                        auditId: auditId,
-                      });
-                    })
-                    .then((data) => {
-                      console.log(`paste src: ${data.data.datas._id},
-                      alt: ${file.name},`);
+              // Iterate through all clipboard items to find image URLs
+              for (let i = 0; i < event.clipboardData.items.length; i++) {
+                const item = event.clipboardData.items[i];
+                
+                // Check if it's text (potential image URL)
+                if (item.type === "text/plain") {
+                  item.getAsString((text) => {
+                    if (Utils.isImageUrl(text)) {
+                      isImage = true;
+                      const { schema } = view.state;
                       const node = schema.nodes.custom_image.create({
-                        src: data.data.datas._id,
-                        alt: file.name || "",
+                        src: text,
+                        alt: "External Image",
                       });
                       const { selection } = view.state.tr;
                       const transaction = view.state.tr.replaceRangeWith(
@@ -166,13 +177,48 @@ export default Image.extend({
                         selection.to,
                         node
                       );
-
                       view.dispatch(transaction);
-                    })
-                    .catch((err) => console.log(err));
-                };
+                    }
+                  });
+                  if (isImage) break;
+                }
+                
+                // Check if it's an image file
+                if (item.type.startsWith("image")) {
+                  var blob = item.getAsFile();
+                  isImage = true;
+                  const { schema } = view.state;
+                  var fileReader = new FileReader();
 
-                fileReader.readAsDataURL(blob);
+                  fileReader.onloadend = (e) => {
+                    Utils.resizeImg(fileReader.result)
+                      .then((data) => {
+                        return ImageService.createImage({
+                          value: data,
+                          name: blob.name || "image",
+                          auditId: auditId,
+                        });
+                      })
+                      .then((data) => {
+                        const node = schema.nodes.custom_image.create({
+                          src: data.data.datas._id,
+                          alt: blob.name || "image",
+                        });
+                        const { selection } = view.state.tr;
+                        const transaction = view.state.tr.replaceRangeWith(
+                          selection.from,
+                          selection.to,
+                          node
+                        );
+
+                        view.dispatch(transaction);
+                      })
+                      .catch((err) => console.log(err));
+                  };
+
+                  fileReader.readAsDataURL(blob);
+                  break;
+                }
               }
 
               if (isImage) {

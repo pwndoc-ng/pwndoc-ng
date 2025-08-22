@@ -10,5 +10,9 @@ export default {
 
   deleteImage: function(imageId) {
     return  api.delete(`images/${imageId}`)
+  },
+
+  validateExternalImage: function(url) {
+    return api.post('images/validate-external', { url })
   }
 }
