@@ -68,4 +68,24 @@ module.exports = function(app) {
             Response.Internal(res, err)
         })
     })
+
+    // Validate external image URL
+    app.post("/api/images/validate-external", acl.hasPermission('images:create'), function(req, res) {
+        // #swagger.tags = ['Image']
+        
+        if (!req.body.url) {
+            Response.BadParameters(res, 'Missing required parameters: url')
+            return
+        }
+
+        // Vérifier que l'URL est valide et pointe vers une image
+        const url = req.body.url;
+        if (!url.match(/^https?:\/\/.*\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i)) {
+            Response.BadParameters(res, 'Invalid image URL format')
+            return
+        }
+
+        // Retourner l'URL validée
+        Response.Ok(res, { url: url, valid: true })
+    })
 }
