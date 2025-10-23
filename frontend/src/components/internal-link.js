@@ -289,7 +289,7 @@ export const TriggerMenuExtension = Extension.create({
         const index = optionElement ? optionElement.getAttribute('data-index') : 0;
         // Create the link in clickable text format
         const linkMark = state.schema.marks.link;
-        const linkText = decodeURI(selectedOption); // You can customize the displayed text
+        const linkText = decodeURI(atob(selectedOption)); // You can customize the displayed text
         const linkUrl = decodeURI(selectedOption); // The URL will be the option value
         
         // Insert the link text
