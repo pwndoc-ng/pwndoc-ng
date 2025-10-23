@@ -13,7 +13,11 @@ export default {
             UserService: UserService,
             settings: {danger:{enabled:false,public:{nbdaydelete: 0}},reviews:{enabled:false}},
             settingsOrig : {danger:{enabled:false},reviews:{enabled:false}},
-            canEdit: false
+            canEdit: false,
+            cvssVersionOptions: [
+                { label: 'CVSS 3.1', value: '3.1' },
+                { label: 'CVSS 4.0', value: '4.0' }
+            ]
         }
     },
     components: {

@@ -3,7 +3,7 @@ import { Notify, Dialog } from 'quasar';
 
 import BasicEditor from 'components/editor';
 import Breadcrumb from 'components/breadcrumb';
-import CvssCalculator from 'components/cvsscalculator';
+import CvssCalculatorUnified from 'components/cvss-calculator-unified';
 import TextareaArray from 'components/textarea-array';
 import CustomFields from 'components/custom-fields';
 
@@ -34,6 +34,7 @@ export default {
         poc: '',
         scope: '',
         cvssv3: '',
+        cvssv4: '',
         remediationComplexity: null,
         priority: null,
         remediation: '',
@@ -54,7 +55,7 @@ export default {
   components: {
     BasicEditor,
     Breadcrumb,
-    CvssCalculator,
+    CvssCalculatorUnified,
     TextareaArray,
     CustomFields,
   },

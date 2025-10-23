@@ -1,5 +1,6 @@
 var mongoose = require('mongoose');//.set('debug', true);
 const CVSS31 = require('../lib/cvsscalc31');
+const CVSS40 = require('../lib/cvsscalc40');
 var Schema = mongoose.Schema;
 
 var Paragraph = {
@@ -25,6 +26,7 @@ var Finding = {
     priority:               {type: Number, enum: [1,2,3,4]},
     references:             [String],
     cvssv3:                 String,
+    cvssv4:                 String, // Added support for CVSS 4.0
     paragraphs:             [Paragraph],
     poc:                    String,
     scope:                  String,
@@ -699,8 +701,9 @@ AuditSchema.statics.updateSortFindings = (isAdmin, auditId, userId, update) => {
 
                 var tmpFindings = group.findings
                 .sort((a,b) => {
-                    var cvssA = CVSS31.calculateCVSSFromVector(a.cvssv3)
-                    var cvssB = CVSS31.calculateCVSSFromVector(b.cvssv3)
+                    // Support both CVSS 3.1 and 4.0
+                    var cvssA = a.cvssv4 ? CVSS40.calculateCVSSFromVector(a.cvssv4) : CVSS31.calculateCVSSFromVector(a.cvssv3)
+                    var cvssB = b.cvssv4 ? CVSS40.calculateCVSSFromVector(b.cvssv4) : CVSS31.calculateCVSSFromVector(b.cvssv3)
 
                     // Get built-in value (findings[sortValue])
                     var left = a[group.sortOption.sortValue]
@@ -709,7 +712,7 @@ AuditSchema.statics.updateSortFindings = (isAdmin, auditId, userId, update) => {
                     if (cvssA.success && group.sortOption.sortValue === 'cvssScore')
                         left = cvssA.baseMetricScore
                     else if (cvssA.success && group.sortOption.sortValue === 'cvssTemporalScore')
-                        left = cvssA.temporalMetricScore
+                        left = cvssA.temporalMetricScore || cvssA.threatMetricScore // Support CVSS 4.0 threat score
                     else if (cvssA.success && group.sortOption.sortValue === 'cvssEnvironmentalScore')
                         left = cvssA.environmentalMetricScore
 
@@ -731,7 +734,7 @@ AuditSchema.statics.updateSortFindings = (isAdmin, auditId, userId, update) => {
                     if (cvssB.success && group.sortOption.sortValue === 'cvssScore')
                         right = cvssB.baseMetricScore
                     else if (cvssB.success && group.sortOption.sortValue === 'cvssTemporalScore')
-                        right = cvssB.temporalMetricScore
+                        right = cvssB.temporalMetricScore || cvssB.threatMetricScore // Support CVSS 4.0 threat score
                     else if (cvssB.success && group.sortOption.sortValue === 'cvssEnvironmentalScore')
                         right = cvssB.environmentalMetricScore
 

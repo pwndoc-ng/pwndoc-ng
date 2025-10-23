@@ -36,6 +36,11 @@ const SettingSchema = new Schema({
             extendCvssTemporalEnvironment: { 
                 type: Boolean, 
                 default: false 
+            },
+            defaultCvssVersion: {
+                type: String,
+                enum: ['3.1', '4.0'],
+                default: '3.1'
             }
         },
         private: {

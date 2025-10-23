@@ -296,6 +296,10 @@ export default defineComponent({
     this.getCustomFields();
     this.getAuditTypes();
     this.getAudit(); // Calls getSections
+    
+    // S'assurer que CVSS 4.0 est chargé si nécessaire
+    this.ensureCvss40Loaded();
+    
     Loading.hide();				
   },
 
@@ -330,6 +334,11 @@ export default defineComponent({
             })
           }
           
+          // Trier les vulnérabilités selon l'option de tri
+          if (sortOption.sortAuto) {
+            value = this.sortFindingsByOption(value, sortOption);
+          }
+          
           return {category: key, findings: value, sortOption: sortOption}
         })
         .value()
@@ -353,6 +362,100 @@ export default defineComponent({
   },
 
   methods: {
+    sortFindingsByOption: function(findings, sortOption) {
+      // Cloner le tableau pour éviter de modifier l'original
+      const sortedFindings = [...findings];
+      
+      // Déterminer quelle version CVSS utiliser basée sur les paramètres de la plateforme
+      let cvssVersion = '3.1'; // Par défaut
+      if (this.$settings.report && this.$settings.report.public.defaultCvssVersion) {
+        cvssVersion = this.$settings.report.public.defaultCvssVersion;
+      }
+      
+      sortedFindings.sort((a, b) => {
+        let scoreA, scoreB;
+        
+        // Obtenir le score selon la version CVSS et l'option de tri
+        if (sortOption.sortValue === 'cvssScore') {
+          scoreA = this.getFindingCvssScore(a, cvssVersion);
+          scoreB = this.getFindingCvssScore(b, cvssVersion);
+        } else if (sortOption.sortValue === 'cvssTemporalScore') {
+          scoreA = this.getFindingCvssTemporalScore(a, cvssVersion);
+          scoreB = this.getFindingCvssTemporalScore(b, cvssVersion);
+        } else if (sortOption.sortValue === 'cvssEnvironmentalScore') {
+          scoreA = this.getFindingCvssEnvironmentalScore(a, cvssVersion);
+          scoreB = this.getFindingCvssEnvironmentalScore(b, cvssVersion);
+        } else {
+          // Pour les autres options de tri, utiliser la valeur directe
+          scoreA = a[sortOption.sortValue] || 0;
+          scoreB = b[sortOption.sortValue] || 0;
+        }
+        
+        // Tri ascendant ou descendant
+        if (sortOption.sortOrder === 'asc') {
+          return scoreA - scoreB;
+        } else {
+          return scoreB - scoreA;
+        }
+      });
+      
+      return sortedFindings;
+    },
+    
+    getFindingCvssScore: function(finding, cvssVersion) {
+      if (cvssVersion === '4.0' && finding.cvssv4) {
+        // Utiliser CVSS 4.0 si disponible
+        const cvss = window.CVSS40 ? window.CVSS40.calculateCVSSFromVector(finding.cvssv4) : null;
+        return cvss && cvss.success ? parseFloat(cvss.baseMetricScore) || 0 : 0;
+      } else {
+        // Fallback vers CVSS 3.1
+        const cvss = CVSS31.calculateCVSSFromVector(finding.cvssv3);
+        return cvss.success ? parseFloat(cvss.baseMetricScore) || 0 : 0;
+      }
+    },
+    
+    getFindingCvssTemporalScore: function(finding, cvssVersion) {
+      if (cvssVersion === '4.0' && finding.cvssv4) {
+        // CVSS 4.0 utilise threatSeverity au lieu de temporalSeverity
+        const cvss = window.CVSS40 ? window.CVSS40.calculateCVSSFromVector(finding.cvssv4) : null;
+        return cvss && cvss.success ? parseFloat(cvss.threatMetricScore) || 0 : 0;
+      } else {
+        // Fallback vers CVSS 3.1
+        const cvss = CVSS31.calculateCVSSFromVector(finding.cvssv3);
+        return cvss.success ? parseFloat(cvss.temporalMetricScore) || 0 : 0;
+      }
+    },
+    
+    getFindingCvssEnvironmentalScore: function(finding, cvssVersion) {
+      if (cvssVersion === '4.0' && finding.cvssv4) {
+        const cvss = window.CVSS40 ? window.CVSS40.calculateCVSSFromVector(finding.cvssv4) : null;
+        return cvss && cvss.success ? parseFloat(cvss.environmentalMetricScore) || 0 : 0;
+      } else {
+        // Fallback vers CVSS 3.1
+        const cvss = CVSS31.calculateCVSSFromVector(finding.cvssv3);
+        return cvss.success ? parseFloat(cvss.environmentalMetricScore) || 0 : 0;
+      }
+    },
+    
+    ensureCvss40Loaded: function() {
+      // Vérifier si CVSS 4.0 est chargé et si on en a besoin
+      if (this.$settings.report && this.$settings.report.public.defaultCvssVersion === '4.0') {
+        if (!window.CVSS40) {
+          // Le script est déjà inclus dans index.template.html, on attend qu'il se charge
+          this.waitForCvss40();
+        }
+      }
+    },
+    
+    waitForCvss40: function() {
+      if (window.CVSS40) {
+        return;
+      }
+      
+      // Attendre que CVSS 4.0 soit chargé
+      setTimeout(() => this.waitForCvss40(), 100);
+    },
+    
     getFindingColor: function(finding) {
       let severity = this.getFindingSeverity(finding)
 
@@ -384,21 +487,49 @@ export default defineComponent({
     },
     getFindingSeverity: function(finding) {
       let severity = "None"
-      let cvss = CVSS31.calculateCVSSFromVector(finding.cvssv3)
-      if (cvss.success) {
-        severity = cvss.baseSeverity
-
-        let category = finding.category || "No Category"
-        let sortOption = this.audit.sortFindings.find(e => e.category === category)
-
-        if (sortOption) {
-          if (sortOption.sortValue === "cvssEnvironmentalScore")
-            severity = cvss.environmentalSeverity
-          else if (sortOption.sortValue === "cvssTemporalScore")
-            severity = cvss.temporalSeverity
+      
+      // Déterminer quelle version CVSS utiliser basée sur les paramètres de la plateforme
+      let cvssVersion = '3.1'; // Par défaut
+      if (this.$settings.report && this.$settings.report.public.defaultCvssVersion) {
+        cvssVersion = this.$settings.report.public.defaultCvssVersion;
+      }
+      
+      let cvss;
+      if (cvssVersion === '4.0' && finding.cvssv4) {
+        // Utiliser CVSS 4.0 si disponible
+        cvss = window.CVSS40 ? window.CVSS40.calculateCVSSFromVector(finding.cvssv4) : null;
+        if (cvss && cvss.success) {
+          severity = cvss.baseSeverity;
+          
+          let category = finding.category || "No Category";
+          let sortOption = this.audit.sortFindings.find(e => e.category === category);
+          
+          if (sortOption) {
+            if (sortOption.sortValue === "cvssEnvironmentalScore")
+              severity = cvss.environmentalSeverity;
+            else if (sortOption.sortValue === "cvssTemporalScore")
+              severity = cvss.threatSeverity; // CVSS 4.0 utilise threatSeverity au lieu de temporalSeverity
+          }
+        }
+      } else {
+        // Fallback vers CVSS 3.1
+        cvss = CVSS31.calculateCVSSFromVector(finding.cvssv3);
+        if (cvss.success) {
+          severity = cvss.baseSeverity;
+          
+          let category = finding.category || "No Category";
+          let sortOption = this.audit.sortFindings.find(e => e.category === category);
+          
+          if (sortOption) {
+            if (sortOption.sortValue === "cvssEnvironmentalScore")
+              severity = cvss.environmentalSeverity;
+            else if (sortOption.sortValue === "cvssTemporalScore")
+              severity = cvss.temporalSeverity;
+          }
         }
       }
-      return severity
+      
+      return severity;
     },
 
     getMenuSection: function() {
