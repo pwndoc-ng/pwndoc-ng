@@ -42,7 +42,7 @@ export default {
                 page: 1,
                 rowsPerPage: 25,
                 sortBy: 'date',
-                descending: false,
+                descending: true,
                 pagesNumber: 1
             },
 
@@ -67,7 +67,15 @@ export default {
             // Selected audit to clone
             selectedAuditToClone: null,
             // Available audits for cloning
-            availableAuditsForCloning: []
+            availableAuditsForCloning: [],
+            // Clone existing report toggle
+            cloneExistingReport: false,
+            // Selected audit to clone
+            selectedAuditToClone: null,
+            // Available audits for cloning
+            availableAuditsForCloning: [],
+            // Master copy for sorting and filtering
+            auditsForCloningMaster: []
         }
     },
 
@@ -127,27 +135,30 @@ export default {
         getAvailableAuditsForCloning: function() {
             AuditService.getAudits()
             .then((data) => {
-                this.availableAuditsForCloning = data.data.datas;
+				// Sort alphabetically by name
+				this.availableAuditsForCloning = data.data.datas
+					.sort((a, b) => a.name.localeCompare(b.name));
+				
+				// Keep master copy for filtering
+				this.auditsForCloningMaster = [...this.availableAuditsForCloning];
             })
             .catch((err) => {
                 console.log(err)
             })
         },
 
-        // Filter audits for cloning
+        // Filter audits for cloning (always sorted after filtering)
         filterAuditsForCloning: function(val, update) {
-            if (val === '') {
-                update(() => this.availableAuditsForCloning = this.audits)
-                return
-            }
-            update(() => {
-                const needle = val.toLowerCase()
-                this.availableAuditsForCloning = this.audits.filter(v => 
-                    v.name.toLowerCase().indexOf(needle) > -1 ||
-                    (v.company && v.company.name && v.company.name.toLowerCase().indexOf(needle) > -1) ||
-                    v.language.toLowerCase().indexOf(needle) > -1
-                )
-            })
+			update(() => {
+				const needle = val.toLowerCase();
+				this.availableAuditsForCloning = this.auditsForCloningMaster
+					.filter(v => 
+						v.name.toLowerCase().includes(needle) ||
+						(v.company?.name?.toLowerCase().includes(needle)) ||
+						v.language.toLowerCase().includes(needle)
+					)
+					.sort((a, b) => a.name.localeCompare(b.name)); // Sort after filtering
+			});
         },
 
         getAudits: function() {
