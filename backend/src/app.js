@@ -125,7 +125,7 @@ var acl = require('./lib/auth').acl;
 var Audit = require('mongoose').model('Audit');
 
 
-  const serverHocus = hocus.Server.configure({
+  const serverHocus = new hocus.Server({
     port:  process.env.COLLAB_WEBSOCKET_PORT || 8440,
       onUpgrade(data) {
         return new Promise( async (resolve, reject) =>  {
