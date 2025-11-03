@@ -565,19 +565,20 @@
 <script>
 import { defineComponent,ref } from 'vue';
 
-import { Editor, EditorContent, BubbleMenu, VueNodeViewRenderer  } from "@tiptap/vue-3";
-//  Import extensions
+// TipTap v3 - Vue 3 core imports
+import { Editor, EditorContent, VueNodeViewRenderer } from "@tiptap/vue-3";
+import { BubbleMenu } from "@tiptap/vue-3/menus";
+
+// TipTap extensions
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
-
-
 import { LanguageTool } from './languagetool'
 import Highlight from "@tiptap/extension-highlight";
 import Underline from "@tiptap/extension-underline";
 import StarterKit from "@tiptap/starter-kit";
-import Table from "@tiptap/extension-table";
-import TableCell from "@tiptap/extension-table-cell";
-import TableRow from "@tiptap/extension-table-row";
-import TableHeader from "@tiptap/extension-table-header";
+
+// TipTap v3 - Table extensions unified package
+import { Table, TableCell, TableRow, TableHeader } from "@tiptap/extension-table";
+
 import Link from "@tiptap/extension-link";
 import CustomImage from "./editor-image";
 //import Caption from "./editor-caption";
@@ -585,13 +586,14 @@ import { Figure } from "./figure";
 import { TriggerMenuExtension } from './internal-link';
 import {v4 as uuidv4} from 'uuid';
 import UserService from '@/services/user';
+
+// TipTap v3 - Collaboration extensions
 import Collaboration from '@tiptap/extension-collaboration'
-import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
+import CollaborationCaret from '@tiptap/extension-collaboration-caret'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
 
-
-
+// Highlight.js language support
 import css from 'highlight.js/lib/languages/css'
 import js from 'highlight.js/lib/languages/javascript'
 import http from 'highlight.js/lib/languages/http'
@@ -802,7 +804,7 @@ export default defineComponent({
           document: ydoc,
           field: this.fullId
       }))
-      extensionEditor.push(CollaborationCursor.configure({
+      extensionEditor.push(CollaborationCaret.configure({
           provider: this.provider,
           user: {
             name:  this.username,
@@ -1204,6 +1206,34 @@ export default defineComponent({
 }
 
 
+/* TipTap v3 Collaboration Caret Styles */
+.collaboration-carets__caret {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 1px solid #0D0D0D;
+  border-right: 1px solid #0D0D0D;
+  word-break: normal;
+  pointer-events: none;
+}
+
+.collaboration-carets__label {
+  text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;
+  color: white;
+  position: absolute;
+  top: -1.4em;
+  left: -1px;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+  user-select: none;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px 3px 3px 0;
+  white-space: nowrap;
+}
+
+/* Keep old class names for backward compatibility if needed */
 .collaboration-cursor__caret {
   position: relative;
   margin-left: -1px;
@@ -1215,8 +1245,8 @@ export default defineComponent({
 }
 
 .collaboration-cursor__label {
- text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;
- color:white;
+  text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;
+  color: white;
   position: absolute;
   top: -1.4em;
   left: -1px;
@@ -1225,7 +1255,6 @@ export default defineComponent({
   font-weight: 600;
   line-height: normal;
   user-select: none;
-
   padding: 0.1rem 0.3rem;
   border-radius: 3px 3px 3px 0;
   white-space: nowrap;
