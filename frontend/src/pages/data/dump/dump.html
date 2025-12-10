@@ -48,7 +48,7 @@
                             </q-item>
                         </div>
                     </q-card-section>
-                    <q-card-section class="row">
+                    <q-card-section class="row" v-if="isAdmin">
                         <div class="col-md-6 col-12" >
                             <div class="text-bold">{{$t('deleteAllVulnerabilities')}}</div>
                             <div class="text-grey-8" v-html="$t('deleteAllVulnerabilitiesInfo')"></div>
@@ -106,7 +106,7 @@
                             </q-item>
                         </div>
                     </q-card-section>
-                    <q-card-section class="row">
+                    <q-card-section class="row" v-if="isAdmin">
                         <div class="col-md-6 col-12" >
                             <div class="text-bold">{{$t('deleteAllCompanies')}}</div>
                             <div class="text-grey-8" v-html="$t('deleteAllCompaniesInfo')"></div>
@@ -162,7 +162,7 @@
                             </q-item>
                         </div>
                     </q-card-section>
-                    <q-card-section class="row">
+                    <q-card-section class="row" v-if="isAdmin">
                         <div class="col-md-6 col-12" >
                             <div class="text-bold">{{$t('deleteAllClients')}}</div>
                             <div class="text-grey-8" v-html="$t('deleteAllClientsInfo')"></div>

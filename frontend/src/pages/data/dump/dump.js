@@ -23,11 +23,29 @@ export default {
             UserService: UserService,
             vulnerabilities: [],
             selectedTab: "vulnerabilities",
+            user: null
         }
     },
 
     mounted: function() {
-        
+        // Load current user profile to drive role-based UI (e.g. hide dangerous actions)
+        UserService.getProfile()
+        .then((data) => {
+            // Store the full user object including role
+            // so we can use it in the template via isAdmin
+            this.user = data.data.datas;
+        })
+        .catch((err) => {
+            // In case of error, just log it; backend authorization
+            // still protects the destructive endpoints
+            console.log(err);
+        });
+    },
+
+    computed: {
+        isAdmin: function() {
+            return this.user && this.user.role === 'admin';
+        }
     },
 
     methods: {
