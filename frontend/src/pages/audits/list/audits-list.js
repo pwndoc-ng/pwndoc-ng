@@ -31,7 +31,7 @@ export default {
                 { name: 'company', label: $t('company'), field: row => row.company.name, align: 'left', sortable: true },
                 { name: 'language', label: $t('language'), field: 'language', align: 'left', sortable: true },
                 { name: 'users', label: $t('participants'), field: 'users', align: 'left', sortable: false },
-                { name: 'date', label: $t('date'), field: 'date', align: 'left', sortable: true },
+                { name: 'date', label: $t('date'), field: 'createdAt', align: 'left', sortable: true, sort: (a, b) => Date.parse(a) - Date.parse(b) },
                 { name: 'connected', label: $t('usersConnected'), field: 'connected', align: 'left', sortable: false },
                 { name: 'reviews', label: $t('reviews'), field: 'reviews', align: 'left', sortable: false },
                 { name: 'action', label: '', field: 'action', align: 'left', sortable: false }
@@ -42,7 +42,7 @@ export default {
                 page: 1,
                 rowsPerPage: 25,
                 sortBy: 'date',
-                descending: false,
+                descending: true,
                 pagesNumber: 1
             },
 
