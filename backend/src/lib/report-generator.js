@@ -11,6 +11,7 @@ var html2ooxml = require('./html2ooxml');
 var _ = require('lodash');
 var Image = require('mongoose').model('Image');
 var Settings = require('mongoose').model('Settings');
+var VulnerabilityType = require('mongoose').model('VulnerabilityType');
 var CVSS31 = require('./cvsscalc31.js');
 var translate = require('../translate')
 var $t
@@ -28,19 +29,83 @@ var globalBulletNumId = null // Global variable to store dynamic bullet ID
 
 const encodeHTMLEntities = s => s.replace(/[\u00A0-\u9999<>&]/g, i => '&#'+i.charCodeAt(0)+';')
 
+// Width of images from editor fields relative to the template text width (large: between page margins)
+// Same values as the editor display (frontend/src/components/uploadImage.vue)
+const IMAGE_WIDTH_RATIOS = {small: 0.5, medium: 0.75, large: 1}
+// Height (px) kept free below a page-high image so that its caption stays on the same page
+const IMAGE_CAPTION_RESERVED_HEIGHT = 60
+
+// The width chosen for an image is carried as a parameter of its data URI: the image module only gives
+// the tag value to getSize and treats object values as already resolved images, while getImage only uses
+// the data after the comma. e.g. data:image/png;pwndoc-width=medium;base64,iVBOR...
+function setImageWidthParam(dataUri, width) {
+    if (typeof dataUri !== 'string' || !dataUri.startsWith('data:'))
+        return dataUri
+    return dataUri.replace(/^data:([^,]*?)(;base64)?,/, (match, mediaType, base64) => `data:${mediaType};pwndoc-width=${width}${base64 || ''},`)
+}
+exports.setImageWidthParam = setImageWidthParam
+
+function getImageWidthParam(dataUri) {
+    if (typeof dataUri !== 'string' || !dataUri.startsWith('data:'))
+        return null
+    var match = dataUri.substring(0, dataUri.indexOf(',')).match(/;pwndoc-width=([a-z]+)/)
+    return match ? match[1] : null
+}
+exports.getImageWidthParam = getImageWidthParam
+
+// Text area of the template in pixels (96 dpi: 1px = 15 twips), from the page size and margins
+// of the main section (last w:sectPr of the body)
+function getTemplateTextArea(zip) {
+    try {
+        var sections = zip.files['word/document.xml'].asText().match(/<w:sectPr[\s\S]*?<\/w:sectPr>/g)
+        var section = sections[sections.length - 1]
+        var attr = (tag, name) => {
+            var element = (section.match(new RegExp(`<w:${tag}\\b[^>]*>`)) || [''])[0]
+            var value = element.match(new RegExp(`w:${name}="(-?\\d+)"`))
+            return value ? Math.abs(parseInt(value[1], 10)) : 0
+        }
+        var width = attr('pgSz', 'w') - (attr('pgMar', 'left') || attr('pgMar', 'start')) - (attr('pgMar', 'right') || attr('pgMar', 'end')) - attr('pgMar', 'gutter')
+        var height = attr('pgSz', 'h') - attr('pgMar', 'top') - attr('pgMar', 'bottom')
+        if (width > 0)
+            return {width: Math.floor(width / 15), height: height > 0 ? Math.floor(height / 15) : null}
+    }
+    catch (err) {}
+    return {width: 600, height: null} // Previous fixed max width
+}
+exports.getTemplateTextArea = getTemplateTextArea
+
+// The generation relies on module-level state shared with the template filters (zip, charts counters
+// and relations, numbering ids, translation locale). Generations are therefore queued so that two
+// concurrent requests never interleave (prepAuditData is async).
+var generationQueue = Promise.resolve()
+
+function generateDoc(audit) {
+    var generation = generationQueue.then(() => _generateDoc(audit))
+    generationQueue = generation.catch(() => {}) // A failed generation must not block the next ones
+    return generation
+}
+exports.generateDoc = generateDoc;
+
 // Generate document with docxtemplater
-async function generateDoc(audit) {
+async function _generateDoc(audit) {
 
     // Reset global variables for each document generation
     globalAbstractNumId = null;
     abstractNumCreated = false;
     bulletDefinitionCreated = false;
     globalBulletNumId = null;
+    pieChartXML = null;
+    barChartXML = null;
+    numberOfPieChart = 0;
+    numberOfBarChart = 0;
+    chartRelXml = '';
+    chartContentTypeXml = '';
 
     var templatePath = `${__basedir}/../report-templates/${audit.template.name}.${audit.template.ext || 'docx'}`
     var content = fs.readFileSync(templatePath, "binary");
 
     zip = new PizZip(content);
+    var textArea = getTemplateTextArea(zip); // Space between margins, for editor images width
 
     translate.setLocale(audit.language)
     $t = translate.translate
@@ -82,6 +147,18 @@ async function generateDoc(audit) {
                     width = 400;
                 }
             }
+            // Image from an editor field (findings, sections...): small, medium or large (between margins) width
+            else if (getImageWidthParam(tagValue)) {
+                var ratio = IMAGE_WIDTH_RATIOS[getImageWidthParam(tagValue)] || IMAGE_WIDTH_RATIOS[settings.report.public.imageDefaultWidth] || 1;
+                width = Math.floor(textArea.width * ratio);
+                height = Math.round(sizeObj.height * width / sizeObj.width);
+                // Keep tall images inside the page, with room left for their caption
+                var maxHeight = textArea.height ? textArea.height - IMAGE_CAPTION_RESERVED_HEIGHT : null;
+                if (maxHeight && height > maxHeight) {
+                    height = maxHeight;
+                    width = Math.round(sizeObj.width * height / sizeObj.height);
+                }
+            }
             else if (sizeObj.width > 600) {
                 var divider = sizeObj.width / 600;
                 width = 600;
@@ -113,11 +190,14 @@ async function generateDoc(audit) {
         doc.render(preppedAudit);
     }
     catch (error) {
-        if (error.properties.id === 'multi_error') {
+        // Only log the explanations: errors properties contain the template data scope (report content)
+        if (error.properties && error.properties.id === 'multi_error') {
             error.properties.errors.forEach(function(err) {
-                console.log(err);
+                console.log(`Template Error: ${err.properties ? err.properties.explanation : err.message}`);
             });
         }
+        else if (error.properties)
+            console.log(`Template Error: ${error.properties.explanation || error.message}`)
         else
             console.log(error)
         if (error.properties && error.properties.errors instanceof Array) {
@@ -171,15 +251,14 @@ async function generateDoc(audit) {
 
     return buf;
 }
-exports.generateDoc = generateDoc;
 
 // *** Angular parser filters ***
 
 // Keep only first finding with a given title
 expressions.filters.uniqFindings = function (findings) {
     if (!findings) return findings;
-    titles = [];
-    filtered_findings = [];
+    var titles = [];
+    var filtered_findings = [];
     findings.forEach(function (f) {
         if (!(titles.includes(f.title))){
             titles.push(f.title);
@@ -546,20 +625,13 @@ expressions.filters.convertHTML = function(input, style, listIds) {
     if (typeof input === 'undefined') {
         var result = html2ooxml('')
     } else {
-        // Compter les balises <ol> dans l'input HTML
+        // Count numbered lists (<ol>) in HTML input
         let olCount = 0;
-        let ulCount = 0;
-        
         if (input && typeof input === 'string') {
             olCount = (input.match(/<ol/g) || []).length;
-            ulCount = (input.match(/<ul/g) || []).length;
         }
-        
-        console.log(`📄 List count in convertHTML:`);
-        console.log(`   🔢 Numbered lists (<ol>): ${olCount}`);
-        console.log(`   🔘 Bullet lists (<ul>): ${ulCount}`);
-        
-        // Convertir listIds en array si c'est une string
+
+        // Convert listIds to array if it is a string
         let listIdsArray = [];
         if (listIds) {
             if (typeof listIds === 'string') {
@@ -579,15 +651,9 @@ expressions.filters.convertHTML = function(input, style, listIds) {
         if (olCount > 0 && listIdsArray.length === 0) {
             // Generate unpredictable IDs between 10000 and 99999
             listIdsArray = Array.from({length: olCount}, () => Math.floor(Math.random() * 90000) + 10000);
-            console.log(`🎲 Automatic generation of unpredictable IDs:`, listIdsArray);
         }
-        
-        console.log(`🆔 List IDs to use:`, listIdsArray);
-        
-        // TOTAL ELIMINATION: No longer modify numbering.xml at all
-        // Use ONLY existing template definitions
-        console.log(`🚫 ELIMINATION: No modification of numbering.xml (olCount: ${olCount}, ulCount: ${ulCount})`);
-        
+
+        // numbering.xml is not modified: only existing template definitions are used
         var result = html2ooxml(input.replace(/(<p><\/p>)+$/, ''), style, listIdsArray)
     }
     return result;
@@ -878,8 +944,8 @@ expressions.filters.barChart = function(input, field, title, barColor, labelColo
         }
     }
 
-    valueXML = `<c:ptCount val="${Object.keys(dataTypeCount).length}"/>`;
-    legendXML = `<c:ptCount val="${Object.keys(dataTypeCount).length}"/>`;
+    var valueXML = `<c:ptCount val="${Object.keys(dataTypeCount).length}"/>`;
+    var legendXML = `<c:ptCount val="${Object.keys(dataTypeCount).length}"/>`;
 
     var index = 0;
 
@@ -1148,9 +1214,8 @@ function cvssStrToObject(cvss) {
     return res
 }
 function stripParagraphTags(input) {
-    console.log("JE STRIP MES PARAMETRES")
     return input
-        .replace(/<\/?p[^>]*>/gi, '') // supprime toutes les balises <p> ou </p>
+        .replace(/<\/?p[^>]*>/gi, '') // remove all <p> or </p> tags
         .trim();
 }
 async function prepAuditData(data, settings) {
@@ -1198,7 +1263,7 @@ async function prepAuditData(data, settings) {
     result.date_start = data.date_start || "undefined"
     result.date_end = data.date_end || "undefined"
     if (data.customFields) {
-        for (field of data.customFields) {
+        for (const field of data.customFields) {
             var fieldType = field.customField.fieldType
             var label = field.customField.label
 
@@ -1258,12 +1323,20 @@ async function prepAuditData(data, settings) {
     result.language = data.language || "undefined"
     result.scope = data.scope.toObject() || []
 
+    // Descriptions of vulnerability types in the audit language (findings[i].vulnTypeDescription)
+    var vulnTypeDescriptions = {}
+    for (const vulnType of await VulnerabilityType.getAll()) {
+        if (vulnType.locale === data.language)
+            vulnTypeDescriptions[vulnType.name] = vulnType.description || ""
+    }
+
     result.findings = []
-    for (finding of data.findings) {
+    for (const finding of data.findings) {
         var tmpCVSS = CVSS31.calculateCVSSFromVector(finding.cvssv3);
         var tmpFinding = {
             title: finding.title || "",
             vulnType: $t(finding.vulnType) || "",
+            vulnTypeDescription: vulnTypeDescriptions[finding.vulnType] || "",
             description: await splitHTMLParagraphs(finding.description),
             observation: await splitHTMLParagraphs(finding.observation),
             remediation: await splitHTMLParagraphs(finding.remediation),
@@ -1278,7 +1351,6 @@ async function prepAuditData(data, settings) {
             identifier: "IDX-" + utils.lPad(finding.identifier),
             unique_id: finding._id.toString()
         }
-        console.log(tmpFinding)
         // Remediation Complexity color 
         if (tmpFinding.remediationComplexity === 1) tmpFinding.remediation.cellColorComplexity = cellLowColorRemediationComplexity
         else if (tmpFinding.remediationComplexity === 2) tmpFinding.remediation.cellColorComplexity = cellMediumColorRemediationComplexity
@@ -1341,7 +1413,7 @@ async function prepAuditData(data, settings) {
         tmpFinding.cvssObj = cvssStrToObject(tmpCVSS.vectorString)
 
         if (finding.customFields) {
-            for (field of finding.customFields) {
+            for (const field of finding.customFields) {
                 // For retrocompatibility of findings with old customFields
                 // or if custom field has been deleted, last saved custom fields will be available
                 if (field.customField) {
@@ -1377,7 +1449,7 @@ async function prepAuditData(data, settings) {
         result.creator.role = data.creator.role || "undefined"
     }
 
-    for (section of data.sections) {
+    for (const section of data.sections) {
         var formatSection = {
             name: $t(section.name)
         }
@@ -1385,7 +1457,7 @@ async function prepAuditData(data, settings) {
             formatSection.text = await splitHTMLParagraphs(section.text)
         // If only because section has "any" inside its text attribute and then skip the section.customFields
         if (section.customFields) {
-            for (field of section.customFields) {
+            for (const field of section.customFields) {
                 var fieldType = field.customField.fieldType
                 var label = field.customField.label
                 if (fieldType === 'text')
@@ -1407,20 +1479,28 @@ async function splitHTMLParagraphs(data) {
 
     var splitted = data.split(/(<img.+?src=".*?".+?alt=".*?".*?>)/)
 
-    for (value of splitted){
+    for (const value of splitted){
         if (value.startsWith("<img")) {
             var src = value.match(/<img.+src="(.*?)"/) || ""
             var alt = value.match(/<img.+alt="(.*?)"/) || ""
             if (src && src.length > 1) src = src[1]
             if (alt && alt.length > 1) alt = _.unescape(alt[1])
 
+            // Width chosen in the editor (data-width), default width from settings otherwise
+            var width = value.match(/<img.+data-width="(.*?)"/)
+            width = (width && IMAGE_WIDTH_RATIOS[width[1]]) ? width[1] : 'default'
+
+            var imageFound = true
             if (!src.startsWith('data')){
                 try {
                     src = (await Image.getOne(src)).value
                 } catch (error) {
                     src = "data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA="
+                    imageFound = false // Keep the 1px placeholder small
                 }
             }
+            if (imageFound)
+                src = setImageWidthParam(src, width)
             if (result.length === 0)
                 result.push({text: "", images: []})
             result[result.length-1].images.push({image: src, caption: alt})

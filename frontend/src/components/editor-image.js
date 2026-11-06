@@ -20,6 +20,16 @@ export default Image.extend({
   addAttributes() {
     return {
       ...Image.config.addAttributes(),
+      // Width in the editor and in the report: small, medium or large (between page margins).
+      // null: default width from settings. Rendered after src and alt (order expected by the report generator).
+      width: {
+        default: null,
+        parseHTML: (element) => {
+          const width = element.getAttribute("data-width");
+          return ["small", "medium", "large"].includes(width) ? width : null;
+        },
+        renderHTML: (attributes) => (attributes.width ? { "data-width": attributes.width } : {}),
+      },
       attrs: {
         src: {},
         alt: {

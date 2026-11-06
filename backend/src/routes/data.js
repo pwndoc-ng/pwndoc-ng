@@ -198,9 +198,15 @@ module.exports = function(app) {
             return
         }
 
+        if (req.body.description !== undefined && typeof req.body.description !== 'string') {
+            Response.BadParameters(res, 'description must be a string')
+            return
+        }
+
         var vulnType = {};
         vulnType.name = req.body.name;
         vulnType.locale = req.body.locale;
+        vulnType.description = req.body.description || '';
         VulnerabilityType.create(vulnType)
         .then(msg => Response.Created(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -231,11 +237,15 @@ module.exports = function(app) {
                 Response.BadParameters(res, 'name and locale value must match /^[\p{Letter}\p{Mark}0-9 \[\]\'()_-]+$/iu')
                 return
             }
+            if (vulnType.description !== undefined && typeof vulnType.description !== 'string') {
+                Response.BadParameters(res, 'description must be a string')
+                return
+            }
         }
 
         var vulnTypes = []
         req.body.forEach(e => {
-            vulnTypes.push({name: e.name, locale: e.locale})
+            vulnTypes.push({name: e.name, locale: e.locale, description: e.description || ''})
         })
 
         VulnerabilityType.updateAll(vulnTypes)

@@ -21,6 +21,8 @@ module.exports = function(request, app) {
                 "noneColor": "#4a86e8",
               },
               "extendCvssTemporalEnvironment": false,
+              "findingSidebarTemplate": "{title}",
+              "imageDefaultWidth": "large",
               "remediationColorsComplexity": {
                 "highColor": "#FF2F2F",
                 "lowColor": "#4472c4",
@@ -68,6 +70,8 @@ module.exports = function(request, app) {
                 "noneColor": "#4a86e8",
               },
               "extendCvssTemporalEnvironment": false,
+              "findingSidebarTemplate": "{title}",
+              "imageDefaultWidth": "large",
               "remediationColorsComplexity": {
                 "highColor": "#FF2F2F",
                 "lowColor": "#4472c4",
@@ -139,6 +143,8 @@ module.exports = function(request, app) {
                   "noneColor": "#123456",
                 },
                 "extendCvssTemporalEnvironment": false,
+                "findingSidebarTemplate": "{identifier} - {title} [{custom.Asset}]",
+                "imageDefaultWidth": "medium",
                 "remediationColorsComplexity": {
                   "highColor": "#FF2F2F",
                   "lowColor": "#4472c4",

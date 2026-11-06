@@ -58,7 +58,6 @@ const HIGHLIGHT_COLOR_MAP = {
 function html2ooxml(html, style = "", listIds = []) {;
   if (html === "") return html;
   if (!html.match(/^<.+>/)) html = `<p>${html}</p>`;
-  console.log(html);
   let doc = new docx.Document({ sections: [] });
   let paragraphs = [];
   let cParagraph = null;
@@ -83,7 +82,6 @@ function html2ooxml(html, style = "", listIds = []) {;
   let parser = new htmlparser.Parser(
     {
       onopentag(tag, attribs) {
-        console.log("Current tag is: " + tag);
         switch (tag) {
           case 'h1':
             cParagraph = new docx.Paragraph({ heading: "Heading1" });
@@ -184,7 +182,6 @@ function html2ooxml(html, style = "", listIds = []) {;
           case 'ul':
             // Stack in the separate bullet system
             bullet_state.push("bullet");
-            console.log(`🔘 Bullet list created, level: ${bullet_state.length - 1}`);
             break;
           case 'ol':
             // Stack the list type to handle nesting
@@ -197,10 +194,8 @@ function html2ooxml(html, style = "", listIds = []) {;
             if (!listIdsByLevel[currentLevel]) {
               currentListId = availableListIds.length > 0 ? availableListIds.shift() : Math.floor(Math.random() * 90000) + 10000;
               listIdsByLevel[currentLevel] = currentListId;
-              console.log(`🔢 New numbered list created - ID: ${currentListId}, level: ${currentLevel}`);
             } else {
               currentListId = listIdsByLevel[currentLevel];
-              console.log(`♻️ Numbered list reused - ID: ${currentListId}, level: ${currentLevel}`);
             }
             break;
           case 'li':
@@ -210,16 +205,13 @@ function html2ooxml(html, style = "", listIds = []) {;
               let bulletLevel = Math.min(bullet_state.length - 1, 8);
               const bulletId = 1; // Use existing template definition
               cParagraphProperties.numbering = { reference: bulletId, level: bulletLevel };
-              console.log(`📝 Bullet list item - ID: ${bulletId} (template), level: ${bulletLevel}`);
             } else if (list_state.length > 0) {
               // We're in a numbered list
               let numberLevel = Math.min(list_state.length - 1, 8);
               const elementListId = listIdsByLevel[numberLevel];
               cParagraphProperties.numbering = { reference: elementListId, level: numberLevel };
-              console.log(`📝 Numbered list item - ID: ${elementListId}, level: ${numberLevel}`);
             } else {
               // No numbering if we're not in a real list - leave as default
-              console.log(`📝 <li> element without parent list - no numbering applied`);
             }
             
             // Create paragraph with list properties
@@ -248,7 +240,6 @@ function html2ooxml(html, style = "", listIds = []) {;
       },
       
       ontext(text) {
-        console.log(text);
         if (cRunProperties.link) {
           cParagraph.addChildElement(new docx.TextRun({ "text": `{_|link|_{${text}|-|${cRunProperties.link}}_|link|_}`, "style": "PwndocLink" }));
         } else if (inCodeBlock) {
@@ -276,29 +267,22 @@ function html2ooxml(html, style = "", listIds = []) {;
       },
 
       onclosetag(tag) {
-        console.log(`🔚 Closing tag: ${tag}`);
         
         // Handle lists first
         if (tag === "ul") {
-          const closingBulletLevel = bullet_state.length - 1;
           bullet_state.pop();
-          console.log(`🔄 Closing bullet list ${tag} at level ${closingBulletLevel}, remaining levels: ${bullet_state.length}`);
           
           if (bullet_state.length === 0) {
             cParagraphProperties = {};
-            console.log(`🔄 All bullet lists closed, resetting`);
           }
         } else if (tag === "ol") {
           const closingLevel = list_state.length - 1;
           list_state.pop();
-          console.log(`🔄 Closing numbered list ${tag} at level ${closingLevel}, remaining levels: ${list_state.length}`);
           
           // Clean up IDs from levels deeper than the one we're closing
           Object.keys(listIdsByLevel).forEach(level => {
             if (parseInt(level) > closingLevel) {
-              const id = listIdsByLevel[level];
               delete listIdsByLevel[level];
-              console.log(`🧽 Removing list ID ${id} for level ${level}`);
             }
           });
           
@@ -306,7 +290,6 @@ function html2ooxml(html, style = "", listIds = []) {;
             cParagraphProperties = {};
             currentListId = 0;
             listIdsByLevel = {};
-            console.log(`🔄 All numbered lists closed, complete reset`);
           }
         }
         else if (
@@ -473,7 +456,6 @@ let filteredXml = prepXml["w:body"].filter((e) => {
   dataXml = dataXml.replace(/w:numId w:val="{(\d+)-0}"/g, 'w:numId w:val="$1"'); // Replace numbering to have correct value
   //a little dirty but until we do better it works
   dataXml = dataXml.replace(/\{_\|link\|_\{(.*?)\|\-\|(.*?)\}_\|link\|_\}/gm, '<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> HYPERLINK $2 </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:rPr><w:rStyle w:val="PwndocLink"/></w:rPr><w:t> $1 </w:t> </w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>')
-  console.log(dataXml)
   return dataXml;
 }
 

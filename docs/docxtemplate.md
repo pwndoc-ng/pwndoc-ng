@@ -55,6 +55,10 @@ To handle images, HTML values with images are converted into an array of text an
                                     Image 1 - {caption}{/images}{/poc}
 ```
 
+The width of these images is chosen in the editor (single click on an image): **Small** (50%), **Medium** (75%) or **Large** (100%) of the text width of the template, computed from the page size and margins of its main (last) section. Images without a chosen width use the default width defined in *Settings > Reports*. Tall images are reduced to fit in the page height with their caption.
+
+Large images are as wide as the space between the page margins: inside a table cell, the cell padding reduces the available width. To reach the margins, put the image paragraph in a cell spanning the whole table width and give it a negative left and right indentation equal to the cell margins (this is what the *Default Template* does in the finding details).
+
 ## Audit Object
 
 Docxtemplater requires an object containing data that will be used in the template document.
@@ -189,6 +193,7 @@ Network Scan:
 List of findings. Array of Objects:
 * **findings[i].title**
 * **findings[i].vulnType**
+* **findings[i].vulnTypeDescription** (plain text, description of the vulnerability type in the audit language, empty if not set). Use `{@vulnTypeDescription | NewLines}` to keep its line breaks
 * **findings[i].description** (HTML with images)
 * **findings[i].observation** (HTML with images)
 * **findings[i].remediation** (HTML with images)

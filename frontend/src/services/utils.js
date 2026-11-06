@@ -253,6 +253,74 @@ export default {
       .replace(/[\u0300-\u036f]/g, "");
   },
 
+  // Render a text template with {variable} placeholders (e.g. findings label in the audit sidebar)
+  // - variables: {name: value or function returning the value}, names are case insensitive
+  // - {custom.Label}: value of the custom field with this label (case insensitive), empty if not set
+  // Unknown variables are left as is so that typos stay visible.
+  // The result is plain text: it must be displayed with text interpolation, never with v-html.
+  renderTemplate: function (template, variables, customFields = []) {
+    if (typeof template !== "string") return "";
+    var vars = {};
+    Object.keys(variables).forEach((name) => {
+      vars[name.toLowerCase()] = variables[name];
+    });
+
+    return template.replace(/\{([^{}]+)\}/g, (match, name) => {
+      var key = name.trim().toLowerCase();
+      var value;
+      if (key.startsWith("custom.")) {
+        var label = key.substring("custom.".length).trim();
+        var field = (customFields || []).find(
+          (f) => f && f.customField && typeof f.customField.label === "string" && f.customField.label.trim().toLowerCase() === label
+        );
+        value = field ? this.customFieldToText(field) : "";
+      }
+      else if (Object.prototype.hasOwnProperty.call(vars, key)) {
+        value = typeof vars[key] === "function" ? vars[key]() : vars[key];
+      }
+      else {
+        return match;
+      }
+      return value === null || value === undefined ? "" : String(value);
+    });
+  },
+
+  // Variables available in the findings sidebar template (Settings > General Settings)
+  // context: {index: position of the finding in the audit (gives the report identifier), cvss: function returning {severity, score}}
+  // Values needing computation are functions: they are only evaluated if used in the template
+  findingTemplateVariables: function (finding, context) {
+    var priorities = { 1: $t("low"), 2: $t("medium"), 3: $t("high"), 4: $t("urgent") };
+    var complexities = { 1: $t("easy"), 2: $t("medium"), 3: $t("complex") };
+    var severities = { Critical: $t("critical"), High: $t("high"), Medium: $t("medium"), Low: $t("low") };
+    return {
+      title: finding.title,
+      identifier: () => (context.index >= 0 ? "IDX-" + String(context.index + 1).padStart(3, "0") : ""), // Same as report
+      vulnType: finding.vulnType,
+      category: finding.category,
+      severity: () => severities[context.cvss().severity] || "",
+      cvssScore: () => context.cvss().score,
+      cvssVector: finding.cvssv3,
+      priority: priorities[finding.priority],
+      remediationComplexity: complexities[finding.remediationComplexity],
+      affected: () => this.htmlToText(finding.scope),
+    };
+  },
+
+  // Text value of a custom field: lists are joined, editor (HTML) content is converted to plain text
+  customFieldToText: function (field) {
+    var value = field.text;
+    if (Array.isArray(value)) return value.join(", ");
+    if (field.customField.fieldType === "text") return this.htmlToText(value);
+    return value;
+  },
+
+  // Convert HTML to plain text (DOMParser documents are inert: no script execution nor resource loading)
+  htmlToText: function (html) {
+    if (typeof html !== "string" || !html) return "";
+    var doc = new DOMParser().parseFromString(html, "text/html");
+    return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
+  },
+
   AUDIT_VIEW_STATE: {
     EDIT: 0,
     EDIT_READONLY: 1,

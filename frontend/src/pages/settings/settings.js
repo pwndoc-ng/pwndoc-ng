@@ -2,6 +2,8 @@ import { Notify, Dialog } from 'quasar'
 
 import SettingsService from '@/services/settings'
 import UserService from '@/services/user'
+import DataService from '@/services/data'
+import Utils from '@/services/utils'
 
 import { $t } from 'boot/i18n'
 import LanguageSelector from '@/components/language-selector';
@@ -13,7 +15,38 @@ export default {
             UserService: UserService,
             settings: {danger:{enabled:false,public:{nbdaydelete: 0}},reviews:{enabled:false}},
             settingsOrig : {danger:{enabled:false},reviews:{enabled:false}},
-            canEdit: false
+            canEdit: false,
+            findingCustomFieldLabels: [] // Labels of findings custom fields usable in the sidebar template
+        }
+    },
+
+    computed: {
+        // Variables of the findings sidebar template, including findings custom fields
+        findingTemplateVariables: function() {
+            var builtIn = Object.keys(Utils.findingTemplateVariables({}, {}))
+            return builtIn.concat(this.findingCustomFieldLabels.map(label => `custom.${label}`))
+        },
+
+        // Braces are passed as parameters: they are interpolation delimiters in i18n messages
+        findingTemplateDescription: function() {
+            return $t('findingSidebarTemplateDescription', {customExample: '{custom.Label}', defaultExample: '{title}'})
+        },
+
+        // Template rendered with a sample finding
+        findingTemplatePreview: function() {
+            var finding = {
+                title: 'SQL Injection',
+                vulnType: 'Web',
+                category: 'Web',
+                cvssv3: 'CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N',
+                priority: 3,
+                remediationComplexity: 1,
+                scope: '<p>srv-web-01</p>',
+                customFields: this.findingCustomFieldLabels.map(label => ({customField: {label: label, fieldType: 'input'}, text: `<${label}>`}))
+            }
+            var variables = Utils.findingTemplateVariables(finding, {index: 2, cvss: () => ({severity: 'High', score: '8.1'})})
+            var template = this.settings.report && this.settings.report.public.findingSidebarTemplate
+            return Utils.renderTemplate(template || '{title}', variables, finding.customFields).replace(/\s+/g, ' ').trim() || finding.title
         }
     },
     components: {
@@ -37,6 +70,7 @@ export default {
     mounted: function() {
         if (UserService.isAllowed('settings:read')) {
             this.getSettings()
+            this.getFindingCustomFieldLabels()
             this.canEdit = this.UserService.isAllowed('settings:update');
             document.addEventListener('keydown', this._listener, false)
         }
@@ -79,6 +113,25 @@ export default {
                     position: 'top-right'
                 })
             })
+        },
+
+        getFindingCustomFieldLabels: function() {
+            DataService.getCustomFields()
+            .then((data) => {
+                var labels = data.data.datas
+                .filter(field => ['finding', 'vulnerability'].includes(field.display) && field.fieldType !== 'space' && field.label && !/[{}]/.test(field.label))
+                .map(field => field.label)
+                this.findingCustomFieldLabels = [...new Set(labels)]
+            })
+            .catch(err => console.log(err))
+        },
+
+        // Append a variable to the findings sidebar template
+        insertFindingTemplateVariable: function(variable) {
+            if (!this.canEdit)
+                return
+            var template = this.settings.report.public.findingSidebarTemplate || ''
+            this.settings.report.public.findingSidebarTemplate = `${template}${template ? ' ' : ''}{${variable}}`
         },
 
         updateSettings: function() {

@@ -819,19 +819,37 @@ AuditSchema.statics.updateApprovals = (isAdmin, auditId, userId, update) => {
     });
 }
 
-// Clone existing audit
-AuditSchema.statics.clone = (auditId, newName, userId) => {
+// Get user access rights on an audit (used to authorize realtime connections), same rules as REST routes:
+// - read: creator, collaborators, reviewers or readAll permission
+// - write: creator, collaborators or updateAll permission (and read access)
+AuditSchema.statics.getUserAccess = async (auditId, userId, readAll, updateAll) => {
+    var access = {read: false, write: false}
+    if (!mongoose.isObjectIdOrHexString(auditId))
+        return access
+
+    var audit = await Audit.findById(auditId).select('creator collaborators reviewers').lean().exec()
+    if (!audit)
+        return access
+
+    var isUser = id => String(id) === String(userId)
+    var isEditor = isUser(audit.creator) || (audit.collaborators || []).some(isUser)
+    var isReviewer = (audit.reviewers || []).some(isUser)
+    access.read = readAll || isEditor || isReviewer
+    access.write = access.read && (updateAll || isEditor)
+    return access
+}
+
+// Clone existing audit (same read access rules as getAudit on the source audit)
+// References are not populated: the cloned audit (returned to the client) must only contain IDs
+AuditSchema.statics.clone = (isAdmin, auditId, newName, userId) => {
     return new Promise((resolve, reject) => {
-        Audit.findById(auditId)
-        .populate('company')
-        .populate('client')
-        .populate('collaborators')
-        .populate('reviewers')
-        .populate('template')
-        .exec()
+        var query = Audit.findById(auditId)
+        if (!isAdmin)
+            query.or([{creator: userId}, {collaborators: userId}, {reviewers: userId}])
+        query.exec()
         .then((sourceAudit) => {
             if (!sourceAudit)
-                throw({fn: 'NotFound', message: 'Source audit not found'});
+                throw({fn: 'NotFound', message: 'Audit not found or Insufficient Privileges'});
             
             // Create new audit object with cloned data
             var clonedAudit = new Audit({
@@ -858,7 +876,10 @@ AuditSchema.statics.clone = (auditId, newName, userId) => {
             resolve(clonedAudit);
         })
         .catch((err) => {
-            reject(err);
+            if (err.name === "CastError")
+                reject({fn: 'BadParameters', message: 'Bad Audit Id'})
+            else
+                reject(err);
         })
     });
 }

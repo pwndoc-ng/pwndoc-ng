@@ -28,6 +28,31 @@
                 </q-item-section>
             </q-item>
         </q-card-section>
+        <q-card-section v-if="UserService.isAllowed('settings:read')">
+            <div class="text-bold">{{$t('findingSidebarTemplate')}}</div>
+            <br/>
+            <div class="text-grey-8">{{ findingTemplateDescription }}</div>
+            <br/>
+            <q-input
+            outlined
+            dense
+            v-model="settings.report.public.findingSidebarTemplate"
+            :readonly="!canEdit"
+            maxlength="500"
+            />
+            <div class="q-mt-sm">
+                <q-chip
+                v-for="variable of findingTemplateVariables"
+                :key="variable"
+                dense
+                :clickable="canEdit"
+                @click="insertFindingTemplateVariable(variable)"
+                >{{ '{' + variable + '}' }}</q-chip>
+            </div>
+            <div class="q-mt-sm text-grey-8">
+                {{$t('preview')}} : <span class="text-bold">{{ findingTemplatePreview }}</span>
+            </div>
+        </q-card-section>
         </q-card>
 
 <!-- Danger Settings START  -->
@@ -88,6 +113,27 @@
                         </q-item-section>
                         <q-item-section class="col-md-2">
                             <label :disabled="!settings.report.private.imageBorder" for="colorpicker" class="vertical-center">{{$t('currentColor')}}: {{settings.report.private.imageBorderColor}}</label>
+                        </q-item-section>
+                    </q-item>
+                </q-card-section>
+                <q-separator />
+                <q-card-section>
+                    <div class="text-bold">{{$t('imageDefaultWidth')}}</div>
+                    <br/>
+                    <div class="text-grey-8">{{$t('imageDefaultWidthDescription')}}</div>
+                    <br/>
+                    <q-item>
+                        <q-item-section>
+                            <q-option-group
+                            v-model="settings.report.public.imageDefaultWidth"
+                            :options="[
+                                {label: `${$t('imageWidthSmall')} (50%)`, value: 'small'},
+                                {label: `${$t('imageWidthMedium')} (75%)`, value: 'medium'},
+                                {label: `${$t('imageWidthLarge')} (100%)`, value: 'large'}
+                            ]"
+                            type="radio"
+                            inline
+                            />
                         </q-item-section>
                     </q-item>
                 </q-card-section>

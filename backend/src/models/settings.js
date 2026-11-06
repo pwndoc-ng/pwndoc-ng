@@ -33,10 +33,14 @@ const SettingSchema = new Schema({
                 type: [{type: String, unique: true}],
                 default: ['Figure']
             },
-            extendCvssTemporalEnvironment: { 
-                type: Boolean, 
-                default: false 
-            }
+            extendCvssTemporalEnvironment: {
+                type: Boolean,
+                default: false
+            },
+            // Text template of findings in the audit sidebar, e.g. "{identifier} - {title} [{custom.Asset}]"
+            findingSidebarTemplate: { type: String, default: '{title}', maxlength: 500 },
+            // Width of editor images without explicit width (large: between page margins)
+            imageDefaultWidth: { type: String, enum: ['small', 'medium', 'large'], default: 'large' }
         },
         private: {
             imageBorder: { type: Boolean, default: false },

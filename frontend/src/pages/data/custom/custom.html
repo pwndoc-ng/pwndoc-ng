@@ -496,6 +496,18 @@
                           <q-btn color="secondary" unelevated label="+" size="md" @click="createVulnerabilityType" />
                         </q-item-section>
                       </q-item>
+                      <q-item>
+                        <q-item-section>
+                          <q-input
+                            :label="$t('description')"
+                            :hint="$t('vulnTypeDescriptionHint', {tag: '{@vulnTypeDescription | NewLines}'})"
+                            v-model="newVulnType.description"
+                            type="textarea"
+                            autogrow
+                            outlined
+                          />
+                        </q-item-section>
+                      </q-item>
                     </div>
               
                     <!-- Affichage des vulnTypes en mode liste (readonly) -->
@@ -522,6 +534,7 @@
                           <q-item v-for="vulnType in vulnTypesFiltered" :key="vulnType._id || vulnType.name">
                             <q-item-section>
                               <q-input v-model="vulnType.name" readonly outlined />
+                              <div v-if="vulnType.description" class="text-grey-8 q-mt-xs q-ml-sm" style="white-space: pre-line">{{ vulnType.description }}</div>
                             </q-item-section>
                           </q-item>
                         </template>
@@ -549,6 +562,14 @@
               
                                 <q-item-section>
                                   <q-input :label="$t('name')" v-model="vulnType.name" outlined />
+                                  <q-input
+                                    class="q-mt-sm"
+                                    :label="$t('description')"
+                                    v-model="vulnType.description"
+                                    type="textarea"
+                                    autogrow
+                                    outlined
+                                  />
                                 </q-item-section>
               
                                 <q-item-section side>

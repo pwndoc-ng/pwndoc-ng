@@ -186,7 +186,7 @@
                           </q-chip>
                         </q-item-section>
                         <q-item-section>
-                          <span>{{ finding.title }}</span>
+                          <span>{{ getFindingLabel(finding) }}</span>
                         </q-item-section>
                         <q-item-section side v-if="finding.status === 0">
                           <q-icon name="check" color="green" />
@@ -265,6 +265,7 @@ import DataService from '@/services/data';
 import Utils from '@/services/utils';
 
 import { $t } from '@/boot/i18n';
+import { connectSocket } from '@/boot/socketio';
 
 export default defineComponent({
   data () {
@@ -302,7 +303,11 @@ export default defineComponent({
   unmounted: function() {
     if (!this.loading) {
       this.$socket.emit('leave', {username: UserService.user.username, room: this.auditId});
-      this.$socket.off()
+      // Only remove this page listeners (keep global ones registered in boot/socketio)
+      this.$socket.off('roomUsers');
+      this.$socket.off('updateUsers');
+      this.$socket.off('updateAudit');
+      this.$socket.off('disconnect', this.onSocketDisconnect);
     }
   },
 
@@ -383,22 +388,41 @@ export default defineComponent({
       return this.sectionUsers.filter(user => user.section === sectionId)
     },
     getFindingSeverity: function(finding) {
-      let severity = "None"
+      return this.getFindingCvss(finding).severity
+    },
+
+    // CVSS severity and score of a finding: base, temporal or environmental depending on the category sort option
+    getFindingCvss: function(finding) {
+      let result = {severity: "None", score: ""}
       let cvss = CVSS31.calculateCVSSFromVector(finding.cvssv3)
       if (cvss.success) {
-        severity = cvss.baseSeverity
+        result = {severity: cvss.baseSeverity, score: cvss.baseMetricScore}
 
         let category = finding.category || "No Category"
         let sortOption = this.audit.sortFindings.find(e => e.category === category)
 
         if (sortOption) {
           if (sortOption.sortValue === "cvssEnvironmentalScore")
-            severity = cvss.environmentalSeverity
+            result = {severity: cvss.environmentalSeverity, score: cvss.environmentalMetricScore}
           else if (sortOption.sortValue === "cvssTemporalScore")
-            severity = cvss.temporalSeverity
+            result = {severity: cvss.temporalSeverity, score: cvss.temporalMetricScore}
         }
       }
-      return severity
+      return result
+    },
+
+    // Label of a finding in the sidebar, built from the template defined in settings (title by default)
+    getFindingLabel: function(finding) {
+      let template = this.$settings.report && this.$settings.report.public.findingSidebarTemplate
+      if (!template)
+        return finding.title
+
+      let variables = Utils.findingTemplateVariables(finding, {
+        index: Array.isArray(this.audit.findings) ? this.audit.findings.indexOf(finding) : -1,
+        cvss: () => this.getFindingCvss(finding)
+      })
+      let label = Utils.renderTemplate(template, variables, finding.customFields).replace(/\s+/g, ' ').trim()
+      return label || finding.title
     },
 
     getMenuSection: function() {
@@ -418,6 +442,7 @@ export default defineComponent({
 
     // Sockets handle
     handleSocket: function() {
+      connectSocket(); // Socket may have been refused before login
       this.$socket.emit('join', {username: UserService.user.username, room: this.auditId});
       this.$socket.on('roomUsers', (users) => {
         var userIndex = 0;
@@ -437,10 +462,11 @@ export default defineComponent({
       this.$socket.on('updateAudit', () => {
           this.getAudit();
       })
-      this.$socket.on('disconnect', () => {
+      this.onSocketDisconnect = () => {
         this.$socket.emit('join', {username: UserService.user.username, room: this.auditId})
         this.$socket.emit('menu', this.getMenuSection())
-      })
+      }
+      this.$socket.on('disconnect', this.onSocketDisconnect)
     },
     // Tells the UI if the user is supposed to be reviewing the audit
     isUserAReviewer: function() {

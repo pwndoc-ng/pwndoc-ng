@@ -1,6 +1,7 @@
 module.exports = function () {
   var html2ooxml = require("../src/lib/html2ooxml")
   var utils = require("../src/lib/utils")
+  var reportGenerator = require("../src/lib/report-generator")
 
   describe('Lib functions Suite Tests', () => {
 
@@ -545,6 +546,38 @@ module.exports = function () {
         expect(ooxml).toEqual(expected)
       })
 
+    })
+
+    describe('Report images width', () => {
+      var PizZip = require("pizzip")
+      var documentWith = (sectPr) => {
+        var zip = new PizZip()
+        zip.file('word/document.xml', `<w:document><w:body><w:p/>${sectPr}</w:body></w:document>`)
+        return zip
+      }
+
+      it('Width parameter in image data URI', () => {
+        var src = "data:image/png;base64,iVBORw0KGgo="
+        var withWidth = reportGenerator.setImageWidthParam(src, 'medium')
+        expect(withWidth).toEqual("data:image/png;pwndoc-width=medium;base64,iVBORw0KGgo=")
+        expect(reportGenerator.getImageWidthParam(withWidth)).toEqual('medium')
+        expect(withWidth.split(",")[1]).toEqual("iVBORw0KGgo=") // Data read by the image module unchanged
+        expect(reportGenerator.getImageWidthParam(src)).toEqual(null)
+        expect(reportGenerator.setImageWidthParam("https://example.com/a.png", 'small')).toEqual("https://example.com/a.png")
+      })
+
+      it('Template text area from the last section', () => {
+        var zip = documentWith(
+          `<w:p><w:pPr><w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/><w:pgMar w:top="1418" w:right="1418" w:bottom="1418" w:left="1418"/></w:sectPr></w:pPr></w:p>` +
+          `<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1418" w:right="1418" w:bottom="1418" w:left="1418" w:header="284" w:footer="0" w:gutter="0"/></w:sectPr>`
+        )
+        // A4 portrait with 2.5cm margins: (11906 - 2 * 1418) / 15 = 604.6px
+        expect(reportGenerator.getTemplateTextArea(zip)).toEqual({width: 604, height: 933})
+      })
+
+      it('Template text area fallback', () => {
+        expect(reportGenerator.getTemplateTextArea(documentWith(''))).toEqual({width: 600, height: null})
+      })
     })
   })
 }

@@ -555,10 +555,24 @@
       v-if="typeof diff === 'undefined' || !toggleDiff"
       class="editor__content q-pa-sm"
       :editor="editor"
+      @dblclick="zoomImage"
     />
-    <div v-else class="editor__content q-pa-sm">
+    <div v-else class="editor__content q-pa-sm" @dblclick="zoomImage">
       <div class="ProseMirror" v-html="diffContent"></div>
     </div>
+
+    <!-- Image zoom (double click on an image): fit to screen, click on the image to toggle actual size -->
+    <q-dialog v-model="zoom.show" maximized transition-show="fade" transition-hide="fade">
+      <div
+        class="editor-image-zoom"
+        :class="{ 'editor-image-zoom--full': zoom.fullSize }"
+        @click.self="zoom.show = false"
+      >
+        <q-btn class="editor-image-zoom__close" round flat dense icon="close" color="white" @click="zoom.show = false" />
+        <img :src="zoom.src" :alt="zoom.alt" @click="zoom.fullSize = !zoom.fullSize" />
+        <div v-if="zoom.alt" class="editor-image-zoom__caption">{{ zoom.alt }}</div>
+      </div>
+    </q-dialog>
   </q-card>
 </template>
 
@@ -691,6 +705,7 @@ export default defineComponent({
       countChange:0,
       countChangeAfterUpdate:-1,
       initialeDataUpdated:false,
+      zoom: {show: false, src: '', alt: '', fullSize: false}, // Image zoom dialog
       htmlEncode: Utils.htmlEncode,
       stickyConfig: {
         zIndex: 1000,
@@ -787,7 +802,10 @@ export default defineComponent({
         url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
         //url:"wss://127.0.0.1:8443/collab/",
         name: this.$route.params.auditId ||  this.idUnique.replace('-', '/'),
-        document  : ydoc
+        document  : ydoc,
+        // Dummy token: it makes the provider send the authentication message that the server waits for
+        // before sharing the document. Real authentication is done server side with the httpOnly token cookie.
+        token: 'cookie'
       })
 
       this.provider.on('status', event => {
@@ -961,7 +979,7 @@ export default defineComponent({
               
     if( typeof this.$route.params.auditId == 'undefined' && (this.idUnique.split('-')[0]=="undefined" || this.idUnique.split('-') == ""  )&& this.initialeDataUpdated==false){
       // if editor is init not in vuln edit context like cutom field
-      this.editor.commands.setContent(value, false);
+      this.editor.commands.setContent(this.flattenCodeBlocks(value), false);
       this.initialeDataUpdated=true
       this.editor.setEditable(this.editable && this.initialeDataUpdated);
       this.$emit('ready')
@@ -972,7 +990,7 @@ export default defineComponent({
           for (let i = 0; i < 200; i++) { // 25 second to connect web socket failed after
             if(this.status=='connected' && this.state){
               if(this.editor.getHTML() != value && this.editor.getHTML()=='<p></p>'){
-                this.editor.commands.setContent(value, false);
+                this.editor.commands.setContent(this.flattenCodeBlocks(value), false);
               }
               this.initialeDataUpdated=true
               this.editor.setEditable(this.editable && this.initialeDataUpdated);
@@ -1057,6 +1075,31 @@ export default defineComponent({
         colour += ('00' + value.toString(16)).substr(-2);
       }
       return colour;
+    },
+    // Double click on an image of the editor or of the diff view: show it in a full screen dialog.
+    // Listened on the content container because TipTap node views (uploadImage) stop events for ProseMirror.
+    zoomImage(event) {
+      if (!(event.target instanceof Element)) return;
+      // q-img (uploadImage node view) puts a content layer over its <img>: look for the image in the q-img container
+      const qImg = event.target.closest('.q-img');
+      const candidates = qImg ? Array.from(qImg.querySelectorAll('img')) : [event.target.closest('img')];
+      const img = candidates.find(i => i && i.complete && i.naturalWidth > 0); // Loaded images only
+      if (!img) return;
+      this.zoom = {show: true, src: img.currentSrc || img.src, alt: img.alt || '', fullSize: false};
+    },
+    // Code blocks are saved highlighted (<span class="hljs-..."> are used for colors in the report).
+    // When parsing HTML, TipTap (elementFromString) removes text nodes equal to "\n" or "\n" + 2 spaces,
+    // even inside <pre>: line breaks that lowlight isolates between two tokens were lost on reload
+    // (e.g. between the request line and the first header of HTTP blocks, indentation in JSON/SQL).
+    // Code blocks are flattened to plain text before being loaded in the editor (highlighting is redone).
+    flattenCodeBlocks(html) {
+      if (typeof html !== 'string' || !html.includes('<pre')) return html;
+
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      doc.querySelectorAll('pre code').forEach((codeBlock) => {
+        codeBlock.textContent = codeBlock.textContent; // Replace highlighting spans by a single text node
+      });
+      return doc.body.innerHTML;
     },
     highlightAllCodeBlocks(html) {
       if (!html) return '';
@@ -1553,6 +1596,57 @@ pre .diffadd {
       font-size: 1.1em;
       max-width: fit-content;
     }
+  }
+}
+
+// Images can be zoomed with a double click
+.editor__content img,
+.editor__content .q-img {
+  cursor: zoom-in;
+}
+
+// Image zoom dialog (teleported to body: not scoped)
+.editor-image-zoom {
+  width: 100vw;
+  height: 100vh;
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  img {
+    max-width: 95vw;
+    max-height: 90vh;
+    object-fit: contain;
+    background: white;
+    cursor: zoom-in;
+  }
+
+  // Actual size: start from top left so that the scrollable area is not cut by centering
+  &--full {
+    align-items: flex-start;
+    justify-content: flex-start;
+
+    img {
+      max-width: none;
+      max-height: none;
+      cursor: zoom-out;
+    }
+  }
+
+  &__close {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    z-index: 1;
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  &__caption {
+    color: white;
+    padding: 8px;
   }
 }
 

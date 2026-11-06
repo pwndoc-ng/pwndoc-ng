@@ -157,6 +157,7 @@ import { defineComponent, nextTick } from 'vue';
 import {Loading} from 'quasar';
 import UserService from '@/services/user';
 import Utils from '@/services/utils'
+import { disconnectSocket } from '@/boot/socketio'
 
 import { $t } from '@/boot/i18n'
 
@@ -177,6 +178,8 @@ export default defineComponent({
   },
 
   created: function() {
+      // Socket is authenticated at connection: don't keep the one of a previous session
+      disconnectSocket();
       if (this.$route.query.tokenError)
           if (this.$route.query.tokenError === "2") this.errors.alert = $t('err.expiredToken');
           else this.errors.alert = $t('err.invalidToken');

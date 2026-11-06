@@ -29,7 +29,7 @@ export default {
             editAuditType: false,
 
             vulnTypes: [],
-            newVulnType: {name: "", locale: ""},
+            newVulnType: {name: "", locale: "", description: ""},
             editVulnTypes: [],
             editVulnType: false,
 
@@ -324,6 +324,7 @@ export default {
             DataService.createVulnerabilityType(this.newVulnType)
             .then((data) => {
                 this.newVulnType.name = "";
+                this.newVulnType.description = "";
                 this.getVulnerabilityTypes();
                 Notify.create({
                     message: 'Vulnerability type created successfully',

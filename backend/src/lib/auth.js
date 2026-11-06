@@ -154,20 +154,6 @@ class ACL {
             })
         }
     }
-    hasPermissionFromReq (permission,token) {
-        var jwt = require('jsonwebtoken')
-        return jwt.verify(token, jwtSecret, (err, decoded) => {
-            if (err) {
-                return false
-            }
-            if ( permission === "validtoken" || this.isAllowed(decoded.role, permission)) {
-                    return decoded
-            }
-            else {
-                return false
-            }
-        })
-    }
 
     buildRoles(role) {
         var currentRole = this.roles[role] || this.roles['user'] // Default to user role in case of inexistant role
@@ -194,3 +180,26 @@ class ACL {
 }
 
 exports.acl = new ACL(roles)
+
+// Verify the JWT stored in the 'token' cookie of a raw Cookie header ("JWT <token>", URI encoded).
+// Used by the websocket servers (socket.io and collaborative editing) which don't go through Express.
+// Returns the decoded token or null if it is missing or invalid.
+function decodeTokenFromCookieHeader(cookieHeader) {
+    if (typeof cookieHeader !== 'string')
+        return null
+
+    var tokenCookie = cookieHeader.split(';').map(c => c.trim()).find(c => c.startsWith('token='))
+    if (!tokenCookie)
+        return null
+
+    try {
+        var cookie = decodeURIComponent(tokenCookie.substring('token='.length)).split(' ')
+        if (cookie.length !== 2 || cookie[0] !== 'JWT')
+            return null
+        return require('jsonwebtoken').verify(cookie[1], jwtSecret)
+    }
+    catch (err) {
+        return null
+    }
+}
+exports.decodeTokenFromCookieHeader = decodeTokenFromCookieHeader

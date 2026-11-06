@@ -93,7 +93,7 @@ module.exports = function(app, io) {
             return;
         }
 
-        Audit.clone(req.params.auditId, req.body.name, req.decodedToken.id)
+        Audit.clone(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.body.name, req.decodedToken.id)
         .then(inserted => Response.Created(res, {message: 'Audit cloned successfully', audit: inserted}))
         .catch(err => Response.Internal(res, err))
     });
@@ -189,7 +189,7 @@ module.exports = function(app, io) {
 
             // If the new collaborator already gave a review, remove said review, accept collaborator
             if (audit.approvals) {
-                newApprovals = audit.approvals.filter((approval) => !req.body.collaborators.some((collaborator) => approval.toString() === collaborator._id));
+                var newApprovals = audit.approvals.filter((approval) => !req.body.collaborators.some((collaborator) => approval.toString() === collaborator._id));
                 update.approvals = newApprovals;
             }
         }
