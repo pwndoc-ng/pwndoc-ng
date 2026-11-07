@@ -505,6 +505,8 @@ module.exports = function(app, io) {
             return;
         }
 
+        var openComments = settings.reviews.public.blockApprovalWithOpenComments ? await Audit.countOpenComments(req.params.auditId) : 0;
+
         Audit.findById(req.params.auditId)
         .then(audit => {
             if (audit.state !== "REVIEW" && audit.state !== "APPROVED") {
@@ -522,6 +524,11 @@ module.exports = function(app, io) {
                         newApprovalsArray.push(approval);
                     }
                 });
+            }
+
+            if (!hasApprovedBefore && openComments > 0) {
+                Response.Forbidden(res, "Open comments must be resolved before approving the audit.");
+                return;
             }
 
             if (!hasApprovedBefore) {
@@ -589,5 +596,155 @@ module.exports = function(app, io) {
             Response.Ok(res, msg)
         })
         .catch(err => Response.Internal(res, err))
+    });
+
+    /* ### AUDIT REVIEW COMMENTS ### */
+    // Any user with read access to the audit (reviewers included) can comment and reply, at any time.
+    // Resolve/reopen: author of the comment or audit editors. Edit text: author. Delete: author or audits:update-all.
+
+    var mongoose = require('mongoose');
+    var COMMENT_TARGET_KINDS = ['general', 'network', 'finding', 'section'];
+    var COMMENT_MAX_LENGTH = 10000;
+
+    // Read access to the audit is required, write access (creator/collaborators) is returned
+    var getCommentAccess = async function(req) {
+        var access = await Audit.getUserAccess(
+            req.params.auditId,
+            req.decodedToken.id,
+            acl.isAllowed(req.decodedToken.role, 'audits:read-all'),
+            acl.isAllowed(req.decodedToken.role, 'audits:update-all')
+        );
+        if (!access.read)
+            throw({fn: 'NotFound', message: 'Audit not found or Insufficient Privileges'});
+        return access;
+    }
+
+    var validCommentText = text => typeof text === 'string' && text.trim().length > 0 && text.length <= COMMENT_MAX_LENGTH;
+
+    // Returns the target to store or throws BadParameters
+    var parseCommentTarget = async function(auditId, target) {
+        if (!target || !COMMENT_TARGET_KINDS.includes(target.kind) || typeof target.field !== 'string' || !target.field || target.field.length > 200)
+            throw({fn: 'BadParameters', message: 'Invalid comment target'});
+        var result = {kind: target.kind, field: target.field};
+        if (target.kind === 'finding' || target.kind === 'section') {
+            var idField = (target.kind === 'finding') ? 'findingId' : 'sectionId';
+            var arrayField = (target.kind === 'finding') ? 'findings' : 'sections';
+            if (!mongoose.isObjectIdOrHexString(target[idField]) || !await Audit.exists({_id: auditId, [`${arrayField}._id`]: target[idField]}))
+                throw({fn: 'BadParameters', message: `Invalid comment target: ${idField}`});
+            result[idField] = target[idField];
+        }
+        return result;
+    }
+
+    var parseCommentQuote = function(quote) {
+        if (quote === undefined || quote === null)
+            return undefined;
+        var validPart = (value, max, required) => (typeof value === 'string' && value.length <= max && (!required || value.length > 0)) || (!required && value === undefined);
+        if (!validPart(quote.exact, 2000, true) || !validPart(quote.prefix, 200) || !validPart(quote.suffix, 200))
+            throw({fn: 'BadParameters', message: 'Invalid comment quote'});
+        return {exact: quote.exact, prefix: quote.prefix || '', suffix: quote.suffix || ''};
+    }
+
+    var sendComments = async function(req, res) {
+        io.to(req.params.auditId).emit('updateComments');
+        Response.Ok(res, await Audit.getComments(req.params.auditId));
+    }
+
+    // Get comments of an audit
+    app.get("/api/audits/:auditId/comments", acl.hasPermission('audits:read'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+        try {
+            await getCommentAccess(req);
+            Response.Ok(res, await Audit.getComments(req.params.auditId));
+        }
+        catch (err) { Response.Internal(res, err) }
+    });
+
+    // Add a comment {target: {kind, findingId|sectionId, field}, quote: {exact, prefix, suffix}, text}
+    app.post("/api/audits/:auditId/comments", acl.hasPermission('audits:read'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+        try {
+            await getCommentAccess(req);
+            if (!validCommentText(req.body.text))
+                throw({fn: 'BadParameters', message: 'Missing or invalid parameter: text'});
+            var now = new Date();
+            var comment = {
+                target: await parseCommentTarget(req.params.auditId, req.body.target),
+                text: req.body.text,
+                author: req.decodedToken.id,
+                replies: [],
+                resolved: false,
+                createdAt: now,
+                updatedAt: now
+            };
+            var quote = parseCommentQuote(req.body.quote);
+            if (quote)
+                comment.quote = quote;
+            await Audit.createComment(req.params.auditId, comment);
+            await sendComments(req, res);
+        }
+        catch (err) { Response.Internal(res, err) }
+    });
+
+    // Reply to a comment {text}
+    app.post("/api/audits/:auditId/comments/:commentId/replies", acl.hasPermission('audits:read'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+        try {
+            await getCommentAccess(req);
+            if (!validCommentText(req.body.text))
+                throw({fn: 'BadParameters', message: 'Missing or invalid parameter: text'});
+            var now = new Date();
+            await Audit.addCommentReply(req.params.auditId, req.params.commentId, {author: req.decodedToken.id, text: req.body.text, createdAt: now, updatedAt: now});
+            await sendComments(req, res);
+        }
+        catch (err) { Response.Internal(res, err) }
+    });
+
+    // Update a comment {text} and/or {resolved}
+    app.put("/api/audits/:auditId/comments/:commentId", acl.hasPermission('audits:read'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+        try {
+            var access = await getCommentAccess(req);
+            var comment = await Audit.getComment(req.params.auditId, req.params.commentId);
+            var isAuthor = String(comment.author) === req.decodedToken.id;
+            var update = {};
+
+            if (req.body.text !== undefined) {
+                if (!isAuthor)
+                    throw({fn: 'Forbidden', message: 'Only the author can edit a comment'});
+                if (!validCommentText(req.body.text))
+                    throw({fn: 'BadParameters', message: 'Invalid parameter: text'});
+                update.text = req.body.text;
+            }
+            if (req.body.resolved !== undefined) {
+                if (typeof req.body.resolved !== 'boolean')
+                    throw({fn: 'BadParameters', message: 'Invalid parameter: resolved'});
+                if (!isAuthor && !access.write)
+                    throw({fn: 'Forbidden', message: 'Only the author or the audit editors can resolve a comment'});
+                update.resolved = req.body.resolved;
+                update.resolvedBy = req.body.resolved ? req.decodedToken.id : null;
+                update.resolvedAt = req.body.resolved ? new Date() : null;
+            }
+            if (Object.keys(update).length === 0)
+                throw({fn: 'BadParameters', message: 'Nothing to update: text or resolved required'});
+
+            await Audit.updateComment(req.params.auditId, req.params.commentId, update);
+            await sendComments(req, res);
+        }
+        catch (err) { Response.Internal(res, err) }
+    });
+
+    // Delete a comment
+    app.delete("/api/audits/:auditId/comments/:commentId", acl.hasPermission('audits:read'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+        try {
+            await getCommentAccess(req);
+            var comment = await Audit.getComment(req.params.auditId, req.params.commentId);
+            if (String(comment.author) !== req.decodedToken.id && !acl.isAllowed(req.decodedToken.role, 'audits:update-all'))
+                throw({fn: 'Forbidden', message: 'Only the author or an administrator can delete a comment'});
+            await Audit.deleteComment(req.params.auditId, req.params.commentId);
+            await sendComments(req, res);
+        }
+        catch (err) { Response.Internal(res, err) }
     });
 }

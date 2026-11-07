@@ -29,6 +29,7 @@
                         /> 
                         <basic-editor 
                         v-else
+                        :comment-target="fieldCommentTarget(field)"
                         :idUnique="field.customField._id+'-custom-'+idUnique"
                         v-on:editorchange="eventPropagation"
                         ref="basiceditor_custom" 
@@ -38,6 +39,8 @@
                         :collab="collab"
                         /> 
                     </template>
+
+                    <template v-slot:after><comment-button :target="fieldCommentTarget(field)" /></template>
 
                     <template v-slot:label>
                         {{field.customField.label}} <span v-if="field.customField.required" class="text-red">*</span>
@@ -58,6 +61,7 @@
                 lazy-rules="ondemand"
                 outlined
                 >
+                    <template v-slot:after><comment-button :target="fieldCommentTarget(field)" /></template>
                     <template v-slot:label>
                         {{field.customField.label}} <span v-if="field.customField.required" class="text-red">*</span>
                     </template>
@@ -84,6 +88,7 @@
                         </q-popup-proxy>
                         </q-icon>
                     </template>
+                    <template v-slot:after><comment-button :target="fieldCommentTarget(field)" /></template>
                     <template v-slot:label>
                         {{field.customField.label}} <span v-if="field.customField.required" class="text-red">*</span>
                     </template>
@@ -109,6 +114,7 @@
                 :rules="(field.customField.required)? [val => !!val || 'Field is required']: []"
                 lazy-rules="ondemand"
                 >
+                     <template v-slot:after><comment-button :target="fieldCommentTarget(field)" /></template>
                      <template v-slot:label>
                         {{field.customField.label}} <span v-if="field.customField.required" class="text-red">*</span>
                     </template>
@@ -136,6 +142,7 @@
                 :rules="(field.customField.required)? [val => !!val || 'Field is required', val => val && val.length > 0 || 'Field is required']: []"
                 lazy-rules="ondemand"
                 >
+                     <template v-slot:after><comment-button :target="fieldCommentTarget(field)" /></template>
                      <template v-slot:label>
                         {{field.customField.label}} <span v-if="field.customField.required" class="text-red">*</span>
                     </template>
@@ -176,6 +183,7 @@
                         :disable="readonly"
                         />
                     </template>
+                    <template v-slot:after><comment-button :target="fieldCommentTarget(field)" /></template>
                     <template v-slot:label>
                         {{field.customField.label}} <span v-if="field.customField.required" class="text-red">*</span>
                     </template>
@@ -204,6 +212,7 @@
                         :disable="readonly"
                         />
                     </template>
+                    <template v-slot:after><comment-button :target="fieldCommentTarget(field)" /></template>
                     <template v-slot:label>
                         {{field.customField.label}} <span v-if="field.customField.required" class="text-red">*</span>
                     </template>
@@ -218,6 +227,7 @@
 import { defineComponent } from 'vue';
 
 import BasicEditor from 'components/editor';
+import CommentButton from 'components/comment-button';
 
 export default defineComponent({
   emits: ['editorchange'],
@@ -252,6 +262,11 @@ export default defineComponent({
       idUnique: {
           type: String,
           default: ''
+      },
+      // Review comments: target of the element containing the fields ({kind, findingId|sectionId}), null: no comments
+      commentTarget: {
+          type: Object,
+          default: null
       }
   },
 
@@ -262,7 +277,12 @@ export default defineComponent({
   },
 
   components: {
-      BasicEditor
+      BasicEditor,
+      CommentButton
+  },
+
+  created: function() {
+      this.commentTargetsCache = {} // Stable target objects (props of editors)
   },
 
   computed: {
@@ -286,6 +306,15 @@ export default defineComponent({
   },
 
   methods: {
+      // Review comments target of a custom field
+      fieldCommentTarget: function(field) {
+          if (!this.commentTarget || !field.customField || !field.customField._id) return null
+          const key = field.customField._id
+          if (!this.commentTargetsCache[key])
+              this.commentTargetsCache[key] = {...this.commentTarget, field: `customFields.${key}`}
+          return this.commentTargetsCache[key]
+      },
+
       isTextInCustomFields: function(field) {
           if (this.diff) {
               return typeof this.diff.find(f => {

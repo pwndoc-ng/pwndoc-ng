@@ -6,11 +6,13 @@ import Breadcrumb from 'components/breadcrumb';
 import CvssCalculator from 'components/cvsscalculator';
 import TextareaArray from 'components/textarea-array';
 import CustomFields from 'components/custom-fields';
+import CommentButton from 'components/comment-button';
 
 import AuditService from '@/services/audit';
 import DataService from '@/services/data';
 import VulnService from '@/services/vulnerability';
 import Utils from '@/services/utils';
+import { FINDING_FIELD_TABS } from '@/services/comments';
 
 import { $t } from '@/boot/i18n';
 
@@ -57,6 +59,12 @@ export default {
     CvssCalculator,
     TextareaArray,
     CustomFields,
+    CommentButton,
+  },
+
+  // Review comments store of the audit edit page
+  inject: {
+    commentsStore: { from: 'auditComments', default: null },
   },
 
   mounted() {
@@ -107,7 +115,28 @@ export default {
     } else next();
   },
 
+
+  watch: {
+    'commentsStore.focus': {
+      handler(focus) {
+        if (!focus || focus.kind !== 'finding' || focus.findingId !== this.$route.params.findingId) return;
+        const tab = Object.keys(FINDING_FIELD_TABS).find((name) => FINDING_FIELD_TABS[name].includes(focus.field));
+        this.selectedTab = tab || 'definition';
+      },
+      immediate: true,
+    },
+  },
   computed: {
+    // Review comments targets of the finding fields (stable objects: used as props of editors)
+    commentTargets() {
+      const findingId = this.$route.params.findingId;
+      const target = (field) => ({ kind: 'finding', findingId: findingId, field: field });
+      const targets = { base: { kind: 'finding', findingId: findingId } };
+      ['title', 'vulnType', 'description', 'observation', 'references', 'poc', 'scope', 'cvssv3', 'remediationComplexity', 'priority', 'remediation']
+        .forEach((field) => { targets[field] = target(field) });
+      return targets;
+    },
+
     vulnTypesLang() {
       return this.vulnTypes.filter(
         (type) => type.locale === this.localAudit.language

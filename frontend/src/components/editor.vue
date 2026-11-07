@@ -556,6 +556,23 @@
       class="editor__content q-pa-sm"
       :editor="editor"
       @dblclick="zoomImage"
+      @mouseup="checkCommentSelection"
+      @keyup="checkCommentSelection"
+      @click="onContentClick"
+    />
+    <!-- Comment the selected passage -->
+    <q-btn
+      v-if="commentSelection"
+      class="comment-selection-btn"
+      :style="{ top: (commentSelection.top - 40) + 'px', left: commentSelection.left + 'px' }"
+      color="orange-8"
+      unelevated
+      dense
+      no-caps
+      icon="mdi-comment-plus-outline"
+      :label="$t('comments.commentSelection')"
+      @mousedown.prevent
+      @click="commentOnSelection"
     />
     <div v-else class="editor__content q-pa-sm" @dblclick="zoomImage">
       <div class="ProseMirror" v-html="diffContent"></div>
@@ -596,6 +613,7 @@ import Link from "@tiptap/extension-link";
 import CustomImage from "./editor-image";
 //import Caption from "./editor-caption";
 import { Figure } from "./figure";
+import { CommentHighlight, commentHighlightKey, quoteFromRange } from "./comment-highlight";
 import { TriggerMenuExtension } from './internal-link';
 import {v4 as uuidv4} from 'uuid';
 import UserService from '@/services/user';
@@ -684,7 +702,17 @@ export default defineComponent({
       type: Boolean,
       default: false,
     },
+    // Review comments target of this field ({kind, findingId|sectionId, field}): enables comments on passages
+    commentTarget: {
+      type: Object,
+      default: null,
+    },
 
+  },
+
+  // Review comments store of the audit edit page (null outside an audit)
+  inject: {
+    commentsStore: { from: 'auditComments', default: null },
   },
 
   components: {
@@ -705,6 +733,7 @@ export default defineComponent({
       countChange:0,
       countChangeAfterUpdate:-1,
       initialeDataUpdated:false,
+      commentSelection: null, // Selected passage to comment: {quote, top, left}
       zoom: {show: false, src: '', alt: '', fullSize: false}, // Image zoom dialog
       htmlEncode: Utils.htmlEncode,
       stickyConfig: {
@@ -725,6 +754,13 @@ export default defineComponent({
     editable(value) {
       //this.editor.setOptions({ editable: this.editable });
       this.editor.setEditable(this.editable && this.initialeDataUpdated);
+    },
+    quoteComments: {
+      handler() { this.updateCommentHighlights() },
+      deep: true,
+    },
+    'commentsStore.activeId'() {
+      this.updateCommentHighlights()
     },
   },
 
@@ -789,6 +825,7 @@ export default defineComponent({
           allowBase64: true
         }),
         Figure,
+        CommentHighlight,
         LanguageTool.configure({
          apiUrl: `https://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/v2/check`, 
           //apiUrl: `https://127.0.0.1:8443/v2/check`, 
@@ -862,6 +899,11 @@ export default defineComponent({
     };
     window.addEventListener('autoCorrectionToggleChanged', this.autoCorrectionToggleListener);
 
+    // Review comments: highlighted passages, selection button hidden when scrolling
+    this.updateCommentHighlights();
+    this.hideCommentSelection = () => { this.commentSelection = null };
+    window.addEventListener('scroll', this.hideCommentSelection, true);
+
     this.affixRelativeElement += "-" +  this.ClassEditor;
     //this.editor.setOptions({ editable: this.editable });
     this.editor.setEditable(this.editable && this.initialeDataUpdated);
@@ -880,6 +922,7 @@ export default defineComponent({
   },
 
   async beforeUnmount() {
+    window.removeEventListener('scroll', this.hideCommentSelection, true);
     while(1){
       if(this.state==1 && this.status=='connected') break;
       else await this.sleep(100)
@@ -897,6 +940,15 @@ export default defineComponent({
   },
 
   computed: {
+
+    commentable() {
+      return !!(this.commentsStore && this.commentTarget);
+    },
+    // Open comments on passages of this field (highlighted)
+    quoteComments() {
+      if (!this.commentable) return [];
+      return this.commentsStore.forTarget(this.commentTarget).filter(comment => comment.quote && !comment.resolved);
+    },
 
     match() {
       return this.editor ? this.editor.extensionStorage.languagetool.match.value : null;
@@ -1076,6 +1128,55 @@ export default defineComponent({
       }
       return colour;
     },
+    // ----- Review comments -----
+
+    updateCommentHighlights() {
+      if (!this.editor || this.editor.isDestroyed) return;
+      const tr = this.editor.state.tr.setMeta(commentHighlightKey, {
+        comments: this.quoteComments,
+        activeId: this.commentsStore ? this.commentsStore.activeId : null,
+      });
+      tr.setMeta('addToHistory', false);
+      this.editor.view.dispatch(tr);
+    },
+
+    // Passage selected with the mouse or keyboard (also in read-only editors: reviewers comment without editing)
+    checkCommentSelection() {
+      this.commentSelection = null;
+      if (!this.commentable || !this.editor) return;
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
+      const range = selection.getRangeAt(0);
+      const dom = this.editor.view.dom;
+      if (!dom.contains(range.startContainer) || !dom.contains(range.endContainer)) return;
+      let from, to;
+      try {
+        from = this.editor.view.posAtDOM(range.startContainer, range.startOffset);
+        to = this.editor.view.posAtDOM(range.endContainer, range.endOffset);
+      }
+      catch (err) {
+        return;
+      }
+      const quote = quoteFromRange(this.editor.state.doc, Math.min(from, to), Math.max(from, to));
+      if (!quote) return;
+      const rect = range.getBoundingClientRect();
+      this.commentSelection = { quote, top: rect.top, left: rect.left + rect.width / 2 };
+    },
+
+    commentOnSelection() {
+      if (!this.commentSelection) return;
+      this.commentsStore.startComment(this.commentTarget, this.commentSelection.quote);
+      this.commentSelection = null;
+      window.getSelection().removeAllRanges();
+    },
+
+    // Click on a highlighted passage: show its comment
+    onContentClick(event) {
+      const highlight = event.target instanceof Element ? event.target.closest('.comment-highlight') : null;
+      if (highlight && this.commentsStore)
+        this.commentsStore.show(highlight.dataset.commentId);
+    },
+
     // Double click on an image of the editor or of the diff view: show it in a full screen dialog.
     // Listened on the content container because TipTap node views (uploadImage) stop events for ProseMirror.
     zoomImage(event) {
@@ -1597,6 +1698,23 @@ pre .diffadd {
       max-width: fit-content;
     }
   }
+}
+
+// Review comments: highlighted passages and selection button
+.comment-highlight {
+  background: rgba(255, 193, 7, 0.3);
+  border-bottom: 2px solid #ffa000;
+  cursor: pointer;
+}
+
+.comment-highlight--active {
+  background: rgba(255, 152, 0, 0.55);
+}
+
+.comment-selection-btn {
+  position: fixed;
+  z-index: 3000;
+  transform: translateX(-50%);
 }
 
 // Images can be zoomed with a double click

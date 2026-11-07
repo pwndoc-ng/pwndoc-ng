@@ -400,6 +400,23 @@
                     </q-item-section>
                 </q-item>
             </q-card-section>
+            <q-separator />
+            <q-card-section>
+                <div class="text-bold">{{$t('comments.blockApproval')}}</div>
+                <br/>
+                <div class="text-grey-8">{{$t('comments.blockApprovalInfo')}}</div>
+                <q-item>
+                    <q-item-section class="col-2">
+                        <q-toggle
+                            :label="$t('btn.enable')"
+                            v-model="settings.reviews.public.blockApprovalWithOpenComments"
+                            color="primary"
+                            keep-color
+                            :disable="!canEdit || !settings.reviews.enabled"
+                        />
+                    </q-item-section>
+                </q-item>
+            </q-card-section>
         </q-card>
 
         <q-card class="q-my-lg" v-if="canEdit" align="center">

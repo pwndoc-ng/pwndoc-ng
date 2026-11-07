@@ -48,6 +48,35 @@ var Host = {
     services:   [Service]
 }
 
+// Review comments: on any element of the audit (field of a page, finding or section),
+// optionally on a passage of a text field. Stored apart from the content: commenting never modifies it.
+var CommentReplySchema = new Schema({
+    author:     {type: Schema.Types.ObjectId, ref: 'User'},
+    text:       String
+}, {timestamps: true})
+
+var CommentSchema = new Schema({
+    target: {
+        kind:       {type: String, enum: ['general', 'network', 'finding', 'section']},
+        findingId:  Schema.Types.ObjectId,
+        sectionId:  Schema.Types.ObjectId,
+        field:      String // e.g. 'title', 'description', 'customFields.<customFieldId>'
+    },
+    // Commented passage of a text field (text quote: exact text and its context), absent for the whole field.
+    // Not trimmed (strings are trimmed globally): whitespaces are needed to locate the passage.
+    quote: {
+        exact:      {type: String, trim: false},
+        prefix:     {type: String, trim: false},
+        suffix:     {type: String, trim: false}
+    },
+    text:       String,
+    author:     {type: Schema.Types.ObjectId, ref: 'User'},
+    replies:    [CommentReplySchema],
+    resolved:   {type: Boolean, default: false},
+    resolvedBy: {type: Schema.Types.ObjectId, ref: 'User'},
+    resolvedAt: Date
+}, {timestamps: true})
+
 var SortOption = {
     _id:        false,
     category:   String,
@@ -77,6 +106,7 @@ var AuditSchema = new Schema({
     sortFindings:       [SortOption],
     state:              { type: String, enum: ['EDIT', 'REVIEW', 'APPROVED'], default: 'EDIT'},
     approvals:          [{type: Schema.Types.ObjectId, ref: 'User'}],
+    comments:           [CommentSchema],
 }, {timestamps: true});
 
 /*
@@ -140,6 +170,7 @@ AuditSchema.statics.getAudit = (isAdmin, auditId, userId) => {
         query.populate('collaborators', 'username firstname lastname email phone role')
         query.populate('reviewers', 'username firstname lastname role')
         query.populate('approvals', 'username firstname lastname role')
+        query.select('-comments') // Loaded with getComments
         query.populate('customFields.customField', 'label fieldType text')
         query.populate({
             path: 'findings',
@@ -534,6 +565,7 @@ AuditSchema.statics.deleteFinding = (isAdmin, auditId, userId, findingId) => {
             else {
                 row.findings.pull(findingId)
                 return row.save()
+                .then(() => Audit.updateOne({_id: auditId}, {$pull: {comments: {'target.findingId': findingId}}}).exec())
             }
         })
         .then(() => {
@@ -817,6 +849,70 @@ AuditSchema.statics.updateApprovals = (isAdmin, auditId, userId, update) => {
             reject(err)
         })
     });
+}
+
+/*
+*** Review comments (access rights are checked by the routes) ***
+*/
+
+var COMMENT_USERS = 'username firstname lastname'
+
+AuditSchema.statics.getComments = async (auditId) => {
+    var row = await Audit.findById(auditId).select('comments')
+        .populate('comments.author', COMMENT_USERS)
+        .populate('comments.replies.author', COMMENT_USERS)
+        .populate('comments.resolvedBy', COMMENT_USERS)
+        .exec()
+    if (!row)
+        throw({fn: 'NotFound', message: 'Audit not found'})
+    return row.comments
+}
+
+AuditSchema.statics.getComment = async (auditId, commentId) => {
+    if (!mongoose.isObjectIdOrHexString(commentId))
+        throw({fn: 'NotFound', message: 'Comment not found'})
+    var row = await Audit.findOne({_id: auditId, 'comments._id': commentId}, {'comments.$': 1}).exec()
+    if (!row)
+        throw({fn: 'NotFound', message: 'Comment not found'})
+    return row.comments[0]
+}
+
+AuditSchema.statics.createComment = async (auditId, comment) => {
+    var result = await Audit.updateOne({_id: auditId}, {$push: {comments: comment}}).exec()
+    if (result.matchedCount === 0)
+        throw({fn: 'NotFound', message: 'Audit not found'})
+}
+
+// update: {text} and/or {resolved, resolvedBy, resolvedAt}
+AuditSchema.statics.updateComment = async (auditId, commentId, update) => {
+    if (!mongoose.isObjectIdOrHexString(commentId))
+        throw({fn: 'NotFound', message: 'Comment not found'})
+    var set = {'comments.$.updatedAt': new Date()}
+    Object.keys(update).forEach(key => set[`comments.$.${key}`] = update[key])
+    var result = await Audit.updateOne({_id: auditId, 'comments._id': commentId}, {$set: set}).exec()
+    if (result.matchedCount === 0)
+        throw({fn: 'NotFound', message: 'Comment not found'})
+}
+
+AuditSchema.statics.addCommentReply = async (auditId, commentId, reply) => {
+    if (!mongoose.isObjectIdOrHexString(commentId))
+        throw({fn: 'NotFound', message: 'Comment not found'})
+    var result = await Audit.updateOne({_id: auditId, 'comments._id': commentId}, {$push: {'comments.$.replies': reply}}).exec()
+    if (result.matchedCount === 0)
+        throw({fn: 'NotFound', message: 'Comment not found'})
+}
+
+AuditSchema.statics.deleteComment = async (auditId, commentId) => {
+    if (!mongoose.isObjectIdOrHexString(commentId))
+        throw({fn: 'NotFound', message: 'Comment not found'})
+    var result = await Audit.updateOne({_id: auditId}, {$pull: {comments: {_id: commentId}}}).exec()
+    if (result.modifiedCount === 0)
+        throw({fn: 'NotFound', message: 'Comment not found'})
+}
+
+AuditSchema.statics.countOpenComments = async (auditId) => {
+    var row = await Audit.findById(auditId).select('comments.resolved').lean().exec()
+    return row ? (row.comments || []).filter(comment => !comment.resolved).length : 0
 }
 
 // Get user access rights on an audit (used to authorize realtime connections), same rules as REST routes:

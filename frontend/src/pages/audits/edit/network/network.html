@@ -51,7 +51,11 @@
             <q-card-section>{{$t('hostsAssociateScopes')}}</q-card-section>
             <q-separator />
             <q-card-section v-for="scope of audit.scope" :key="scope.name">
-                    <span class="text-h6">{{scope.name}}</span>
+                    <div class="row items-center">
+                        <span class="text-h6">{{scope.name}}</span>
+                        <q-space />
+                        <comment-button :target="{kind: 'network', field: 'scope.' + scope.name}" />
+                    </div>
                     <div class="q-col-gutter-md row">
                             <q-select
                             class="col-md-12"

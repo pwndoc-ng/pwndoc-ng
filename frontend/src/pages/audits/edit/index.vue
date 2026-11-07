@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div :class="{ 'comments-panel-open': commentsStore.panelOpen }">
     <q-drawer side="left" :modelValue="true" :width="400">
       <q-splitter horizontal v-model="splitterRatio" :limits="[50, 80]" style="height: 100%">
         <template v-slot:before>
@@ -29,6 +29,12 @@
               </q-item-section>
               </template>
               <q-item-section side class="topButtonSection">
+                <q-btn flat dense color="orange-8" icon="mdi-comment-text-multiple-outline" @click="commentsStore.panelOpen = !commentsStore.panelOpen">
+                  <q-badge v-if="commentsStore.openCount()" color="orange-8" floating rounded>{{ commentsStore.openCount() }}</q-badge>
+                  <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{ $t('comments.title') }}</q-tooltip>
+                </q-btn>
+              </q-item-section>
+              <q-item-section side class="topButtonSection">
                 <q-btn flat color="info" @click="generateReport">
                   <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.downloadReport')}}</q-tooltip> 
                   <i class="fa fa-download fa-lg"></i>
@@ -41,6 +47,9 @@
                 <q-icon name="fa fa-cog"></q-icon>
               </q-item-section>
               <q-item-section>{{$t('generalInformation')}}</q-item-section>
+              <q-item-section side v-if="openCommentsCount('general')">
+                  <q-badge color="orange-8" rounded>{{ openCommentsCount('general') }}</q-badge>
+                </q-item-section>
             </q-item>
             
             <div class="row">
@@ -55,6 +64,9 @@
                 <q-icon name="fa fa-globe"></q-icon>
               </q-item-section>
               <q-item-section>{{$t('networkScan')}}</q-item-section>
+              <q-item-section side v-if="openCommentsCount('network')">
+                  <q-badge color="orange-8" rounded>{{ openCommentsCount('network') }}</q-badge>
+                </q-item-section>
             </q-item>
   
             <div class="row">
@@ -188,6 +200,9 @@
                         <q-item-section>
                           <span>{{ getFindingLabel(finding) }}</span>
                         </q-item-section>
+                        <q-item-section side v-if="openCommentsCount('finding', finding._id)">
+                  <q-badge color="orange-8" rounded>{{ openCommentsCount('finding', finding._id) }}</q-badge>
+                </q-item-section>
                         <q-item-section side v-if="finding.status === 0">
                           <q-icon name="check" color="green" />
                         </q-item-section>
@@ -216,6 +231,9 @@
                 </q-item-section>
                 <q-item-section>
                   <span>{{section.name}}</span>
+                </q-item-section>
+                <q-item-section side v-if="openCommentsCount('section', section._id)">
+                  <q-badge color="orange-8" rounded>{{ openCommentsCount('section', section._id) }}</q-badge>
                 </q-item-section>
               </q-item>
               <div class="row">
@@ -249,6 +267,10 @@
         
       </q-splitter>
     </q-drawer>
+    <!-- Review comments of the audit -->
+    <q-drawer side="right" v-model="commentsStore.panelOpen" :width="380" bordered>
+      <comments-panel />
+    </q-drawer>
     <router-view :key="$route.fullPath" :frontEndAuditState="frontEndAuditState" :parentState="audit.state" :parentApprovals="audit.approvals"  :audit="audit" />
     </div>
   </template>
@@ -266,6 +288,8 @@ import Utils from '@/services/utils';
 
 import { $t } from '@/boot/i18n';
 import { connectSocket } from '@/boot/socketio';
+import CommentsPanel from '@/components/comments-panel';
+import { createCommentsStore, targetKey } from '@/services/comments';
 
 export default defineComponent({
   data () {
@@ -283,12 +307,24 @@ export default defineComponent({
         vulnCategories: [],
         findingList: [],
         frontEndAuditState: Utils.AUDIT_VIEW_STATE.EDIT_READONLY,
-        AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE
+        AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE,
+        // Review comments of the audit, provided to the pages, fields and editors
+        commentsStore: createCommentsStore(this.$route.params.auditId, {
+          getAudit: () => this.audit,
+          getCustomFields: () => this.customFields,
+          canEdit: () => !!(this.audit && this.audit.creator) && this.isUserAnEditor(),
+          navigate: (comment) => this.navigateToComment(comment)
+        })
       }
   },
 
+  provide() {
+    return { auditComments: this.commentsStore }
+  },
+
   components: {
-    draggable
+    draggable,
+    CommentsPanel
   },
 
   created: function() {
@@ -297,6 +333,7 @@ export default defineComponent({
     this.getCustomFields();
     this.getAuditTypes();
     this.getAudit(); // Calls getSections
+    this.commentsStore.load();
     Loading.hide();				
   },
 
@@ -307,6 +344,7 @@ export default defineComponent({
       this.$socket.off('roomUsers');
       this.$socket.off('updateUsers');
       this.$socket.off('updateAudit');
+      this.$socket.off('updateComments');
       this.$socket.off('disconnect', this.onSocketDisconnect);
     }
   },
@@ -462,6 +500,9 @@ export default defineComponent({
       this.$socket.on('updateAudit', () => {
           this.getAudit();
       })
+      this.$socket.on('updateComments', () => {
+          this.commentsStore.load();
+      })
       this.onSocketDisconnect = () => {
         this.$socket.emit('join', {username: UserService.user.username, room: this.auditId})
         this.$socket.emit('menu', this.getMenuSection())
@@ -478,6 +519,38 @@ export default defineComponent({
     },
 
     // Tells the UI if the user is supposed to be editing the audit
+    // ----- Review comments -----
+
+    openCommentsCount: function(kind, id) {
+      return this.commentsStore.openCount(comment => comment.target.kind === kind &&
+        (!id || comment.target.findingId === id || comment.target.sectionId === id))
+    },
+
+    // Open the page of the commented element, then scroll to it (pages and editors are loaded asynchronously)
+    navigateToComment: function(comment) {
+      var target = comment.target
+      var page = {general: 'general', network: 'network', finding: `findings/${target.findingId}`, section: `sections/${target.sectionId}`}[target.kind]
+      var path = `/audits/${this.auditId}/${page}`
+      this.commentsStore.focus = {...target, key: targetKey(target), commentId: comment.quote ? comment._id : null, at: Date.now()}
+      if (this.$route.path !== path)
+        this.$router.push(path).catch(() => {})
+      this.showCommentFocus(this.commentsStore.focus)
+    },
+
+    showCommentFocus: function(focus, attempt = 0) {
+      if (this.commentsStore.focus !== focus) return // Another comment selected meanwhile
+      var element = (focus.commentId && document.querySelector(`[data-comment-id="${focus.commentId}"]`)) ||
+        (attempt > 10 || !focus.commentId ? document.querySelector(`[data-comment-field="${focus.key}"]`) : null)
+      if (!element) {
+        if (attempt < 30) setTimeout(() => this.showCommentFocus(focus, attempt + 1), 200)
+        return
+      }
+      element.scrollIntoView({behavior: 'smooth', block: 'center'})
+      element.classList.remove('comment-focus')
+      void element.offsetWidth // Restart animation
+      element.classList.add('comment-focus')
+    },
+
     isUserAnEditor: function() {
       var isAuthor = this.audit.creator._id === UserService.user.id;
       var isCollaborator = this.audit.collaborators.some((element) => element._id === UserService.user.id);
@@ -711,6 +784,20 @@ export default defineComponent({
     },
 
     toggleApproval: function() {
+      // Approval needs resolved comments (also checked by the backend)
+      var approving = !this.userHasAlreadyApproved()
+      if (approving && this.$settings.reviews.public.blockApprovalWithOpenComments && this.commentsStore.openCount() > 0) {
+        Notify.create({
+          message: $t('comments.approvalBlocked'),
+          color: 'warning',
+          textColor: 'white',
+          position: 'top-right'
+        })
+        this.commentsStore.status = 'open'
+        this.commentsStore.targetFilter = null
+        this.commentsStore.panelOpen = true
+        return
+      }
       AuditService.toggleApproval(this.auditId)
       .then(() => {
         Notify.create({
@@ -789,5 +876,13 @@ export default defineComponent({
       padding-left: 0px!important;
     padding-right: 0px!important;
   }
-  </style>
+  
+/* Comments panel open: the page content uses the whole width left between the two drawers */
+@media (min-width: 1024px) {
+  .comments-panel-open .col-md-8.offset-md-2 {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+</style>
   

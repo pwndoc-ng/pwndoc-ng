@@ -87,5 +87,26 @@ export default {
 
   updateReadyForReview: function(auditId, data) {
     return  api.put(`audits/${auditId}/updateReadyForReview`, data);
+  },
+
+  // Review comments (each call returns the updated list of comments of the audit)
+  getComments: function(auditId) {
+    return api.get(`audits/${auditId}/comments`)
+  },
+
+  createComment: function(auditId, comment) {
+    return api.post(`audits/${auditId}/comments`, comment)
+  },
+
+  replyComment: function(auditId, commentId, text) {
+    return api.post(`audits/${auditId}/comments/${commentId}/replies`, {text: text})
+  },
+
+  updateComment: function(auditId, commentId, update) {
+    return api.put(`audits/${auditId}/comments/${commentId}`, update)
+  },
+
+  deleteComment: function(auditId, commentId) {
+    return api.delete(`audits/${auditId}/comments/${commentId}`)
   }
 }

@@ -229,5 +229,152 @@ module.exports = function (request, app) {
         expect(response.status).toBe(200);
       });
     });
+    describe("Audit comments", () => {
+      var user2Token = "";
+      var tmpuserToken = "";
+      var tmpuserId = "";
+      var findingId = "";
+      var generalCommentId = "";
+      var quoteCommentId = "";
+      var cookie = (token) => [`token=JWT ${token}`];
+
+      beforeAll(async () => {
+        var response = await request(app).post("/api/users/token").send({ username: "user2", password: "User1234" });
+        user2Token = response.body.datas.token;
+        response = await request(app).post("/api/users/token").send({ username: "tmpuser", password: "Tmpuser1" });
+        tmpuserToken = response.body.datas.token;
+        response = await request(app).get("/api/users/tmpuser").set("Cookie", cookie(userToken));
+        tmpuserId = response.body.datas._id;
+
+        // tmpuser is collaborator (editor) of Audit 1
+        await request(app).put(`/api/audits/${audit1Id}/general`).set("Cookie", cookie(userToken)).send({ collaborators: [{ _id: tmpuserId }] });
+        await request(app).post(`/api/audits/${audit1Id}/findings`).set("Cookie", cookie(userToken))
+          .send({ title: "Commented finding", description: "<p>The parameter id is injectable</p>" });
+        response = await request(app).get(`/api/audits/${audit1Id}`).set("Cookie", cookie(userToken));
+        findingId = response.body.datas.findings.find((f) => f.title === "Commented finding")._id;
+      });
+
+      afterAll(async () => {
+        await request(app).put(`/api/audits/${audit1Id}/general`).set("Cookie", cookie(userToken)).send({ collaborators: [] });
+      });
+
+      it("Get comments (none)", async () => {
+        var response = await request(app).get(`/api/audits/${audit1Id}/comments`).set("Cookie", cookie(userToken));
+        expect(response.status).toBe(200);
+        expect(response.body.datas).toHaveLength(0);
+      });
+
+      it("Comment a field of the general information", async () => {
+        var response = await request(app).post(`/api/audits/${audit1Id}/comments`).set("Cookie", cookie(userToken))
+          .send({ target: { kind: "general", field: "name" }, text: "Name too generic" });
+        expect(response.status).toBe(200);
+        expect(response.body.datas).toHaveLength(1);
+        var comment = response.body.datas[0];
+        expect(comment.target).toEqual({ kind: "general", field: "name" });
+        expect(comment.author.username).toBe("admin");
+        expect(comment.resolved).toBe(false);
+        generalCommentId = comment._id;
+      });
+
+      it("Comment a passage of a finding text field", async () => {
+        var response = await request(app).post(`/api/audits/${audit1Id}/comments`).set("Cookie", cookie(tmpuserToken))
+          .send({ target: { kind: "finding", findingId: findingId, field: "description" }, quote: { exact: "injectable", prefix: "parameter id is " }, text: "Explain why" });
+        expect(response.status).toBe(200);
+        var comment = response.body.datas.find((c) => c.text === "Explain why");
+        expect(comment.target.findingId).toBe(findingId);
+        expect(comment.quote).toEqual({ exact: "injectable", prefix: "parameter id is ", suffix: "" });
+        expect(comment.author.username).toBe("tmpuser");
+        quoteCommentId = comment._id;
+      });
+
+      it("Reject invalid comments", async () => {
+        var post = (body) => request(app).post(`/api/audits/${audit1Id}/comments`).set("Cookie", cookie(userToken)).send(body);
+        expect((await post({ target: { kind: "general", field: "name" } })).status).toBe(422);
+        expect((await post({ target: { kind: "unknown", field: "name" }, text: "x" })).status).toBe(422);
+        expect((await post({ target: { kind: "finding", findingId: "5f1c0c3c2a6b2c0012345678", field: "title" }, text: "x" })).status).toBe(422);
+        expect((await post({ target: { kind: "general", field: "name" }, quote: { exact: "" }, text: "x" })).status).toBe(422);
+      });
+
+      it("Users without access to the audit cannot read or comment", async () => {
+        var response = await request(app).get(`/api/audits/${audit1Id}/comments`).set("Cookie", cookie(user2Token));
+        expect(response.status).toBe(404);
+        response = await request(app).post(`/api/audits/${audit1Id}/comments`).set("Cookie", cookie(user2Token))
+          .send({ target: { kind: "general", field: "name" }, text: "x" });
+        expect(response.status).toBe(404);
+      });
+
+      it("Reply to a comment", async () => {
+        var response = await request(app).post(`/api/audits/${audit1Id}/comments/${quoteCommentId}/replies`).set("Cookie", cookie(userToken))
+          .send({ text: "Because of string concatenation" });
+        expect(response.status).toBe(200);
+        var comment = response.body.datas.find((c) => c._id === quoteCommentId);
+        expect(comment.replies).toHaveLength(1);
+        expect(comment.replies[0].author.username).toBe("admin");
+      });
+
+      it("Only the author edits a comment", async () => {
+        var response = await request(app).put(`/api/audits/${audit1Id}/comments/${generalCommentId}`).set("Cookie", cookie(tmpuserToken))
+          .send({ text: "Changed by someone else" });
+        expect(response.status).toBe(403);
+        response = await request(app).put(`/api/audits/${audit1Id}/comments/${generalCommentId}`).set("Cookie", cookie(userToken))
+          .send({ text: "Audit name too generic" });
+        expect(response.status).toBe(200);
+        expect(response.body.datas.find((c) => c._id === generalCommentId).text).toBe("Audit name too generic");
+      });
+
+      it("Editors resolve comments of other users", async () => {
+        var response = await request(app).put(`/api/audits/${audit1Id}/comments/${generalCommentId}`).set("Cookie", cookie(tmpuserToken))
+          .send({ resolved: true });
+        expect(response.status).toBe(200);
+        var comment = response.body.datas.find((c) => c._id === generalCommentId);
+        expect(comment.resolved).toBe(true);
+        expect(comment.resolvedBy.username).toBe("tmpuser");
+      });
+
+      it("Only the author or an administrator deletes a comment", async () => {
+        var response = await request(app).delete(`/api/audits/${audit1Id}/comments/${generalCommentId}`).set("Cookie", cookie(tmpuserToken));
+        expect(response.status).toBe(403);
+        response = await request(app).delete(`/api/audits/${audit1Id}/comments/${generalCommentId}`).set("Cookie", cookie(userToken));
+        expect(response.status).toBe(200);
+        expect(response.body.datas.map((c) => c._id)).toEqual([quoteCommentId]);
+        response = await request(app).delete(`/api/audits/${audit1Id}/comments/invalidId`).set("Cookie", cookie(userToken));
+        expect(response.status).toBe(404);
+      });
+
+      it("Deleting a finding deletes its comments", async () => {
+        var response = await request(app).delete(`/api/audits/${audit1Id}/findings/${findingId}`).set("Cookie", cookie(userToken));
+        expect(response.status).toBe(200);
+        response = await request(app).get(`/api/audits/${audit1Id}/comments`).set("Cookie", cookie(userToken));
+        expect(response.body.datas).toHaveLength(0);
+      });
+
+      it("Approval blocked by open comments when enabled in settings", async () => {
+        // Audit created by tmpuser: admin can approve it (approvers cannot be creator or collaborator)
+        var response = await request(app).post("/api/audits").set("Cookie", cookie(tmpuserToken))
+          .send({ name: "Audit to review", language: "en", auditType: "Web" });
+        var reviewAuditId = response.body.datas.audit._id;
+        response = await request(app).put("/api/settings").set("Cookie", cookie(userToken)).send({
+          reviews: { enabled: true, public: { mandatoryReview: false, minReviewers: 1, blockApprovalWithOpenComments: true }, private: { removeApprovalsUponUpdate: false } },
+        });
+        expect(response.status).toBe(200);
+        response = await request(app).put(`/api/audits/${reviewAuditId}/updateReadyForReview`).set("Cookie", cookie(tmpuserToken)).send({ state: "REVIEW" });
+        expect(response.status).toBe(200);
+
+        response = await request(app).post(`/api/audits/${reviewAuditId}/comments`).set("Cookie", cookie(userToken))
+          .send({ target: { kind: "general", field: "date_start" }, text: "Start date missing" });
+        var commentId = response.body.datas[0]._id;
+        response = await request(app).put(`/api/audits/${reviewAuditId}/toggleApproval`).set("Cookie", cookie(userToken));
+        expect(response.status).toBe(403);
+
+        response = await request(app).put(`/api/audits/${reviewAuditId}/comments/${commentId}`).set("Cookie", cookie(tmpuserToken)).send({ resolved: true });
+        expect(response.status).toBe(200);
+        response = await request(app).put(`/api/audits/${reviewAuditId}/toggleApproval`).set("Cookie", cookie(userToken));
+        expect(response.status).toBe(200);
+
+        // Restore state expected by the next test suites
+        expect((await request(app).put("/api/settings/revert").set("Cookie", cookie(userToken))).status).toBe(200);
+        expect((await request(app).delete(`/api/audits/${reviewAuditId}`).set("Cookie", cookie(userToken))).status).toBe(200);
+      });
+    });
   });
 };

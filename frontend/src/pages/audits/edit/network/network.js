@@ -1,6 +1,7 @@
 import { Notify, Dialog } from 'quasar';
 
 import Breadcrumb from 'components/breadcrumb';
+import CommentButton from 'components/comment-button';
 
 import AuditService from '@/services/audit';
 import Utils from '@/services/utils';
@@ -61,7 +62,8 @@ export default {
     },
 
     components: {
-        Breadcrumb
+        Breadcrumb,
+        CommentButton
     },
 
     mounted: function() {

@@ -77,7 +77,9 @@
                   v-model="finding.title"
                   outlined
                   :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                />
+                >
+                  <template #after><comment-button :target="commentTargets.title" /></template>
+                </q-input>
                 <q-select
                   class="col-md-4 col-12"
                   :label="$t('type')"
@@ -93,10 +95,14 @@
                   options-sanitize
                   outlined
                   :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                />
+                >
+                  <template #after><comment-button :target="commentTargets.vulnType" /></template>
+                </q-select>
                 <q-field class="col-md-12 basic-editor" borderless :label="$t('description')" stack-label>
+                  <template #after><comment-button :target="commentTargets.description" /></template>
                   <template #control>
                     <basic-editor
+                      :comment-target="commentTargets.description"
                       ref="basiceditor_description"
                       v-model="finding.description"
                       v-on:editorchange="readyToSave ? needSave = true : null"
@@ -108,8 +114,10 @@
                   </template>
                 </q-field>
                 <q-field class="col-md-12 basic-editor" borderless :label="$t('observation')" stack-label>
+                  <template #after><comment-button :target="commentTargets.observation" /></template>
                   <template #control>
                     <basic-editor
+                      :comment-target="commentTargets.observation"
                       ref="basiceditor_observation"
                       v-model="finding.observation"
                       v-on:editorchange="readyToSave ? needSave = true : null"
@@ -119,12 +127,15 @@
                     />
                   </template>
                 </q-field>
-                <textarea-array
-                  class="col-12"
-                  :label="$t('references')"
-                  v-model="finding.references"
-                  :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                />
+                <div class="col-12 row no-wrap items-start">
+                  <textarea-array
+                    class="col"
+                    :label="$t('references')"
+                    v-model="finding.references"
+                    :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                  />
+                  <comment-button class="q-mt-sm q-ml-xs" :target="commentTargets.references" />
+                </div>
               </q-card-section>
   
               <q-expansion-item
@@ -140,6 +151,7 @@
               v-model="finding.customFields"
               :category="finding.category || ''"
               :idUnique="finding._id"
+              :comment-target="commentTargets.base"
               custom-element="QCardSection"
               :locale="audit?.language || 'en'"
             />
@@ -156,7 +168,9 @@
               <div class="col-12">
                 <q-card>
                   <q-card-section>
+                    <div class="row justify-end"><comment-button :target="commentTargets.poc" /></div>
                     <basic-editor
+                      :comment-target="commentTargets.poc"
                       ref="basiceditor_poc"
                       v-model="finding.poc"
                       v-on:editorchange="readyToSave ? needSave = true : null"
@@ -173,12 +187,13 @@
           <!-- DETAILS -->
           <q-tab-panel name="details">
             <q-card>
-              <q-card-section>{{ $t('affectedAssets') }}</q-card-section>
+              <q-card-section class="row items-center">{{ $t('affectedAssets') }}<q-space /><comment-button :target="commentTargets.scope" /></q-card-section>
               <q-separator />
               <q-card-section>
                 <q-field borderless>
                   <template #control>
                     <basic-editor
+                      :comment-target="commentTargets.scope"
                       v-model="finding.scope"
                       idUnique="basiceditor_scope"
                       v-on:editorchange="readyToSave ? needSave = true : null"
@@ -190,6 +205,7 @@
             </q-card>
   
             <q-card class="q-mt-md bg-grey-1">
+              <div class="row justify-end q-pr-sm"><comment-button :target="commentTargets.cvssv3" /></div>
               <div class="col-12">
                 <cvss-calculator
                   v-model="finding.cvssv3"
@@ -218,7 +234,9 @@
                     options-sanitize
                     outlined
                     :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                  />
+                  >
+                    <template #after><comment-button :target="commentTargets.remediationComplexity" /></template>
+                  </q-select>
                   <q-select
                     :label="$t('priority')"
                     stack-label
@@ -235,11 +253,15 @@
                     options-sanitize
                     outlined
                     :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                  />
+                  >
+                    <template #after><comment-button :target="commentTargets.priority" /></template>
+                  </q-select>
                 </div>
                 <q-field class="col-md-12 basic-editor q-mt-md" borderless :label="$t('remediation')" stack-label>
+                  <template #after><comment-button :target="commentTargets.remediation" /></template>
                   <template #control>
                     <basic-editor
+                      :comment-target="commentTargets.remediation"
                       ref="basiceditor_remediation"
                       v-model="finding.remediation"
                       v-on:editorchange="readyToSave ? needSave = true : null"

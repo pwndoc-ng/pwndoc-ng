@@ -41,6 +41,7 @@ module.exports = function(request, app) {
           "public": {
             "mandatoryReview": false,
             "minReviewers": 1,
+            "blockApprovalWithOpenComments": false,
           },
         },
         "danger": { 
@@ -93,6 +94,7 @@ module.exports = function(request, app) {
           "public": {
             "mandatoryReview": false,
             "minReviewers": 1,
+            "blockApprovalWithOpenComments": false,
           },
         },
         "danger": { 
@@ -166,6 +168,7 @@ module.exports = function(request, app) {
             "public": {
               "mandatoryReview": true,
               "minReviewers": 2,
+              "blockApprovalWithOpenComments": true,
             },
           },
           "danger": { 
@@ -195,6 +198,7 @@ module.exports = function(request, app) {
             "public": {
               "mandatoryReview": false,
               "minReviewers": 5,
+              "blockApprovalWithOpenComments": false,
             }
           }
         };

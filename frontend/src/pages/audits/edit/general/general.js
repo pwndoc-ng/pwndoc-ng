@@ -4,6 +4,7 @@ import { Notify, Dialog } from 'quasar';
 import Breadcrumb from 'components/breadcrumb';
 import TextareaArray from 'components/textarea-array'
 import CustomFields from 'components/custom-fields'
+import CommentButton from 'components/comment-button'
 
 import AuditService from '@/services/audit';
 import ClientService from '@/services/client';
@@ -75,7 +76,8 @@ export default {
     components: {
         Breadcrumb,
         TextareaArray,
-        CustomFields
+        CustomFields,
+        CommentButton
     },
 
     mounted: function() {

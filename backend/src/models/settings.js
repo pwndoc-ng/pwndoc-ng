@@ -51,7 +51,9 @@ const SettingSchema = new Schema({
         enabled: { type: Boolean, default: false },
         public: {
             mandatoryReview: { type: Boolean, default: false },
-            minReviewers: { type: Number, default: 1, min: 1, max: 100, validate: [Number.isInteger, 'Invalid integer'] }
+            minReviewers: { type: Number, default: 1, min: 1, max: 100, validate: [Number.isInteger, 'Invalid integer'] },
+            // Approving an audit requires all its review comments to be resolved
+            blockApprovalWithOpenComments: { type: Boolean, default: false }
         },
         private: {
             removeApprovalsUponUpdate: { type: Boolean, default: false }

@@ -4,6 +4,7 @@ import { Notify, Dialog } from 'quasar';
 import BasicEditor from 'components/editor';
 import Breadcrumb from 'components/breadcrumb';
 import CustomFields from 'components/custom-fields';
+import CommentButton from 'components/comment-button';
 
 import AuditService from '@/services/audit';
 import DataService from '@/services/data';
@@ -41,7 +42,16 @@ export default {
     components: {
         BasicEditor,
         Breadcrumb,
-        CustomFields
+        CustomFields,
+        CommentButton
+    },
+
+    computed: {
+        // Review comments targets of the section (stable objects: used as props of editors)
+        commentTargets: function() {
+            const base = {kind: 'section', sectionId: this.$route.params.sectionId}
+            return {base: base, text: {...base, field: 'text'}}
+        },
     },
 
     mounted: function() {
