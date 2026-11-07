@@ -513,6 +513,7 @@ export default {
     findingSidebarTemplateDescription: 'Text template used for each finding in the audit sidebar. Click a variable to add it. {customExample} gives the value of a finding custom field (empty if not set). Default: {defaultExample}',
     preview: 'Preview',
     vulnTypeDescriptionHint: 'Optional. Available in the report as findings[i].vulnTypeDescription (HTML with images, like a finding description)',
+    selectVulnTypeToEdit: 'Select a vulnerability type in the list to edit its name and description',
     imageWidthSmall: 'Small',
     imageWidthMedium: 'Medium',
     imageWidthLarge: 'Large',

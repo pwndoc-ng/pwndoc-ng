@@ -354,7 +354,28 @@ module.exports = function(request, app) {
         expect(response.body.datas).toHaveLength(2)
       })
 
-      it('Delete vulnerability type', async () => {
+      it('Delete vulnerability type of one language only', async () => {
+        var response = await request(app).post('/api/data/vulnerability-types')
+          .set('Cookie', [
+            `token=JWT ${userToken}`
+          ])
+          .send({locale: 'fr', name: 'Web'})
+        expect(response.status).toBe(201)
+
+        response = await request(app).delete('/api/data/vulnerability-types/Web?locale=fr')
+          .set('Cookie', [
+            `token=JWT ${userToken}`
+          ])
+        expect(response.status).toBe(200)
+
+        response = await request(app).get('/api/data/vulnerability-types')
+          .set('Cookie', [
+            `token=JWT ${userToken}`
+          ])
+        expect(response.body.datas.filter(t => t.name === 'Web').map(t => t.locale)).toEqual(['en'])
+      })
+
+            it('Delete vulnerability type', async () => {
         var response = await request(app).delete('/api/data/vulnerability-types/Web')
           .set('Cookie', [
             `token=JWT ${userToken}`

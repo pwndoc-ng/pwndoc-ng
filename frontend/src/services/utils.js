@@ -317,6 +317,8 @@ export default {
   // Convert HTML to plain text (DOMParser documents are inert: no script execution nor resource loading)
   htmlToText: function (html) {
     if (typeof html !== "string" || !html) return "";
+    // Separate blocks (paragraphs, list items, line breaks...) so that their texts are not glued together
+    html = html.replace(/<\/(p|div|li|h[1-6]|pre|blockquote|td|th|tr)>|<br\s*\/?>/gi, "$& ");
     var doc = new DOMParser().parseFromString(html, "text/html");
     return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
   },

@@ -216,7 +216,8 @@ module.exports = function(app) {
     app.delete("/api/data/vulnerability-types/:name(*)", acl.hasPermission('vulnerability-types:delete'), function(req, res) {
         // #swagger.tags = ['Data']
 
-        VulnerabilityType.delete(req.params.name)
+        var locale = (typeof req.query.locale === 'string') ? req.query.locale : null
+        VulnerabilityType.delete(req.params.name, locale)
         .then(msg => {
             Response.Ok(res, 'Vulnerability type deleted successfully')
         })

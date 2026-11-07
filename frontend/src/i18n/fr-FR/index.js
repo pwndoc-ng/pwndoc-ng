@@ -396,6 +396,7 @@ export default {
     findingSidebarTemplateDescription: 'Modèle de texte utilisé pour chaque finding dans la barre latérale de l\'audit. Cliquez sur une variable pour l\'ajouter. {customExample} donne la valeur d\'un champ personnalisé du finding (vide si non renseigné). Par défaut : {defaultExample}',
     preview: 'Aperçu',
     vulnTypeDescriptionHint: 'Facultatif. Disponible dans le rapport via findings[i].vulnTypeDescription (HTML avec images, comme la description d\'un finding)',
+    selectVulnTypeToEdit: 'Sélectionnez un type de vulnérabilité dans la liste pour modifier son nom et sa description',
     imageWidthSmall: 'Petite',
     imageWidthMedium: 'Moyenne',
     imageWidthLarge: 'Grande',

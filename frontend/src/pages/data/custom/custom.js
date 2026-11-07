@@ -29,10 +29,10 @@ export default {
             editAuditType: false,
 
             vulnTypes: [],
-            newVulnType: {name: "", locale: "", description: ""},
-            newVulnTypeEditorKey: 0, // Changed to reset the description editor after creation
-            editVulnTypes: [],
-            editVulnType: false,
+            newVulnType: {name: "", locale: ""}, // locale: language of the displayed types
+            vulnTypeSearch: "",
+            selectedVulnType: null, // Copy of the type being edited: {originalName, name, locale, description}
+            selectedVulnTypeKey: 0, // Changed to remount the description editor when another type is selected
 
             vulnCategories: [],
             newVulnCat: {name: "", sortValue: "cvssScore", sortOrder: "desc", sortAuto: true},
@@ -113,9 +113,12 @@ export default {
 
       
         vulnTypesFiltered() {
-            console.log('Calcul vulnTypesFiltered', this.newVulnType.locale);
             return this.vulnTypes.filter(vuln => vuln.locale === this.newVulnType.locale);
-          },
+        },
+
+        canEditVulnTypes() {
+            return UserService.isAllowed('vulnerability-types:update');
+        },
 
         newCustomFieldLangOptions() {
             return this.newCustomField.options.filter(e => e.locale === this.cfLocale)
@@ -309,25 +312,21 @@ export default {
                 console.log(err)
             })
         },
-        startEditingVulnTypes() {
-            // Independent copy, with a stable key for the draggable list (types have no _id, names can be edited)
-            this.editVulnTypes = this.vulnTypesFiltered.map(v => ({ ...v, _key: `${v.locale}-${v.name}` }));
-            this.editVulnType = true;
-          },
-        // Create vulnerability type
+        // Create a vulnerability type (name only) and select it to write its description
         createVulnerabilityType: function() {
             this.cleanErrors();
             if (!this.newVulnType.name)
                 this.errors.vulnType = "Name required";
-            
+
             if (this.errors.vulnType)
                 return;
 
-            DataService.createVulnerabilityType(this.newVulnType)
-            .then((data) => {
+            var created = {name: this.newVulnType.name, locale: this.newVulnType.locale, description: ""};
+            DataService.createVulnerabilityType(created)
+            .then(() => {
                 this.newVulnType.name = "";
-                this.newVulnType.description = "";
-                this.newVulnTypeEditorKey++;
+                this.vulnTypes.push(created); // Shown right away, refreshed below
+                this.selectVulnType(created);
                 this.getVulnerabilityTypes();
                 Notify.create({
                     message: 'Vulnerability type created successfully',
@@ -346,13 +345,67 @@ export default {
             })
         },
 
-        // Update Audit Types
-        updateVulnTypes: function() {
-            var dataAll = [...this.vulnTypes.filter(x => x.locale !== this.newVulnType.locale),...this.editVulnTypes]
-            DataService.updateVulnTypes(dataAll)
-            .then((data) => {
+        // Plain text of an HTML description (list excerpt and search)
+        htmlToText: function(html) {
+            return Utils.htmlToText(html)
+        },
+
+        vulnTypeMatchesSearch: function(vulnType) {
+            if (!this.vulnTypeSearch)
+                return true
+            var search = Utils.normalizeString(this.vulnTypeSearch)
+            return Utils.normalizeString(vulnType.name).includes(search) ||
+                Utils.normalizeString(Utils.htmlToText(vulnType.description)).includes(search)
+        },
+
+        vulnTypeUnsavedChanges: function() {
+            if (!this.selectedVulnType)
+                return false
+            var selected = this.selectedVulnType
+            var original = this.vulnTypes.find(t => t.locale === selected.locale && t.name === selected.originalName)
+            return !!original && (original.name !== selected.name || (original.description || '') !== (selected.description || ''))
+        },
+
+        // Run callback, after confirmation if the selected type has unsaved changes
+        confirmDiscardVulnType: function(callback) {
+            if (!this.vulnTypeUnsavedChanges())
+                return callback()
+            Dialog.create({
+                title: $t('msg.thereAreUnsavedChanges'),
+                message: $t('msg.doYouWantToLeave'),
+                ok: {label: $t('btn.confirm'), color: 'negative'},
+                cancel: {label: $t('btn.cancel'), color: 'white'}
+            })
+            .onOk(() => callback())
+        },
+
+        selectVulnType: function(vulnType) {
+            var selected = this.selectedVulnType
+            if (selected && selected.locale === vulnType.locale && selected.originalName === vulnType.name)
+                return
+            this.confirmDiscardVulnType(() => {
+                this.selectedVulnType = {originalName: vulnType.name, name: vulnType.name, locale: vulnType.locale, description: vulnType.description || ''}
+                this.selectedVulnTypeKey++
+            })
+        },
+
+        changeVulnTypesLocale: function(locale) {
+            this.confirmDiscardVulnType(() => {
+                this.newVulnType.locale = locale
+                this.selectedVulnType = null
+                this.vulnTypeSearch = ''
+            })
+        },
+
+        // Send the whole list (the API replaces all the types), shown right away and refreshed after
+        updateVulnTypes: function(vulnTypes, onSuccess) {
+            vulnTypes = vulnTypes.map(t => ({name: t.name, locale: t.locale, description: t.description || ''}))
+            this.vulnTypes = vulnTypes
+            DataService.updateVulnTypes(vulnTypes)
+            .then(() => {
+                if (onSuccess)
+                    onSuccess()
                 this.getVulnerabilityTypes()
-                this.editVulnType = false
                 Notify.create({
                     message: 'Vulnerability Types updated successfully',
                     color: 'positive',
@@ -361,6 +414,7 @@ export default {
                 })
             })
             .catch((err) => {
+                this.getVulnerabilityTypes()
                 Notify.create({
                     message: err.response.data.datas,
                     color: 'negative',
@@ -370,14 +424,52 @@ export default {
             })
         },
 
-        // Plain text of an HTML description (list excerpt)
-        htmlToText: function(html) {
-            return Utils.htmlToText(html)
+        saveVulnType: function() {
+            var edited = this.selectedVulnType
+            if (!edited.name) {
+                Notify.create({message: 'Name required', color: 'negative', textColor: 'white', position: 'top-right'})
+                return
+            }
+            var vulnTypes = this.vulnTypes.map(t => (t.locale === edited.locale && t.name === edited.originalName) ? edited : t)
+            this.updateVulnTypes(vulnTypes, () => {
+                edited.originalName = edited.name
+            })
         },
 
-        // Remove vulnerability type
-        removeVulnType: function(vulnType) {
-            this.editVulnTypes = this.editVulnTypes.filter(e => e.name !== vulnType.name || e.locale !== vulnType.locale)
+        // New order of the types of the displayed language (drag and drop)
+        reorderVulnTypes: function(ordered) {
+            this.updateVulnTypes([...this.vulnTypes.filter(t => t.locale !== this.newVulnType.locale), ...ordered])
+        },
+
+        deleteVulnType: function() {
+            var selected = this.selectedVulnType
+            Dialog.create({
+                title: $t('msg.confirmSuppression'),
+                message: `${selected.originalName} ${$t('msg.deleteNotice')}`,
+                ok: {label: $t('btn.confirm'), color: 'negative'},
+                cancel: {label: $t('btn.cancel'), color: 'white'}
+            })
+            .onOk(() => {
+                DataService.deleteVulnerabilityType(selected.originalName, selected.locale)
+                .then(() => {
+                    this.selectedVulnType = null
+                    this.getVulnerabilityTypes()
+                    Notify.create({
+                        message: 'Vulnerability type deleted successfully',
+                        color: 'positive',
+                        textColor:'white',
+                        position: 'top-right'
+                    })
+                })
+                .catch((err) => {
+                    Notify.create({
+                        message: err.response.data.datas,
+                        color: 'negative',
+                        textColor: 'white',
+                        position: 'top-right'
+                    })
+                })
+            })
         },
 
 /* ===== CATEGORIES ===== */
