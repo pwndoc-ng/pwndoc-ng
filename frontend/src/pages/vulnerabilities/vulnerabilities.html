@@ -204,13 +204,7 @@
                 map-options
                 options-sanitize
                 outlined
-                >
-                <template v-slot:append v-if="currentVulnTypeDescription">
-                  <q-icon name="info" color="grey" size="xs" @click.stop>
-                    <q-tooltip max-width="400px" class="text-body2" style="white-space: pre-line">{{ currentVulnTypeDescription }}</q-tooltip>
-                  </q-icon>
-                </template>
-                </q-select>
+                />
                 <q-select
                 :label="$t('language')"
                 stack-label
@@ -380,13 +374,7 @@
                 map-options
                 options-sanitize
                 outlined
-                >
-                <template v-slot:append v-if="currentVulnTypeDescription">
-                  <q-icon name="info" color="grey" size="xs" @click.stop>
-                    <q-tooltip max-width="400px" class="text-body2" style="white-space: pre-line">{{ currentVulnTypeDescription }}</q-tooltip>
-                  </q-icon>
-                </template>
-                </q-select>
+                />
                 <q-select
                 :label="$t('language')"
                 stack-label

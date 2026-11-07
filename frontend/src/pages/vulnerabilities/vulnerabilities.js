@@ -110,13 +110,6 @@ export default {
             return this.vulnTypes.filter(type => type.locale === this.currentLanguage);
         },
 
-        // Description of the vulnerability type selected in the current details (tooltip on the type field)
-        currentVulnTypeDescription: function() {
-            var details = this.currentVulnerability && this.currentVulnerability.details && this.currentVulnerability.details[this.currentDetailsIndex]
-            var type = details && this.vulnTypesLang.find(t => t.name === details.vulnType)
-            return (type && type.description) || ''
-        },
-
         computedVulnerabilities() {
             if (!this.dtLanguage) return [];
             let filtered = this.vulnerabilities.filter(vuln =>

@@ -280,7 +280,7 @@ module.exports = function(request, app) {
         var type = {
           locale: 'en',
           name: 'Web',
-          description: 'Web application vulnerabilities'
+          description: '<p>Web application vulnerabilities</p>'
         }
         var response = await request(app).post('/api/data/vulnerability-types')
           .set('Cookie', [
@@ -323,7 +323,7 @@ module.exports = function(request, app) {
       it('Get vulnerability types', async () => {
         const expected = [
           {"locale": "en", "name": "Internal", "description": ""},
-          {"locale": "en", "name": "Web", "description": "Web application vulnerabilities"}
+          {"locale": "en", "name": "Web", "description": "<p>Web application vulnerabilities</p>"}
         ]
         var response = await request(app).get('/api/data/vulnerability-types')
           .set('Cookie', [
@@ -336,8 +336,8 @@ module.exports = function(request, app) {
 
       it('Update vulnerability types descriptions', async () => {
         const types = [
-          {"locale": "en", "name": "Internal", "description": "Internal network\nActive Directory"},
-          {"locale": "en", "name": "Web", "description": "Web application vulnerabilities"}
+          {"locale": "en", "name": "Internal", "description": "<p>Internal network</p><ul><li><p>Active Directory</p></li></ul>"},
+          {"locale": "en", "name": "Web", "description": "<p>Web application vulnerabilities</p>"}
         ]
         var response = await request(app).put('/api/data/vulnerability-types')
           .set('Cookie', [

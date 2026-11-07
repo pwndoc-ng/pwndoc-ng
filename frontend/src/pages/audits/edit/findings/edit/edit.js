@@ -113,11 +113,6 @@ export default {
         (type) => type.locale === this.localAudit.language
       );
     },
-    // Description of the selected vulnerability type (tooltip on the type field)
-    vulnTypeDescription() {
-      const type = this.vulnTypesLang.find((t) => t.name === this.finding.vulnType);
-      return (type && type.description) || '';
-    },
   },
 
   methods: {

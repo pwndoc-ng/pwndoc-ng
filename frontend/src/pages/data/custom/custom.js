@@ -30,6 +30,7 @@ export default {
 
             vulnTypes: [],
             newVulnType: {name: "", locale: "", description: ""},
+            newVulnTypeEditorKey: 0, // Changed to reset the description editor after creation
             editVulnTypes: [],
             editVulnType: false,
 
@@ -309,7 +310,8 @@ export default {
             })
         },
         startEditingVulnTypes() {
-            this.editVulnTypes = this.vulnTypesFiltered.map(v => ({ ...v })); // Independent copy
+            // Independent copy, with a stable key for the draggable list (types have no _id, names can be edited)
+            this.editVulnTypes = this.vulnTypesFiltered.map(v => ({ ...v, _key: `${v.locale}-${v.name}` }));
             this.editVulnType = true;
           },
         // Create vulnerability type
@@ -325,6 +327,7 @@ export default {
             .then((data) => {
                 this.newVulnType.name = "";
                 this.newVulnType.description = "";
+                this.newVulnTypeEditorKey++;
                 this.getVulnerabilityTypes();
                 Notify.create({
                     message: 'Vulnerability type created successfully',
@@ -365,6 +368,11 @@ export default {
                     position: 'top-right'
                 })
             })
+        },
+
+        // Plain text of an HTML description (list excerpt)
+        htmlToText: function(html) {
+            return Utils.htmlToText(html)
         },
 
         // Remove vulnerability type

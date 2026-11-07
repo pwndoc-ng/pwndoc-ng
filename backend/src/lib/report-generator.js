@@ -1336,7 +1336,7 @@ async function prepAuditData(data, settings) {
         var tmpFinding = {
             title: finding.title || "",
             vulnType: $t(finding.vulnType) || "",
-            vulnTypeDescription: vulnTypeDescriptions[finding.vulnType] || "",
+            vulnTypeDescription: await splitHTMLParagraphs(vulnTypeDescriptions[finding.vulnType]), // HTML with images
             description: await splitHTMLParagraphs(finding.description),
             observation: await splitHTMLParagraphs(finding.observation),
             remediation: await splitHTMLParagraphs(finding.remediation),
