@@ -16,6 +16,8 @@
                 <q-icon name="fa fa-shield-alt" />
             </q-item-section>
             <q-item-section>{{$t('nav.vulnerabilities')}}</q-item-section>
+            <q-badge v-if="pendingProposals" color="orange-8" floating rounded>{{ pendingProposals }}</q-badge>
+            <q-tooltip v-if="pendingProposals" :delay="500">{{ $t('proposals.toReview', { count: pendingProposals }) }}</q-tooltip>
             </q-item>
 
             <q-item to='/data/collaborators' active-class="text-green">
@@ -63,17 +65,40 @@ import { defineComponent } from 'vue';
 import { updateDarkMode } from '@/boot/darkmode'
 import { Dark } from 'quasar'
 import UserService from '@/services/user';
+import VulnerabilityService from '@/services/vulnerability';
 
 export default defineComponent({
   name: 'LayoutHome',
 
   data () {
     return {
-      userService: UserService
+      userService: UserService,
+      pendingProposals: 0 // Vulnerability proposals to review (reviewers)
     }
   },
 
+  watch: {
+    $route() {
+      this.refreshPendingProposals();
+    }
+  },
+
+  mounted() {
+    this.refreshPendingProposals();
+    window.addEventListener('proposals-changed', this.refreshPendingProposals);
+  },
+
+  beforeUnmount() {
+    window.removeEventListener('proposals-changed', this.refreshPendingProposals);
+  },
+
   methods: {
+      refreshPendingProposals() {
+          if (!UserService.isAllowed('vulnerabilities:update')) return;
+          VulnerabilityService.getProposalsCount()
+          .then((data) => { this.pendingProposals = data.data.datas.pending })
+          .catch(() => {});
+      },
       logout: function() {
           UserService.destroyToken();
       },

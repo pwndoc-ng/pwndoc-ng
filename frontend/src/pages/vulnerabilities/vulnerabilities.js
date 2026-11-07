@@ -5,6 +5,7 @@ import Breadcrumb from 'components/breadcrumb'
 import CvssCalculator from 'components/cvsscalculator'
 import TextareaArray from 'components/textarea-array'
 import CustomFields from 'components/custom-fields'
+import ProposalsList from 'components/proposals-list'
 
 import VulnerabilityService from '@/services/vulnerability'
 import DataService from '@/services/data'
@@ -63,9 +64,10 @@ export default {
             dtLanguage: "",
             currentDetailsIndex: 0,
             vulnerabilityId: '',
-            vulnUpdates: [],
-            currentUpdate: '',
-            currentUpdateLocale: '',
+            // Proposals tab
+            mainTab: 'vulnerabilities',
+            proposalsFilter: null, // {id, title}: proposals of one vulnerability
+            pendingProposals: 0,
             vulnTypes: [],
             // Merge languages
             mergeLanguageLeft: '',
@@ -85,10 +87,12 @@ export default {
         Breadcrumb,
         CvssCalculator,
         TextareaArray,
-        CustomFields
+        CustomFields,
+        ProposalsList
     },
 
     mounted: function() {
+        this.refreshPendingProposals();
         this.getLanguages()
         this.getVulnTypes()
         this.getVulnerabilities()
@@ -253,7 +257,7 @@ export default {
             .then(() => {
                 this.getVulnerabilities();
                 this.$refs.editModal.hide();
-                this.$refs.updatesModal.hide();
+                this.refreshPendingProposals();
                 Notify.create({
                     message: $t('msg.vulnerabilityUpdatedOk'),
                     color: 'positive',
@@ -302,33 +306,12 @@ export default {
             .onOk(() => this.deleteVulnerability(row._id))
         },
 
-        getVulnUpdates: function(vulnId) {
-            VulnerabilityService.getVulnUpdates(vulnId)
-            .then((data) => {
-                this.vulnUpdates = data.data.datas;
-                this.vulnUpdates.forEach(vuln => {
-                    vuln.customFields = Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, vuln.customFields, vuln.locale)
-                })
-                if (this.vulnUpdates.length > 0) {
-                    // Sort by modification date (newest first)
-                    this.vulnUpdates.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-                    this.currentUpdate = this.vulnUpdates[0]._id || null;
-                    this.currentLanguage = this.vulnUpdates[0].locale || null;
-                }
-            })
-            .catch((err) => {
-                console.log(err)
-            })
-        },
-
         clone: function(row) {
             this.cleanCurrentVulnerability();
             this.currentVulnerability = this.$_.cloneDeep(row)
             this.setCurrentDetails();
             
             this.vulnerabilityId = row._id;
-            if (this.UserService.isAllowed('vulnerabilities:update'))
-                this.getVulnUpdates(this.vulnerabilityId);
         },
 
         editChangeCategory: function(category) {
@@ -531,11 +514,24 @@ export default {
         },
 
         dblClick: function(row) {
-            this.clone(row)
             if (this.UserService.isAllowed('vulnerabilities:update') && row.status === 2)
-                this.$refs.updatesModal.show()
-            else
-                this.$refs.editModal.show()
+                return this.openVulnerabilityProposals(row)
+            this.clone(row)
+            this.$refs.editModal.show()
+        },
+
+        // Pending update proposals of a vulnerability (reviewed in the proposals tab)
+        openVulnerabilityProposals: function(row) {
+            this.proposalsFilter = {id: row._id, title: this.getDtTitle(row)}
+            this.mainTab = 'proposals'
+        },
+
+        refreshPendingProposals: function() {
+            VulnerabilityService.getProposalsCount()
+            .then((data) => {
+                this.pendingProposals = data.data.datas.pending
+            })
+            .catch((err) => console.log(err))
         }
     }
 }

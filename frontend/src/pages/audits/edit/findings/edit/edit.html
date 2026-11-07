@@ -14,6 +14,23 @@
             no-caps
             @click="backupFinding()"
           />
+          <!-- Review status of the last proposal made from this finding -->
+          <q-chip
+            v-if="findingProposal"
+            clickable
+            dense
+            class="q-mr-sm"
+            :color="proposalStatus.color"
+            text-color="white"
+            :icon="proposalStatus.icon"
+            @click="$refs.proposalReview.open(findingProposal._id)"
+          >
+            {{ proposalStatus.label }}
+            <q-tooltip :delay="300" max-width="400px">
+              {{ $t('proposals.lastProposal') }}<span v-if="findingProposal.reviewComment"> : « {{ findingProposal.reviewComment }} »</span>
+            </q-tooltip>
+          </q-chip>
+          <proposal-review ref="proposalReview" @changed="getFindingProposal" />
           <q-btn
             color="negative"
             class="q-mr-sm"

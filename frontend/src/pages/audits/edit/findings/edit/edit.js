@@ -7,12 +7,14 @@ import CvssCalculator from 'components/cvsscalculator';
 import TextareaArray from 'components/textarea-array';
 import CustomFields from 'components/custom-fields';
 import CommentButton from 'components/comment-button';
+import ProposalReview from 'components/proposal-review';
 
 import AuditService from '@/services/audit';
 import DataService from '@/services/data';
 import VulnService from '@/services/vulnerability';
 import Utils from '@/services/utils';
 import { FINDING_FIELD_TABS } from '@/services/comments';
+import { statusInfo } from '@/services/proposals';
 
 import { $t } from '@/boot/i18n';
 
@@ -43,6 +45,7 @@ export default {
       localAudit: { language: '' },
       findingOrig: {},
       selectedTab: 'definition',
+      findingProposal: null, // Last proposal made from this finding
       proofsTabVisited: false,
       detailsTabVisited: false,
       vulnTypes: [],
@@ -60,6 +63,7 @@ export default {
     TextareaArray,
     CustomFields,
     CommentButton,
+    ProposalReview,
   },
 
   // Review comments store of the audit edit page
@@ -70,6 +74,7 @@ export default {
   mounted() {
     this.auditId = this.$route.params.auditId;
     this.findingId = this.$route.params.findingId;
+    this.getFindingProposal();
     this.getCustomFields().then( x => {
       this.getFinding();
     })
@@ -127,6 +132,9 @@ export default {
     },
   },
   computed: {
+    proposalStatus() {
+      return statusInfo(this.findingProposal && this.findingProposal.status);
+    },
     // Review comments targets of the finding fields (stable objects: used as props of editors)
     commentTargets() {
       const findingId = this.$route.params.findingId;
@@ -324,10 +332,20 @@ export default {
     syncEditors() {
       Utils.syncEditors(this.$refs);
     },
+    // Last proposal made from this finding to the vulnerabilities database
+    getFindingProposal: function() {
+        VulnService.getFindingProposal(this.$route.params.findingId)
+        .then((data) => {
+            this.findingProposal = data.data.datas;
+        })
+        .catch((err) => console.log(err));
+    },
     backupFinding: function() {
         Utils.syncEditors(this.$refs)
-        VulnService.backupFinding(this.localAudit.language, this.finding)
+        // Source of the proposal: its review status is shown on this finding
+        VulnService.backupFinding(this.localAudit.language, {...this.finding, auditId: this.auditId, findingId: this.findingId})
         .then((data) => {
+            this.getFindingProposal();
             Notify.create({
                 message: data.data.datas,
                 color: 'positive',

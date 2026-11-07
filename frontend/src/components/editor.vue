@@ -1016,7 +1016,8 @@ export default defineComponent({
           content += value;
         });
       }
-      return content;
+      // Images are stored by id: the raw HTML of the diff needs their download URL
+      return content.replace(/(<img\b[^>]*?\ssrc=")([^"]+)(")/g, (match, before, src, after) => before + Utils.normalizeImageUrl(src) + after);
     },
   },
 
