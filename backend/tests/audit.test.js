@@ -287,12 +287,25 @@ module.exports = function (request, app) {
         quoteCommentId = comment._id;
       });
 
+      it("Comment an image of a finding text field", async () => {
+        var response = await request(app).post(`/api/audits/${audit1Id}/comments`).set("Cookie", cookie(userToken))
+          .send({ target: { kind: "finding", findingId: findingId, field: "description" }, image: { src: "5f1c0c3c2a6b2c0012345678", alt: "Burp request", occurrence: 1 }, text: "Crop the screenshot" });
+        expect(response.status).toBe(200);
+        var comment = response.body.datas.find((c) => c.text === "Crop the screenshot");
+        expect(comment.image).toEqual({ src: "5f1c0c3c2a6b2c0012345678", alt: "Burp request", occurrence: 1 });
+        expect(comment.quote).toBeUndefined();
+        response = await request(app).delete(`/api/audits/${audit1Id}/comments/${comment._id}`).set("Cookie", cookie(userToken));
+        expect(response.status).toBe(200);
+      });
+
       it("Reject invalid comments", async () => {
         var post = (body) => request(app).post(`/api/audits/${audit1Id}/comments`).set("Cookie", cookie(userToken)).send(body);
         expect((await post({ target: { kind: "general", field: "name" } })).status).toBe(422);
         expect((await post({ target: { kind: "unknown", field: "name" }, text: "x" })).status).toBe(422);
         expect((await post({ target: { kind: "finding", findingId: "5f1c0c3c2a6b2c0012345678", field: "title" }, text: "x" })).status).toBe(422);
         expect((await post({ target: { kind: "general", field: "name" }, quote: { exact: "" }, text: "x" })).status).toBe(422);
+        expect((await post({ target: { kind: "general", field: "name" }, image: { src: "" }, text: "x" })).status).toBe(422);
+        expect((await post({ target: { kind: "general", field: "name" }, quote: { exact: "a" }, image: { src: "b" }, text: "x" })).status).toBe(422);
       });
 
       it("Users without access to the audit cannot read or comment", async () => {

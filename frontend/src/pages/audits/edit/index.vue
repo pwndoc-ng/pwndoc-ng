@@ -531,7 +531,7 @@ export default defineComponent({
       var target = comment.target
       var page = {general: 'general', network: 'network', finding: `findings/${target.findingId}`, section: `sections/${target.sectionId}`}[target.kind]
       var path = `/audits/${this.auditId}/${page}`
-      this.commentsStore.focus = {...target, key: targetKey(target), commentId: comment.quote ? comment._id : null, at: Date.now()}
+      this.commentsStore.focus = {...target, key: targetKey(target), commentId: (comment.quote || comment.image) ? comment._id : null, at: Date.now()}
       if (this.$route.path !== path)
         this.$router.push(path).catch(() => {})
       this.showCommentFocus(this.commentsStore.focus)

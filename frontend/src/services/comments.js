@@ -153,8 +153,12 @@ export function createCommentsStore(auditId, options) {
       return container[target.field]
     },
 
-    // A quoted passage which is no longer in the field (text modified since the comment)
+    // A quoted passage or image which is no longer in the field (modified since the comment)
     isOutdated(comment) {
+      if (comment.image && comment.image.src && !comment.image.src.startsWith('hash:')) {
+        const html = this.fieldContent(comment.target)
+        return typeof html === 'string' && !html.includes(comment.image.src)
+      }
       if (!comment.quote || !comment.quote.exact) return false
       const content = this.fieldContent(comment.target)
       if (typeof content !== 'string') return false
@@ -187,10 +191,10 @@ export function createCommentsStore(auditId, options) {
       this.panelOpen = true
     },
 
-    // New comment on a passage of a text field
-    startComment(target, quote) {
+    // New comment on a passage ({exact, prefix, suffix}) or an image ({src, alt}) of a text field
+    startComment(target, quote, image = null) {
       this.targetFilter = null
-      this.draft = {target: target, quote: quote}
+      this.draft = {target: target, quote: quote, image: image}
       this.activeId = null
       this.panelOpen = true
     },
@@ -243,6 +247,7 @@ export function createCommentsStore(auditId, options) {
       const draft = this.draft
       const comment = {target: draft.target, text: text}
       if (draft.quote) comment.quote = draft.quote
+      if (draft.image) comment.image = draft.image
       const before = new Set(this.items.map(c => c._id))
       if (await this.request(() => AuditService.createComment(this.auditId, comment))) {
         this.draft = null

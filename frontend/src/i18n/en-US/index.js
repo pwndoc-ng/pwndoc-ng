@@ -518,6 +518,8 @@ export default {
         title: 'Comments',
         commentField: 'Comment this field',
         commentSelection: 'Comment',
+        commentImage: 'Comment this image',
+        image: 'Image',
         open: 'Open',
         resolved: 'Resolved',
         all: 'All',

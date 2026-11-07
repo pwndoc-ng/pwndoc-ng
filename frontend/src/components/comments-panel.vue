@@ -58,6 +58,7 @@
         {{ $t('comments.newComment') }} : {{ store.locationLabel(store.draft.target) }} › {{ store.fieldLabel(store.draft.target) }}
       </div>
       <div v-if="store.draft.quote" class="comment-quote q-my-xs">« {{ store.draft.quote.exact }} »</div>
+      <div v-if="store.draft.image" class="comment-quote q-my-xs"><q-icon name="image" /> {{ store.draft.image.alt || $t('comments.image') }}</div>
       <q-input
         v-model="draftText"
         type="textarea"
@@ -96,6 +97,9 @@
             </div>
             <div v-if="comment.quote" class="comment-quote q-my-xs" :class="{ 'comment-quote--outdated': store.isOutdated(comment) }">
               « {{ comment.quote.exact }} »
+            </div>
+            <div v-if="comment.image" class="comment-quote q-my-xs" :class="{ 'comment-quote--outdated': store.isOutdated(comment) }">
+              <q-icon name="image" /> {{ comment.image.alt || $t('comments.image') }}
             </div>
             <q-badge v-if="store.isOutdated(comment)" color="grey-6" class="q-mb-xs">{{ $t('comments.textChanged') }}</q-badge>
             <div class="comment-text">{{ comment.text }}</div>

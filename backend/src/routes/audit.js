@@ -645,6 +645,17 @@ module.exports = function(app, io) {
         return {exact: quote.exact, prefix: quote.prefix || '', suffix: quote.suffix || ''};
     }
 
+    var parseCommentImage = function(image) {
+        if (image === undefined || image === null)
+            return undefined;
+        var valid = typeof image.src === 'string' && image.src.length > 0 && image.src.length <= 300 &&
+            (image.alt === undefined || (typeof image.alt === 'string' && image.alt.length <= 500)) &&
+            (image.occurrence === undefined || (Number.isInteger(image.occurrence) && image.occurrence >= 0 && image.occurrence <= 10000));
+        if (!valid)
+            throw({fn: 'BadParameters', message: 'Invalid comment image'});
+        return {src: image.src, alt: image.alt || '', occurrence: image.occurrence || 0};
+    }
+
     var sendComments = async function(req, res) {
         io.to(req.params.auditId).emit('updateComments');
         Response.Ok(res, await Audit.getComments(req.params.auditId));
@@ -660,7 +671,7 @@ module.exports = function(app, io) {
         catch (err) { Response.Internal(res, err) }
     });
 
-    // Add a comment {target: {kind, findingId|sectionId, field}, quote: {exact, prefix, suffix}, text}
+    // Add a comment {target: {kind, findingId|sectionId, field}, quote: {exact, prefix, suffix} | image: {src, alt}, text}
     app.post("/api/audits/:auditId/comments", acl.hasPermission('audits:read'), async function(req, res) {
         // #swagger.tags = ['Audit']
         try {
@@ -678,8 +689,13 @@ module.exports = function(app, io) {
                 updatedAt: now
             };
             var quote = parseCommentQuote(req.body.quote);
+            var image = parseCommentImage(req.body.image);
+            if (quote && image)
+                throw({fn: 'BadParameters', message: 'A comment targets a passage or an image, not both'});
             if (quote)
                 comment.quote = quote;
+            if (image)
+                comment.image = image;
             await Audit.createComment(req.params.auditId, comment);
             await sendComments(req, res);
         }

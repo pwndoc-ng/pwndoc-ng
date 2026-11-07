@@ -825,7 +825,7 @@ export default defineComponent({
           allowBase64: true
         }),
         Figure,
-        CommentHighlight,
+        CommentHighlight.configure(), // New instance per editor: its storage (field target) must not be shared
         LanguageTool.configure({
          apiUrl: `https://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/v2/check`, 
           //apiUrl: `https://127.0.0.1:8443/v2/check`, 
@@ -899,7 +899,9 @@ export default defineComponent({
     };
     window.addEventListener('autoCorrectionToggleChanged', this.autoCorrectionToggleListener);
 
-    // Review comments: highlighted passages, selection button hidden when scrolling
+    // Review comments: highlighted passages and images, selection button hidden when scrolling
+    this.editor.storage.commentHighlight.target = this.commentTarget;
+    this.editor.storage.commentHighlight.store = this.commentsStore;
     this.updateCommentHighlights();
     this.hideCommentSelection = () => { this.commentSelection = null };
     window.addEventListener('scroll', this.hideCommentSelection, true);
@@ -944,10 +946,10 @@ export default defineComponent({
     commentable() {
       return !!(this.commentsStore && this.commentTarget);
     },
-    // Open comments on passages of this field (highlighted)
+    // Open comments on passages and images of this field (highlighted)
     quoteComments() {
       if (!this.commentable) return [];
-      return this.commentsStore.forTarget(this.commentTarget).filter(comment => comment.quote && !comment.resolved);
+      return this.commentsStore.forTarget(this.commentTarget).filter(comment => (comment.quote || comment.image) && !comment.resolved);
     },
 
     match() {
@@ -1709,6 +1711,15 @@ pre .diffadd {
 
 .comment-highlight--active {
   background: rgba(255, 152, 0, 0.55);
+}
+
+.comment-image-highlight .editor-image {
+  outline: 3px solid rgba(255, 160, 0, 0.7);
+  outline-offset: 2px;
+}
+
+.comment-image-highlight--active .editor-image {
+  outline-color: #ff6d00;
 }
 
 .comment-selection-btn {

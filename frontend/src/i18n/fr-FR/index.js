@@ -401,6 +401,8 @@ export default {
         title: 'Commentaires',
         commentField: 'Commenter ce champ',
         commentSelection: 'Commenter',
+        commentImage: 'Commenter cette image',
+        image: 'Image',
         open: 'Ouverts',
         resolved: 'Résolus',
         all: 'Tous',

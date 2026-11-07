@@ -69,6 +69,12 @@ var CommentSchema = new Schema({
         prefix:     {type: String, trim: false},
         suffix:     {type: String, trim: false}
     },
+    // Commented image of a text field: image source (id, URL or hash of a data URI) and its caption
+    image: {
+        src:        String,
+        alt:        String,
+        occurrence: Number // Index among identical images (same source and caption) of the field
+    },
     text:       String,
     author:     {type: Schema.Types.ObjectId, ref: 'User'},
     replies:    [CommentReplySchema],

@@ -73,6 +73,50 @@ export function findQuote(index, quote) {
   return { from: startPos, to: endPos + 1 }
 }
 
+// Anchor of a commented image: its source (image id or URL), a hash for long sources (data URIs)
+export function imageAnchorKey(src) {
+  if (typeof src !== 'string') return ''
+  if (src.length <= 200) return src
+  let hash = 0x811c9dc5
+  for (let i = 0; i < src.length; i++) {
+    hash ^= src.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193) >>> 0
+  }
+  return `hash:${src.length}:${hash.toString(16)}`
+}
+
+// Images of the document with their anchor ({src, alt, occurrence}: index among identical images)
+function documentImages(doc) {
+  const images = []
+  const counts = {}
+  doc.descendants((node, pos) => {
+    if (node.attrs && typeof node.attrs.src === 'string' && node.attrs.src) {
+      const src = imageAnchorKey(node.attrs.src)
+      const alt = node.attrs.alt || ''
+      const key = `${src}|${alt}`
+      const occurrence = counts[key] || 0
+      counts[key] = occurrence + 1
+      images.push({ src, alt, occurrence, from: pos, to: pos + node.nodeSize })
+    }
+    return true
+  })
+  return images
+}
+
+// Anchor of the image node at position pos
+export function imageAnchorAt(doc, pos) {
+  const image = documentImages(doc).find(img => img.from === pos)
+  return image ? { src: image.src, alt: image.alt, occurrence: image.occurrence } : null
+}
+
+// Position of the commented image: same source, then same caption and occurrence when possible
+export function findImage(doc, image) {
+  const candidates = documentImages(doc).filter(img => img.src === image.src)
+  return candidates.find(img => img.alt === (image.alt || '') && img.occurrence === (image.occurrence || 0)) ||
+    candidates.find(img => img.alt === (image.alt || '')) ||
+    candidates[0] || null
+}
+
 export const commentHighlightKey = new PluginKey('commentHighlight')
 
 function buildDecorations(doc, comments, activeId) {
@@ -80,10 +124,20 @@ function buildDecorations(doc, comments, activeId) {
   const index = docTextIndex(doc)
   const decorations = []
   comments.forEach(comment => {
+    const active = comment._id === activeId
+    if (comment.image) {
+      const node = findImage(doc, comment.image)
+      if (node)
+        decorations.push(Decoration.node(node.from, node.to, {
+          class: 'comment-image-highlight' + (active ? ' comment-image-highlight--active' : ''),
+          'data-comment-id': comment._id
+        }))
+      return
+    }
     const range = findQuote(index, comment.quote)
     if (range)
       decorations.push(Decoration.inline(range.from, range.to, {
-        class: 'comment-highlight' + (comment._id === activeId ? ' comment-highlight--active' : ''),
+        class: 'comment-highlight' + (active ? ' comment-highlight--active' : ''),
         'data-comment-id': comment._id
       }))
   })
@@ -93,6 +147,11 @@ function buildDecorations(doc, comments, activeId) {
 // Update highlighted comments: editor.view.dispatch(editor.state.tr.setMeta(commentHighlightKey, {comments, activeId}))
 export const CommentHighlight = Extension.create({
   name: 'commentHighlight',
+
+  // Set by the editor component: comments target of the field and comments store (used by image node views)
+  addStorage() {
+    return { target: null, store: null }
+  },
 
   addProseMirrorPlugins() {
     return [

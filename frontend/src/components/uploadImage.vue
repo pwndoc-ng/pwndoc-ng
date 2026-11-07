@@ -21,6 +21,15 @@
           @update:model-value="setWidth"
         />
       </div>
+      <!-- Review comments on the image (editors of an audit) -->
+      <div v-if="commentContext()" class="editor-image__comments" contenteditable="false" @mousedown.stop.prevent>
+        <q-btn v-if="imageOpenComments.length" round dense size="sm" color="orange-8" icon="mdi-comment-text-outline" @click.stop="showImageComments">
+          <q-badge color="red" floating rounded>{{ imageOpenComments.length }}</q-badge>
+        </q-btn>
+        <q-btn class="editor-image__comment-add" round dense size="sm" color="orange-8" icon="mdi-comment-plus-outline" @click.stop="commentImage">
+          <q-tooltip :delay="500">{{ $t('comments.commentImage') }}</q-tooltip>
+        </q-btn>
+      </div>
       <q-img
         :src="src"
         :alt="alt"
@@ -72,6 +81,7 @@ import { defineComponent } from 'vue';
 import { NodeViewWrapper, nodeViewProps } from "@tiptap/vue-3";
 import Utils from "@/services/utils";
 import { $t } from "@/boot/i18n";
+import { imageAnchorAt, findImage } from "./comment-highlight";
 
 // Image width in % of the text width (large: between page margins), same values as the report
 // generator (backend/src/lib/report-generator.js IMAGE_WIDTH_RATIOS)
@@ -120,6 +130,18 @@ export default defineComponent({
     displayWidth() {
       return `${WIDTH_PERCENTS[this.width] || 100}%`;
     },
+    // Open comments anchored on this image (same image node in the document)
+    imageOpenComments() {
+      const context = this.commentContext();
+      if (!context) return [];
+      const doc = this.editor.state.doc;
+      const pos = this.getPos();
+      return context.store.forTarget(context.target).filter((comment) => {
+        if (!comment.image || comment.resolved) return false;
+        const found = findImage(doc, comment.image);
+        return !!found && found.from === pos;
+      });
+    },
     widthOptions() {
       return [
         { label: $t("imageWidthSmall"), value: "small" },
@@ -130,6 +152,20 @@ export default defineComponent({
   },
 
   methods: {
+    // Comments target and store of the field, set by the editor component (null outside an audit)
+    commentContext() {
+      const storage = this.editor && this.editor.storage.commentHighlight;
+      return storage && storage.store && storage.target ? storage : null;
+    },
+    commentImage() {
+      const context = this.commentContext();
+      const anchor = imageAnchorAt(this.editor.state.doc, this.getPos());
+      if (context && anchor) context.store.startComment(context.target, null, anchor);
+    },
+    showImageComments() {
+      const context = this.commentContext();
+      if (context && this.imageOpenComments.length) context.store.show(this.imageOpenComments[0]._id);
+    },
     setWidth(width) {
       this.updateAttributes({ width });
     },
@@ -163,6 +199,25 @@ export default defineComponent({
 .editor-image {
   position: relative;
   margin: 0 auto;
+}
+
+.editor-image__comments {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: flex;
+  gap: 4px;
+}
+
+/* Add comment button shown when hovering the image */
+.editor-image__comment-add {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.editor-image:hover .editor-image__comment-add {
+  opacity: 1;
 }
 
 .editor-image__width {
