@@ -26,14 +26,16 @@ Here is the list of available permissions to access data:
 |                   |                               | templates:update  | vulnerability-categories:update |                      |
 |                   |                               | templates:delete  | vulnerability-categories:delete |                      |
 |                   |                               | roles:read        | custom-fields:create            |                      |
-|                   |                               |                   | custom-fields:read              |                      |
-|                   |                               |                   | custom-fields:update            |                      |
+|                   |                               | backup:export     | custom-fields:read              |                      |
+|                   |                               | backup:import     | custom-fields:update            |                      |
 |                   |                               |                   | custom-fields:delete            |                      |
 |                   |                               |                   | sections:create                 |                      |
 |                   |                               |                   | sections:read                   |                      |
 |                   |                               |                   | sections:update                 |                      |
 |                   |                               |                   | sections:delete                 |                      |
 
+
+`backup:export` and `backup:import`: global backup of all the data (Data > Import/Export > Global backup). The import replaces all the data of the instance.
 
 ## Built-In Roles
 
