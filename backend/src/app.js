@@ -157,6 +157,7 @@ require('./routes/vulnerability')(app);
 require('./routes/data')(app);
 require('./routes/image')(app);
 require('./routes/settings')(app);
+require('./routes/backup')(app);
 
 const { cronJobs } = require('./lib/cron');
 cronJobs();
@@ -210,6 +211,7 @@ const serverHocus = hocus.Server.configure({
   }
 })
 serverHocus.listen()
+app.set('hocuspocus', serverHocus) // Used to close the editing sessions after a backup restore
 
 
 if(config.apidoc) {

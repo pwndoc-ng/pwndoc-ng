@@ -82,6 +82,8 @@ module.exports = function (ctx) {
         'QAvatar',
         'QBadge',
         'QBanner',
+        'QFile',
+        'QLinearProgress',
         'QBar',
         'QBreadcrumbs',
         'QBreadcrumbsEl',
