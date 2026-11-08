@@ -41,6 +41,8 @@ git pull
 docker-compose up -d --build
 ```
 
+?> The database uses MongoDB 8. The data of installations using MongoDB 4.x is migrated automatically at the first start after the update (the previous data files are kept as a backup). On CPUs unable to run MongoDB 8 (no AVX, ARMv8.0), MongoDB 4.4 keeps serving the data. See `mongodb/README.md`.
+
 Application is accessible through https://localhost:8443
 API is accessible through https://localhost:8443/api
 

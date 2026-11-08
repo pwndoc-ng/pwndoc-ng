@@ -1,8 +1,17 @@
 version: '3'
 services:
   mongodb:
-    image: mongo:4
+    # MongoDB 8, data of MongoDB 4.x installations migrated at the first start (see mongodb/README.md)
+    build: ./mongodb
+    image: pwndoc-ng/pwndoc-ng:mongodb
     container_name: mongo-pwndoc-ng
+    healthcheck:
+      # mongosh history out of the data volume
+      test: ["CMD-SHELL", "HOME=/tmp mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok' | grep -q 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 6
+      start_period: 30m # first start after an update: migration of the data to MongoDB 8
     volumes:
       - mongo-data:/data/db
     restart: always

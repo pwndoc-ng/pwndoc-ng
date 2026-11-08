@@ -31,7 +31,15 @@ mongoose.Promise = global.Promise;
 // Trim all Strings
 mongoose.Schema.Types.String.set('trim', true);
 
-mongoose.connect(`mongodb://${config.database.server}:${config.database.port}/${config.database.name}`, {});
+// Retried while the database is not available (container starting, migration of the data to a new MongoDB version)
+function connectDatabase() {
+  mongoose.connect(`mongodb://${config.database.server}:${config.database.port}/${config.database.name}`, {})
+  .catch(err => {
+    console.log(`Database not available (${err.message}): new attempt in 5 seconds`);
+    setTimeout(connectDatabase, 5000);
+  });
+}
+connectDatabase();
 
 // Models import
 require('./models/user');
