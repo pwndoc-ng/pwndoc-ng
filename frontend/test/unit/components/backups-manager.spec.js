@@ -219,11 +219,7 @@ describe('creation of a backup', () => {
     expect(wrapper.vm.create.categories).toEqual(['companies', 'clients'])
   })
 
-  // BUG: src/components/backups-manager.vue:313-317 unchecking the "Customers" group when companies and clients are
-  // selected only removes the clients (companies is still required by clients when it is processed first): the
-  // group goes to the partial state, and the next click selects everything again, so the group checkbox can never
-  // unselect the group (the categories must be unchecked one by one)
-  it.skip('unselects a whole group whose categories depend on each other', async () => {
+  it('unselects a whole group whose categories depend on each other', async () => {
     await openCreate()
     await checkboxes()['Clients'].trigger('click')
     expect(checkboxes()['Customers'].props('modelValue')).toBe(true)

@@ -312,8 +312,15 @@ export default {
 
     toggleGroup: function(target, group, value, withDependencies) {
       // Partially selected group: selected entirely
-      var select = value !== false
-      group.categories.forEach((category) => this.toggleCategory(target, category, select, withDependencies))
+      if (value !== false) {
+        group.categories.forEach((category) => this.toggleCategory(target, category, true, withDependencies))
+        return
+      }
+      // Unselected at once (dependencies inside the group: clients -> companies), except the categories required by
+      // selected categories outside the group
+      var outside = target.categories.filter((category) => !group.categories.includes(category))
+      var kept = group.categories.filter((category) => withDependencies && this.requiredBy(category, outside).length > 0)
+      target.categories = this.allCategories.filter((name) => target.categories.includes(name) && (!group.categories.includes(name) || kept.includes(name)))
     },
 
     /* Creation */

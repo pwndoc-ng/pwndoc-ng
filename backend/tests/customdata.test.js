@@ -52,11 +52,7 @@ module.exports = function(request, app) {
         await helpers.eventually(async () => expect((await get('/api/data/languages')).body.datas).toEqual(initialLanguages))
       })
 
-      // BUG: src/models/language.js:51 (same in audit-type.js:73, vulnerability-category.js:72, custom-section.js:66)
-      // updateAll does not return the insertMany promise: the API answers 201 before the insertion and its error is an
-      // unhandled promise rejection (Node.js >= 15 stops the process). PUT /api/data/languages [{en, English}, {en, English 2}]
-      // deletes all the languages, answers 201 and only keeps the first 'en'.
-      it.skip('Update languages with an invalid list is refused and keeps the languages', async () => {
+      it('Update languages with an invalid list is refused and keeps the languages', async () => {
         var response = await put('/api/data/languages', [{locale: 'en', language: 'English'}, {locale: 'en', language: 'English 2'}])
         expect(response.status).toBe(422)
         await helpers.sleep(500)
@@ -76,6 +72,15 @@ module.exports = function(request, app) {
         expect((await post('/api/data/audit-types', {name: 'Bad/name', templates: []})).status).toBe(422)
         expect((await put('/api/data/audit-types', [...initialAuditTypes, {name: 'Without templates'}])).status).toBe(422)
         expect((await get('/api/data/audit-types')).body.datas).toEqual(initialAuditTypes)
+      })
+
+      it('Update audit types with duplicate names is refused and keeps the audit types', async () => {
+        var current = (await get('/api/data/audit-types')).body.datas
+        expect(current.length).toBeGreaterThan(0)
+        var duplicate = current.map(({name, templates, sections, hidden, stage}) => ({name, templates, sections, hidden, stage}))
+        var response = await put('/api/data/audit-types', [...duplicate, duplicate[0]])
+        expect(response.status).toBe(422)
+        expect((await get('/api/data/audit-types')).body.datas).toEqual(current)
       })
 
       it('Create an audit type with sections, hidden pages and templates per language', async () => {
@@ -162,6 +167,13 @@ module.exports = function(request, app) {
         ])
       })
 
+      it('Update categories with duplicate names is refused and keeps the categories', async () => {
+        var current = (await get('/api/data/vulnerability-categories')).body.datas
+        var response = await put('/api/data/vulnerability-categories', [{name: 'Duplicate'}, {name: 'Duplicate'}])
+        expect(response.status).toBe(422)
+        expect((await get('/api/data/vulnerability-categories')).body.datas).toEqual(current)
+      })
+
       it('Should not create categories with missing, existing or invalid values', async () => {
         expect((await post('/api/data/vulnerability-categories', {})).status).toBe(422)
         expect((await post('/api/data/vulnerability-categories', {name: 'Network'})).status).toBe(422)
@@ -238,6 +250,13 @@ module.exports = function(request, app) {
           var current = (await get('/api/data/sections')).body.datas
           expect(current.map(s => s.field)).toEqual(initialSections.map(s => s.field))
         })
+      })
+
+      it('Update sections with duplicate fields is refused and keeps the sections', async () => {
+        var current = (await get('/api/data/sections')).body.datas
+        var response = await put('/api/data/sections', [{name: 'First', field: 'duplicate'}, {name: 'Second', field: 'duplicate'}])
+        expect(response.status).toBe(422)
+        expect((await get('/api/data/sections')).body.datas).toEqual(current)
       })
 
       // BUG: src/models/custom-section.js:80 the deletion filters on a 'locale' field that sections don't have

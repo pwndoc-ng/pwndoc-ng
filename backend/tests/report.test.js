@@ -115,9 +115,7 @@ module.exports = function(request, app) {
         expect((await templates()).map(t => t._id)).not.toContain(String(template._id))
       })
 
-      // BUG: src/routes/template.js:113-116 Template.getOne resolves null for an unknown id and data.name throws a
-      // TypeError: GET /api/templates/download/<unknown id> answers 500 instead of 404
-      it.skip('Download an unknown template', async () => {
+      it('Download an unknown template', async () => {
         expect((await download('deadbeefdeadbeefdeadbeef')).status).toBe(404)
       })
     })

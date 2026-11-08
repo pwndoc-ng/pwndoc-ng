@@ -154,9 +154,7 @@ describe('vulnerabilities page filters and sort', () => {
     expect(wrapper.vm.customSort(undefined, 'title')).toBeUndefined()
   })
 
-  // BUG: src/pages/vulnerabilities/vulnerabilities.js:473-476 the sort by "last updated" compares the displayed dates
-  // as strings (dd-mm-yyyy, es-CL format): the vulnerabilities are sorted by day of the month, not chronologically
-  it.skip('sorts by last update date chronologically', async () => {
+  it('sorts by last update date chronologically', async () => {
     await mountPage()
     expect(titles(wrapper.vm.customSort(wrapper.vm.computedVulnerabilities, 'updatedAt', false))).toEqual(['Updated vuln', 'SQL Injection', 'Élévation de privilèges'])
   })

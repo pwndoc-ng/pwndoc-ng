@@ -117,12 +117,13 @@ describe('audits list filters', () => {
     expect(filter()).toContain('Internal')
   })
 
-  // BUG: src/pages/audits/list/audits-list.js:385,387 the participants are compared with indexOf on the joined usernames:
-  // "My audits" shows the audits of 'joanne' to the user 'ann' (and "awaiting my review" hides them)
-  it.skip('compares the whole usernames for "my audits"', async () => {
+  it('compares the whole usernames for "my audits"', async () => {
     await mountList({ username: 'ann' })
     wrapper.vm.myAudits = true
     expect(filter()).not.toContain('Pentest Été')
+    wrapper.vm.myAudits = false
+    wrapper.vm.displayReadyForReview = true
+    expect(filter()).toEqual(['Pentest Été']) // Audit of joanne awaiting the review of ann
   })
 
   it('converts the locales and the participants', async () => {

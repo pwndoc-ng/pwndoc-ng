@@ -28,9 +28,13 @@ describe('boot/i18n', () => {
   it('follows the selected language and falls back to English for the missing translations', () => {
     try {
       i18n.global.locale.value = 'fr-FR'
-      expect($t('btn.cancel')).not.toBe('Cancel')
+      expect($t('btn.cancel')).toBe('Annuler')
+      // German translation partial: a key absent from de-DE is displayed in English
+      i18n.global.locale.value = 'de-DE'
+      expect($t('btn.cancel')).toBe('Abbrechen')
+      expect(i18n.global.te('cloneExistingReport', 'de-DE')).toBe(false)
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-      expect($t('shortName')).toBe(i18n.global.t('shortName', {}, { locale: 'en-US' })) // Not translated in French yet
+      expect($t('cloneExistingReport')).toBe(i18n.global.t('cloneExistingReport', {}, { locale: 'en-US' }))
       warn.mockRestore()
     }
     finally {

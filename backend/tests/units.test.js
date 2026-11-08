@@ -281,9 +281,7 @@ module.exports = function() {
         expect(evaluate("f | count: 'High':'environmental'", {f: findings})).toBe(1)
       })
 
-      // BUG: src/lib/report-generator.js:569-571 the comparator of the 'sort' filter returns a boolean
-      // (a < b) instead of a number: the list is not sorted, e.g. [1, 3, 2, 5, 4] stays [1, 3, 2, 5, 4]
-      it.skip('Sort filter with a key sorts the elements', () => {
+      it('Sort filter with a key sorts the elements', () => {
         var result = evaluate("f | sort: 'v'", {f: [{v: 1}, {v: 3}, {v: 2}, {v: 5}, {v: 4}]}).map(e => e.v)
         expect([[1, 2, 3, 4, 5], [5, 4, 3, 2, 1]]).toContainEqual(result)
       })
@@ -301,9 +299,7 @@ module.exports = function() {
         expect(evaluate("s | fromTo: e:'en-US'", {s: 'unknown', e: '2026-03-04'})).toBe('unknown')
       })
 
-      // BUG: src/lib/report-generator.js:387 fromTo compares the days of the week (getDay) instead of the days of the
-      // month (getDate): two dates of the same month on the same weekday give "on <end date>" (one day only)
-      it.skip('Dates of the same month on the same weekday', () => {
+      it('Dates of the same month on the same weekday', () => {
         require('../src/translate').setLocale('en')
         expect(evaluate("s | fromTo: e:'en-US'", {s: '2026-03-04', e: '2026-03-11'})).toBe('from 04 to 03/11/2026')
       })

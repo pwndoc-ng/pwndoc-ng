@@ -287,9 +287,7 @@ module.exports = function(request, app) {
         expect((await getAudit()).state).toBe('APPROVED')
       })
 
-      // BUG: src/routes/audit.js:510-512 toggleApproval reads audit.state of the result of findById without checking it:
-      // for an unknown audit the TypeError gives a 500 error instead of 404
-      it.skip('Approval of an unknown audit', async () => {
+      it('Approval of an unknown audit', async () => {
         expect((await toggleApproval(adminCookie, 'deadbeefdeadbeefdeadbeef')).status).toBe(404)
       })
     })

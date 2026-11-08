@@ -370,6 +370,11 @@ export default {
             var usersTerm = (terms.users || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
             var dateTerm = (terms.date)? terms.date.toLowerCase(): ""
 
+            // Usernames of the creator and collaborators (whole usernames compared for "my audits")
+            var participants = (row) => [row.creator, ...(row.collaborators || [])]
+                .filter(user => user && user.username)
+                .map(user => user.username.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
+
             return rows && rows.filter(row => {
                 var name = (row.name || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
                 var language = (row.language)? row.language.toLowerCase(): ""
@@ -382,9 +387,9 @@ export default {
                     (!companyTerm || companyTerm === companyName) &&
                     users.indexOf(usersTerm) > -1 &&
                     date.indexOf(dateTerm) > -1 &&
-                    ((this.myAudits && users.indexOf(username) > -1) || !this.myAudits) &&
+                    ((this.myAudits && participants(row).includes(username)) || !this.myAudits) &&
                     ((this.displayConnected && row.connected && row.connected.length > 0) || !this.displayConnected) &&
-                    ((this.displayReadyForReview && users.indexOf(username) < 0 && row.state === 'REVIEW') || !this.displayReadyForReview)
+                    ((this.displayReadyForReview && !participants(row).includes(username) && row.state === 'REVIEW') || !this.displayReadyForReview)
             })
         },
 

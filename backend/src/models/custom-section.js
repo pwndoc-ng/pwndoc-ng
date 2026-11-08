@@ -1,5 +1,6 @@
 var mongoose = require('mongoose');
-var Schema = mongoose.Schema;
+var Schema = mongoose.Schema
+var utils = require('../lib/utils');
 
 var CustomSectionSchema = new Schema({
     field:  {type: String, required: true, unique: true},
@@ -60,18 +61,8 @@ CustomSectionSchema.statics.create = (section) => {
 
 // Update Sections
 CustomSectionSchema.statics.updateAll = (sections) => {
-    return new Promise((resolve, reject) => {
-        CustomSection.deleteMany()
-        .then((row) => {
-            CustomSection.insertMany(sections)
-        })
-        .then((row) => {
-            resolve("Sections updated successfully")
-        })
-        .catch((err) => {
-            reject(err);
-        })
-    })
+    // Previous list kept if the new one cannot be inserted (duplicates...)
+    return utils.replaceAll(CustomSection, sections).then(() => "Sections updated successfully")
 }
 
 // Delete Section

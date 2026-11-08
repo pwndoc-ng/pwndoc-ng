@@ -58,7 +58,7 @@ export default {
             Dialog.create({
             title: $t('msg.thereAreUnsavedChanges'),
             message: $t('msg.doYouWantToLeave'),
-            ok: {label: $t('btn.comfirm'), color: 'negative'},
+            ok: {label: $t('btn.confirm'), color: 'negative'},
             cancel: {label: $t('btn.cancel'), color: 'white'}
             })
             .onOk(() => next())
@@ -173,7 +173,7 @@ export default {
                 this.$settings.refresh();
                 this.getSettings();
                 Notify.create({
-                    message: $t('settingsUpdatedOk'),
+                    message: $t('msg.settingsUpdatedOk'),
                     color: 'positive',
                     textColor:'white',
                     position: 'top-right'

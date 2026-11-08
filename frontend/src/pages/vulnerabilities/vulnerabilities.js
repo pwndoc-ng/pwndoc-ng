@@ -471,9 +471,11 @@ export default {
                         ? data.sort((a, b) => (this.getDtTitle(b) || '').localeCompare(this.getDtTitle(a) || ''))
                         : data.sort((a, b) => (this.getDtTitle(a) || '').localeCompare(this.getDtTitle(b) || ''));
                 } else if (sortBy === 'updatedAt') {
+                    // Chronological order (dates, not the displayed dd-mm-yyyy strings), vulnerabilities without date first
+                    const time = (row) => (row.updatedAt ? new Date(row.updatedAt).getTime() : 0) || 0;
                     (descending)
-                        ? data.sort((a, b) => (this.getDtUpdatedAt(b) || '').localeCompare(this.getDtUpdatedAt(a) || ''))
-                        : data.sort((a, b) => (this.getDtUpdatedAt(a) || '').localeCompare(this.getDtUpdatedAt(b) || ''));  
+                        ? data.sort((a, b) => time(b) - time(a))
+                        : data.sort((a, b) => time(a) - time(b));
                 } else if (sortBy === 'category') {
                     (descending)
                         ? data.sort((a, b) => (b.category || $t('noCategory')).localeCompare(a.category || $t('noCategory')))

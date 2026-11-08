@@ -498,6 +498,10 @@ module.exports = function(app, io) {
 
         Audit.findById(req.params.auditId)
         .then(audit => {
+            if (!audit) {
+                Response.NotFound(res, "Audit not found");
+                return;
+            }
             if (audit.state !== "REVIEW" && audit.state !== "APPROVED") {
                 Response.Forbidden(res, "The audit is not approvable in the current state.");
                 return;

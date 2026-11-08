@@ -376,7 +376,7 @@ expressions.filters.fromTo = function(start, end, locale) {
     options = {day: '2-digit', month: '2-digit', year: 'numeric'};
     end_str = end_date.toLocaleDateString(locale, options);
 
-    if (start_date.getYear() != end_date.getYear()) {
+    if (start_date.getFullYear() != end_date.getFullYear()) {
         options = {day: '2-digit', month: '2-digit', year: 'numeric'};
         start_str = start_date.toLocaleDateString(locale, options);
     }
@@ -384,7 +384,7 @@ expressions.filters.fromTo = function(start, end, locale) {
         options = {day: '2-digit', month: '2-digit'};
         start_str = start_date.toLocaleDateString(locale, options);
     }
-    else if (start_date.getDay() != end_date.getDay()) {
+    else if (start_date.getDate() != end_date.getDate()) { // Day of the month
         options = {day: '2-digit'};
         start_str = start_date.toLocaleDateString(locale, options);
     }
@@ -566,8 +566,13 @@ expressions.filters.sort = function(input, key = null) {
         return input.sort();
     }
     else {
+        // Ascending order (same as without key), elements without value at the end
         return input.sort(function(a, b) {
-            return _getPropertyValue(a, key) < _getPropertyValue(b, key);
+            var x = _getPropertyValue(a, key), y = _getPropertyValue(b, key);
+            if (x === y) return 0;
+            if (x === undefined || x === null) return 1;
+            if (y === undefined || y === null) return -1;
+            return x < y ? -1 : 1;
         });
     }
 }

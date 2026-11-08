@@ -59,3 +59,22 @@ function getSockets(io, room) {
   return result
 }
 exports.getSockets = getSockets
+
+// Replaces all the documents of a collection by a new list (pages of the custom data: languages, audit types...).
+// If the new list cannot be inserted (duplicate values, invalid values), the previous documents are put back.
+async function replaceAll(Model, documents) {
+  var previous = await Model.find({}).lean()
+  await Model.deleteMany({})
+  try {
+    await Model.insertMany(documents)
+  }
+  catch (err) {
+    await Model.deleteMany({})
+    if (previous.length > 0)
+      await Model.collection.insertMany(previous)
+    if (err.code === 11000 || err.name === 'ValidationError')
+      throw {fn: 'BadParameters', message: err.code === 11000 ? 'Duplicate values in the list' : err.message}
+    throw err
+  }
+}
+exports.replaceAll = replaceAll

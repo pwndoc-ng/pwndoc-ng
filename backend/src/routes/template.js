@@ -112,6 +112,10 @@ module.exports = function(app) {
 
          Template.getOne(req.params.templateId)
         .then(data => {
+            if (!data) {
+                Response.NotFound(res, 'Template not found');
+                return;
+            }
             var file = `${__basedir}/../report-templates/${data.name}.${data.ext || 'docx'}`
             res.download(file, `${data.name}.${data.ext}`)
         })

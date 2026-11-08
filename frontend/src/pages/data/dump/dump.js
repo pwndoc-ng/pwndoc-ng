@@ -122,7 +122,7 @@ export default {
                                         this.vulnerabilities.push(vulnFile);
                                 }
                                 else
-                                    throw new Error ($t('invalidYamlFormat'))
+                                    throw new Error ($t('err.invalidYamlFormat'))
                             }
                             catch(err) {
                                 console.log(err);
@@ -354,7 +354,7 @@ export default {
                                         this.companies.push(compFile);
                                 }
                                 else
-                                    throw new Error ($t('invalidYamlFormat'))
+                                    throw new Error ($t('err.invalidYamlFormat'))
                             }
                             catch(err) {
                                 console.log(err);
@@ -496,7 +496,7 @@ export default {
                                         this.clients.push(cltsFile);
                                 }
                                 else
-                                    throw new Error ($t('invalidYamlFormat'))
+                                    throw new Error ($t('err.invalidYamlFormat'))
                             }
                             catch(err) {
                                 console.log(err);
@@ -638,7 +638,7 @@ export default {
                                         this.users.push(cltsFile);
                                 }
                                 else
-                                    throw new Error ($t('invalidYamlFormat'))
+                                    throw new Error ($t('err.invalidYamlFormat'))
                             }
                             catch(err) {
                                 console.log(err);
@@ -680,7 +680,7 @@ export default {
         deleteAllUsers: function() {
             Dialog.create({
                 title: $t('msg.confirmSuppression'),
-                message: $t('msg.allCollabDeleteNotice'),
+                message: $t('msg.allUsersDeleteNotice'),
                 ok: {label: $t('btn.confirm'), color: 'negative'},
                 cancel: {label: $t('btn.cancel'), color: 'white'}
             })
@@ -688,7 +688,7 @@ export default {
                 CollabService.deleteAllCollab()
                 .then(() => {
                     Notify.create({
-                        message: $t('msg.allCollabDeleteOk'),
+                        message: $t('msg.allUsersDeleteOk'),
                         color: 'positive',
                         textColor:'white',
                         position: 'top-right'

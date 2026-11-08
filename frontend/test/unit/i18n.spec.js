@@ -13,19 +13,6 @@ const fr = flat['fr-FR']
 // 'quantifier' is inserted between a number and a noun: empty except in Chinese (个)
 const INTENTIONALLY_EMPTY = ['quantifier']
 
-// Known gaps (see the skipped tests below): the regression tests fail if new ones appear
-const KNOWN_MISSING_FR = [
-  'btn.accountsEnabled', 'btn.accountsDisabled', 'btn.accountEnabled', 'btn.accountDisabled', 'msg.passwordComplexity',
-  'shortName', 'cvssTemporalScore', 'cvssEnvironmentalScore', 'twoStepVerification', 'twoStepVerificationMessage',
-  'captions', 'captionsDescription'
-]
-const isKnownMissingFr = (key) => key.startsWith('cvss.tooltip.') || KNOWN_MISSING_FR.includes(key)
-const KNOWN_EMPTY = { 'de-DE': ['extendCvssTemporalEnvironment'] }
-const KNOWN_UNDEFINED_KEYS = [
-  'action', 'auditType', 'noVulnTypesForLanguage', 'invalidYamlFormat', 'msg.allCollabDeleteNotice',
-  'msg.allCollabDeleteOk', 'btn.comfirm', 'settingsUpdatedOk'
-]
-
 // Placeholders of a message: list ({0}) and named ({name}) interpolations
 function placeholders(message) {
   return [...String(message).matchAll(/\{\s*([\w.]+)\s*\}/g)].map((match) => match[1]).sort()
@@ -55,34 +42,16 @@ describe('i18n messages', () => {
     expect(Object.keys(messages).sort()).toEqual([...LOCALES].sort())
   })
 
-  // BUG: 115 en-US keys are not translated in fr-FR (French users see English): the 103 cvss.tooltip.* texts of the
-  // CVSS calculator, btn.account(s)Enabled/Disabled, msg.passwordComplexity, shortName, cvssTemporalScore,
-  // cvssEnvironmentalScore, twoStepVerification, twoStepVerificationMessage, captions, captionsDescription
-  it.skip('has every en-US key translated in fr-FR', () => {
+  it('has every en-US key translated in fr-FR', () => {
     expect(Object.keys(en).filter((key) => !(key in fr))).toEqual([])
-  })
-
-  it('has no fr-FR translation missing besides the known ones (regression)', () => {
-    const missing = Object.keys(en).filter((key) => !(key in fr) && !isKnownMissingFr(key))
-    expect(missing).toEqual([])
   })
 
   it('has no fr-FR key unknown in en-US (dead or misspelled key)', () => {
     expect(Object.keys(fr).filter((key) => !(key in en))).toEqual([])
   })
 
-  it.each(['en-US', 'fr-FR', 'zh-CN'])('has no empty message in %s (an empty translation is displayed, no fallback)', (locale) => {
+  it.each(LOCALES)('has no empty message in %s (an empty translation is displayed, no fallback)', (locale) => {
     expect(emptyKeys(locale)).toEqual([])
-  })
-
-  // BUG: src/i18n/de-DE/index.js:507 extendCvssTemporalEnvironment is '' (Settings page: empty label in German,
-  // vue-i18n does not fall back to English for an empty string)
-  it.skip('has no empty message in de-DE', () => {
-    expect(emptyKeys('de-DE')).toEqual([])
-  })
-
-  it('has no empty message in de-DE besides the known one (regression)', () => {
-    expect(emptyKeys('de-DE').filter((key) => !KNOWN_EMPTY['de-DE'].includes(key))).toEqual([])
   })
 
   it('uses the same placeholders in en-US and fr-FR', () => {
@@ -126,23 +95,8 @@ describe('i18n keys used by the code', () => {
     expect(keys.size).toBeGreaterThan(300)
   })
 
-  // BUG: keys used by the code but not defined: the raw key is displayed instead of a text
-  // - pages/settings/settings.js:61 'btn.comfirm' (typo of btn.confirm, button of the revert defaults dialog)
-  // - pages/settings/settings.js:176 'settingsUpdatedOk' (defined as msg.settingsUpdatedOk)
-  // - pages/data/dump/dump.js:125,357,499,641 'invalidYamlFormat' (defined as err.invalidYamlFormat)
-  // - pages/data/dump/dump.js:683,691 'msg.allCollabDeleteNotice' / 'msg.allCollabDeleteOk' (defined as msg.allUsersDelete*)
-  // - pages/audits/list/audits-list.html:90 'auditType' (only comments.auditType exists)
-  // - pages/audits/edit/findings/add/add.html:102 'action'
-  // - pages/data/custom/custom.html:531 'noVulnTypesForLanguage'
-  it.skip('only uses keys defined in en-US (a missing key is displayed raw)', () => {
-    expect(undefinedKeys()).toEqual([])
-  })
-
-  it('uses no undefined key besides the known ones (regression)', () => {
-    const missing = undefinedKeys()
-      .filter((key) => !KNOWN_UNDEFINED_KEYS.includes(key))
-      .map((key) => `${key} (${[...keys.get(key)].join(', ')})`)
-    expect(missing).toEqual([])
+  it('only uses keys defined in en-US (a missing key is displayed raw)', () => {
+    expect(undefinedKeys().map((key) => `${key} (${[...keys.get(key)].join(', ')})`)).toEqual([])
   })
 
   it('only uses keys pointing to a message, not to a group of messages', () => {

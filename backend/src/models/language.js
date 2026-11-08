@@ -1,5 +1,6 @@
 var mongoose = require('mongoose');
-var Schema = mongoose.Schema;
+var Schema = mongoose.Schema
+var utils = require('../lib/utils');
 
 var LanguageSchema = new Schema({
     language:   {type: String, unique: true},
@@ -45,18 +46,8 @@ LanguageSchema.statics.create = (language) => {
 
 // Update languages
 LanguageSchema.statics.updateAll = (languages) => {
-    return new Promise((resolve, reject) => {
-        Language.deleteMany()
-        .then((row) => {
-            Language.insertMany(languages)
-        })
-        .then((row) => {
-            resolve("Languages updated successfully")
-        })
-        .catch((err) => {
-            reject(err);
-        })
-    })
+    // Previous list kept if the new one cannot be inserted (duplicates...)
+    return utils.replaceAll(Language, languages).then(() => "Languages updated successfully")
 }
 
 // Delete language
