@@ -26,16 +26,22 @@ Here is the list of available permissions to access data:
 |                   |                               | templates:update  | vulnerability-categories:update |                      |
 |                   |                               | templates:delete  | vulnerability-categories:delete |                      |
 |                   |                               | roles:read        | custom-fields:create            |                      |
-|                   |                               | backup:export     | custom-fields:read              |                      |
-|                   |                               | backup:import     | custom-fields:update            |                      |
-|                   |                               |                   | custom-fields:delete            |                      |
+|                   |                               | backups:read      | custom-fields:read              |                      |
+|                   |                               | backups:create    | custom-fields:update            |                      |
+|                   |                               | backups:restore   | custom-fields:delete            |                      |
+|                   |                               | backups:delete    |                                 |                      |
 |                   |                               |                   | sections:create                 |                      |
 |                   |                               |                   | sections:read                   |                      |
 |                   |                               |                   | sections:update                 |                      |
 |                   |                               |                   | sections:delete                 |                      |
 
 
-`backup:export` and `backup:import`: global backup of all the data (Data > Import/Export > Global backup). The import replaces all the data of the instance.
+Backups (Data > Import/Export > Backups), stored on the server in `backend/backup`:
+
+- `backups:read`: list and download the backups
+- `backups:create`: create a backup (all the data or a part of it) and upload a backup file
+- `backups:restore`: restore a backup. It replaces or merges data of the instance: give it to administrators only
+- `backups:delete`: delete a backup
 
 ## Built-In Roles
 

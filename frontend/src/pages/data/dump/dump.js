@@ -13,25 +13,26 @@ import ClientService from '@/services/client'
 import UserService from '@/services/user'
 import CollabService from '@/services/collaborator';
 import TemplateService from '@/services/template'
-import BackupService from '@/services/backup'
+import BackupsManager from 'components/backups-manager'
 
 import { $t } from '@/boot/i18n'
 
 export default {
+    components: {
+        BackupsManager
+    },
+
     data: () => {
         return {
             UserService: UserService,
             vulnerabilities: [],
             selectedTab: "vulnerabilities",
-            // Global backup
-            backupExport: {password: '', confirm: '', running: false, progress: null},
-            backupImport: {file: null, password: '', running: false, progress: 0},
         }
     },
 
     computed: {
         canBackup: function() {
-            return UserService.isAllowed('backup:export') || UserService.isAllowed('backup:import')
+            return UserService.isAllowed('backups:read') || UserService.isAllowed('backups:create')
         }
     },
 
@@ -40,71 +41,6 @@ export default {
     },
 
     methods: {
-        // Global backup
-
-        exportBackup: async function() {
-            this.backupExport.running = true
-            this.backupExport.progress = null
-            try {
-                var response = await BackupService.exportBackup(this.backupExport.password, (event) => {
-                    if (event.total) this.backupExport.progress = event.loaded / event.total
-                })
-                var disposition = response.headers['content-disposition'] || ''
-                var match = disposition.match(/filename="([^"]+)"/)
-                var fileName = match ? decodeURIComponent(match[1]) : 'pwndoc-ng-backup.zip'
-                var url = URL.createObjectURL(response.data)
-                var a = document.createElement('a')
-                a.href = url
-                a.download = fileName
-                document.body.appendChild(a)
-                a.click()
-                URL.revokeObjectURL(url)
-                document.body.removeChild(a)
-                this.backupExport.password = ''
-                this.backupExport.confirm = ''
-                Notify.create({message: $t('backup.exportOk'), color: 'positive', textColor: 'white', position: 'top-right'})
-            }
-            catch (err) {
-                Notify.create({message: await BackupService.errorMessage(err), color: 'negative', textColor: 'white', position: 'top-right'})
-            }
-            this.backupExport.running = false
-        },
-
-        confirmImportBackup: function() {
-            Dialog.create({
-                title: $t('backup.confirmTitle'),
-                message: $t('backup.confirmMessage', [this.backupImport.file.name]),
-                ok: {label: $t('backup.importBtn'), color: 'negative', unelevated: true},
-                cancel: {label: $t('btn.cancel'), color: 'white'},
-                persistent: true
-            })
-            .onOk(() => this.importBackup())
-        },
-
-        importBackup: async function() {
-            this.backupImport.running = true
-            this.backupImport.progress = 0
-            try {
-                var response = await BackupService.importBackup(this.backupImport.file, this.backupImport.password, (event) => {
-                    if (event.total) this.backupImport.progress = event.loaded / event.total
-                })
-                var result = response.data.datas
-                var documents = Object.values(result.collections).reduce((total, count) => total + count, 0)
-                Dialog.create({
-                    title: $t('backup.importOkTitle'),
-                    message: $t('backup.importOk', [documents, result.templates]),
-                    ok: {label: $t('backup.reconnect'), color: 'secondary', unelevated: true},
-                    persistent: true
-                })
-                .onOk(() => UserService.destroyToken()) // Users have been replaced: new login
-            }
-            catch (err) {
-                Notify.create({message: await BackupService.errorMessage(err), color: 'negative', textColor: 'white', position: 'top-right', timeout: 10000})
-            }
-            this.backupImport.running = false
-            this.backupImport.password = ''
-        },
-
         getVulnerabilities: function() {
             this.vulnerabilities = [];
             VulnerabilityService.exportVulnerabilities()

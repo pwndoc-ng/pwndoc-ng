@@ -32,6 +32,7 @@ services:
     volumes:
       - ./backend/src/:/app/src/
       - ./backend/report-templates/:/app/report-templates/
+      - ./backend/backup/:/app/backup/
       - ./backend/ssl/:/app/ssl/
       - ./backend/tests/:/app/tests/
       - ./backend/package.json:/app/package.json

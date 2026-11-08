@@ -237,79 +237,9 @@
                     </q-card-section>-->
                 </q-card>
             </q-tab-panel>
-            <!-- Global backup: every collection, images and report templates (migration to another instance) -->
+            <!-- Backups stored on the server: all the data or a part of it, restore (replace or merge), migration to another instance -->
             <q-tab-panel v-if="canBackup" name="backup">
-                <q-card v-if="UserService.isAllowed('backup:export')">
-                    <q-card-section>
-                        <div class="text-grey-8"><q-icon name="mdi-database-export" class="q-mr-xs" />{{$t('backup.exportTitle')}}</div>
-                    </q-card-section>
-                    <q-card-section class="q-pt-none">
-                        <div class="text-grey-8 q-mb-md">{{$t('backup.exportInfo')}}</div>
-                        <div class="row q-col-gutter-md">
-                            <q-input class="col-md-5 col-12" v-model="backupExport.password" type="password" outlined dense autocomplete="new-password" :label="$t('backup.password')" :hint="$t('backup.passwordInfo')" />
-                            <q-input
-                            class="col-md-5 col-12"
-                            v-model="backupExport.confirm"
-                            type="password"
-                            outlined
-                            dense
-                            autocomplete="new-password"
-                            :disable="!backupExport.password"
-                            :label="$t('backup.passwordConfirm')"
-                            :error="!!backupExport.password && !!backupExport.confirm && backupExport.password !== backupExport.confirm"
-                            :error-message="$t('backup.passwordsMismatch')"
-                            />
-                        </div>
-                        <q-linear-progress v-if="backupExport.running" class="q-mt-md" :indeterminate="backupExport.progress === null" :value="backupExport.progress || 0" color="secondary" size="6px" />
-                    </q-card-section>
-                    <q-card-actions class="q-px-md q-pb-md">
-                        <q-btn
-                        unelevated
-                        no-caps
-                        color="secondary"
-                        icon="mdi-download"
-                        :label="$t('backup.exportBtn')"
-                        :loading="backupExport.running"
-                        :disable="!!backupExport.password && backupExport.password !== backupExport.confirm"
-                        @click="exportBackup"
-                        />
-                    </q-card-actions>
-                </q-card>
-                <q-card v-if="UserService.isAllowed('backup:import')" class="q-mt-md">
-                    <q-card-section>
-                        <div class="text-grey-8"><q-icon name="mdi-database-import" class="q-mr-xs" />{{$t('backup.importTitle')}}</div>
-                    </q-card-section>
-                    <q-card-section class="q-pt-none">
-                        <q-banner dense class="bg-red-1 text-negative rounded-borders q-mb-md">
-                            <template #avatar><q-icon name="warning" color="negative" /></template>
-                            {{$t('backup.importWarning')}}
-                        </q-banner>
-                        <div class="row q-col-gutter-md">
-                            <q-file class="col-md-5 col-12" v-model="backupImport.file" outlined dense clearable accept=".zip,.enc" :label="$t('backup.file')">
-                                <template #prepend><q-icon name="attach_file" /></template>
-                            </q-file>
-                            <q-input class="col-md-5 col-12" v-model="backupImport.password" type="password" outlined dense autocomplete="off" :label="$t('backup.importPassword')" />
-                        </div>
-                        <div v-if="backupImport.running" class="q-mt-md">
-                            <div class="text-caption text-grey-8">
-                                {{ backupImport.progress < 1 ? $t('backup.uploading', [Math.round(backupImport.progress * 100)]) : $t('backup.restoring') }}
-                            </div>
-                            <q-linear-progress :indeterminate="backupImport.progress >= 1" :value="backupImport.progress" color="negative" size="6px" />
-                        </div>
-                    </q-card-section>
-                    <q-card-actions class="q-px-md q-pb-md">
-                        <q-btn
-                        unelevated
-                        no-caps
-                        color="negative"
-                        icon="mdi-backup-restore"
-                        :label="$t('backup.importBtn')"
-                        :loading="backupImport.running"
-                        :disable="!backupImport.file"
-                        @click="confirmImportBackup"
-                        />
-                    </q-card-actions>
-                </q-card>
+                <backups-manager />
             </q-tab-panel>
         </q-tab-panels>
     </div>

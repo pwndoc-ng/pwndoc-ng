@@ -101,7 +101,22 @@ Options:
 
 ## Backup
 
-It's possible, even recommended, to regularly backup the `mongo-data` volume. It contains all the database.
+### From the application
+
+*Data > Import / Export > Backups* (permissions in [roles](roles.md)):
+
+- **Create a backup**: all the data, or a selection (audits, vulnerabilities, images, users, companies and clients, report templates, custom data, settings). Images are always saved with the audits and the vulnerabilities, companies with the clients. A password encrypts the backup (AES-256): its name and content stay visible, its data cannot be read or restored without the password.
+- Backups are stored on the server in `backend/backup` (volume of the backend container). **Download** a backup to keep it elsewhere, **upload** a backup file to add it to the backups of the instance (migration to another server).
+- **Restore** the selected data of a backup:
+  - *Merge*: the data of the backup is added, or replaces the data with the same identifier. Nothing is deleted. Settings are replaced.
+  - *Replace*: the current data of the selected categories is deleted and replaced by the data of the backup.
+
+  If the restore fails (for example data of the backup in conflict with the current data during a merge: same name, another identifier), the previous data is kept. Users editing audits are disconnected and reconnect on the restored data.
+- The free disk space is checked before writing a backup.
+
+### Database volume
+
+It's also possible to regularly backup the `mongo-data` volume. It contains all the database.
 
 Find the location of the volume on the disk:
 

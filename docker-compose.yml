@@ -28,6 +28,7 @@ services:
     container_name: pwndoc-ng-backend
     volumes:
       - ./backend/report-templates:/app/report-templates
+      - ./backend/backup:/app/backup
       - ./backend/src/config:/app/src/config
     depends_on:
       - mongodb

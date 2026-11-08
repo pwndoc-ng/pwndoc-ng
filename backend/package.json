@@ -11,6 +11,9 @@
     "test": "NODE_ENV=test jest tests/index.test.js --testTimeout=10000 --forceExit",
     "swagger-autogen": "node ./swagger.js"
   },
+  "nodemonConfig": {
+    "watch": ["src"]
+  },
   "devDependencies": {
     "@babel/core": "^7.29.0",
     "@babel/preset-env": "^7.29.0",
