@@ -82,9 +82,14 @@ API is accessible through https://localhost:8081/api
 
 ## Tests
 
-> For now only backend tests have been written (it's a continuous work in progress)
+### Backend
 
-Test files are located in `backend/tests` using Jest testing framework
+Test files are located in `backend/tests` using Jest testing framework (API of every feature, roles and permissions,
+collaborative editing server, report generation, backups...).
+
+The tests run in their own containers (`backend/docker-compose.test.yml`): the test container uses the network of a
+dedicated MongoDB container, whose database is emptied at the start of the tests. The database of a running instance
+is never used.
 
 Script `run_tests.sh` at the root folder can be used to launch tests :
 
@@ -98,6 +103,15 @@ Options:
 ```
 
 !> **Don't use it in production as it will delete the production Database**
+
+### Frontend
+
+Unit and component tests with Vitest in `frontend/test` (services, components, pages, editor content and collaboration,
+translations). From the root folder:
+
+```
+docker run --rm -v "$PWD":/repo -v /repo/frontend/node_modules -w /repo/frontend node:26-alpine sh -c "npm ci && npm test"
+```
 
 ## Backup
 

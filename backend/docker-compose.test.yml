@@ -10,7 +10,6 @@ services:
     restart: always
     environment:
       - MONGO_DB:pwndoc-ng
-    network_mode: host
 
   backend-test:
     image: yeln4ts/pwndoc-ng:backend-test
@@ -26,7 +25,9 @@ services:
       API_URL: https://localhost:4242
     depends_on:
       - mongodb-test
-    network_mode: host
+    # Network of the test database: 127.0.0.1:27017 (database of the tests, emptied at the start) is never the
+    # database of a running instance (the docker-compose files publish 127.0.0.1:27017 on the host)
+    network_mode: service:mongodb-test
 
 volumes:
   mongo-data-test:
