@@ -166,6 +166,12 @@ export function createCommentsStore(auditId, options) {
       return !normalize(Utils.htmlToText(content)).includes(normalize(comment.quote.exact))
     },
 
+    // Audit in review (or approved): editors propose comments, not formatting
+    inReview() {
+      const audit = options.getAudit()
+      return !!(audit && audit.state && audit.state !== 'EDIT')
+    },
+
     // ----- Permissions (also checked by the backend) -----
 
     canResolve(comment) {

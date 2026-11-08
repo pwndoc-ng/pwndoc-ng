@@ -505,11 +505,12 @@
       </q-toolbar>
     </div>
     <q-separator />
+    <!-- Formatting and LanguageTool menus: not shown when the audit is in review, where a selection is made to comment it -->
      <bubble-menu
       class="editor-bubble-menu"
       :editor="editor"
       :tippy-options="{ duration: 100 }"
-      v-if="editor"
+      v-if="editor && !commentMode"
     >
       <button @click="editor.chain().focus().toggleBold().run()" :class="{ 'is-active': editor.isActive('bold') }">
         <q-icon name="format_bold" />
@@ -526,12 +527,17 @@
       <button   @click="editor.isActive('link') ? editor.chain().focus().unsetLink().run() : setLink()" >
         <q-icon :name="editor.isActive('link') ? 'mdi-link-off' : 'mdi-link' " />
       </button>
+      <!-- Comment the selected passage (audit not in review: the comment action is part of this menu) -->
+      <button v-if="commentable" class="editor-bubble-menu__comment" @mousedown.prevent @click="commentSelectedText">
+        <q-icon name="mdi-comment-plus-outline" />
+        <q-tooltip :delay="500">{{ $t('comments.commentSelection') }}</q-tooltip>
+      </button>
 
 
     </bubble-menu>
     <bubble-menu
   class="bubble-menu"
-  v-if="editor"
+  v-if="editor && !commentMode"
   :editor="editor"
   :tippy-options="{ placement: 'bottom', animation: 'fade' }"
 >
@@ -562,7 +568,7 @@
     />
     <!-- Comment the selected passage -->
     <q-btn
-      v-if="commentSelection"
+      v-if="commentSelection && !commentInFormatMenu"
       class="comment-selection-btn"
       :style="{ top: (commentSelection.top - 40) + 'px', left: commentSelection.left + 'px' }"
       color="orange-8"
@@ -874,6 +880,11 @@ export default defineComponent({
     this.editor = new Editor({
       editable: false,
       extensions: extensionEditor ,
+      editorProps: {
+        // Read-only editor (review): kept focusable so that a click selects text. Otherwise the focus goes to the
+        // focusable wrapper of the q-field around the editor, which hands it to another control and cancels the selection
+        attributes: (state) => (this.editor && this.editor.isEditable ? {} : { tabindex: '-1' }),
+      },
       onUpdate: ({editor}) => {
         setTimeout(() => updateMatch(editor))
         if(this.state && this.initialeDataUpdated && this.countChangeAfterUpdate>0 && this.countChangeAfterUpdate<this.countChange){
@@ -945,6 +956,14 @@ export default defineComponent({
 
     commentable() {
       return !!(this.commentsStore && this.commentTarget);
+    },
+    // Comment mode: audit in review, selecting a passage only proposes to comment it (no formatting menu)
+    commentMode() {
+      return this.commentable && this.commentsStore.inReview();
+    },
+    // Editable editor outside review: the comment action is in the formatting menu of the selection
+    commentInFormatMenu() {
+      return this.commentable && !this.commentMode && this.editable;
     },
     // Open comments on passages and images of this field (highlighted)
     quoteComments() {
@@ -1164,6 +1183,15 @@ export default defineComponent({
       if (!quote) return;
       const rect = range.getBoundingClientRect();
       this.commentSelection = { quote, top: rect.top, left: rect.left + rect.width / 2 };
+    },
+
+    // Comment action of the formatting menu: passage selected in the editor
+    commentSelectedText() {
+      const { from, to } = this.editor.state.selection;
+      const quote = quoteFromRange(this.editor.state.doc, from, to);
+      if (!quote) return;
+      this.commentsStore.startComment(this.commentTarget, quote);
+      this.commentSelection = null;
     },
 
     commentOnSelection() {
@@ -1602,6 +1630,17 @@ pre .diffadd {
 .editor-bubble-menu > button {
   background: bottom;
     border: none;
+}
+
+/* Comment action of the selection menu: separated from the formatting actions */
+.editor-bubble-menu > .editor-bubble-menu__comment {
+  border-left: 1px solid #555555;
+  margin-left: 3px;
+  padding-left: 6px;
+}
+
+.editor-bubble-menu > .editor-bubble-menu__comment > i {
+  color: #ffb74d;
 }
 
 .editor-menubar {
