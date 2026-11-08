@@ -5,7 +5,6 @@ import CustomFields from 'components/custom-fields'
 
 import DataService from '@/services/data'
 import Utils from '@/services/utils'
-import Vue from 'vue'
 import YAML from 'js-yaml'
 
 import VulnerabilityService from '@/services/vulnerability'
