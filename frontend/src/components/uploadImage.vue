@@ -136,6 +136,7 @@ export default defineComponent({
       if (!context) return [];
       const doc = this.editor.state.doc;
       const pos = this.getPos();
+      if (pos === undefined) return []; // Node view not in the document (TipTap v3: getPos can be undefined)
       return context.store.forTarget(context.target).filter((comment) => {
         if (!comment.image || comment.resolved) return false;
         const found = findImage(doc, comment.image);
@@ -159,7 +160,9 @@ export default defineComponent({
     },
     commentImage() {
       const context = this.commentContext();
-      const anchor = imageAnchorAt(this.editor.state.doc, this.getPos());
+      const pos = this.getPos();
+      if (pos === undefined) return;
+      const anchor = imageAnchorAt(this.editor.state.doc, pos);
       if (context && anchor) context.store.startComment(context.target, null, anchor);
     },
     showImageComments() {
@@ -171,9 +174,11 @@ export default defineComponent({
     },
 
     selectImage() {
+      const pos = this.getPos();
+      if (pos === undefined) return;
       const { state } = this.editor.view;
       let { tr } = state;
-      const selection = tr.setNodeMarkup(this.getPos(), undefined, state.doc);
+      const selection = tr.setNodeMarkup(pos, undefined, state.doc);
       this.editor.view.dispatch(selection);
     },
 

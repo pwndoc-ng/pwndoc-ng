@@ -1,5 +1,5 @@
 import Image from "@tiptap/extension-image";
-import { Plugin, PluginKey } from "prosemirror-state";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 
 import uploadImage from "./uploadImage.vue";
@@ -11,7 +11,7 @@ export default Image.extend({
 
   addOptions() {
     return {
-      ...Image.options,
+      ...this.parent?.(),
     };
   },
   group: "block",
@@ -19,7 +19,7 @@ export default Image.extend({
 
   addAttributes() {
     return {
-      ...Image.config.addAttributes(),
+      ...this.parent?.(),
       // Width in the editor and in the report: small, medium or large (between page margins).
       // null: default width from settings. Rendered after src and alt (order expected by the report generator).
       width: {
@@ -30,24 +30,6 @@ export default Image.extend({
         },
         renderHTML: (attributes) => (attributes.width ? { "data-width": attributes.width } : {}),
       },
-      attrs: {
-        src: {},
-        alt: {
-          default: "",
-        },
-      },
-      group: "block",
-      draggable: true,
-      parseDOM: [
-        {
-          tag: "img[src]",
-          getAttrs: (dom) => ({
-            src: dom.getAttribute("src"),
-            alt: dom.getAttribute("alt"),
-          }),
-        },
-      ],
-      toDOM: (node) => ["img", node.attrs],
     };
   },
   addCommands() {

@@ -12,7 +12,9 @@
     "swagger-autogen": "node ./swagger.js"
   },
   "nodemonConfig": {
-    "watch": ["src"]
+    "watch": [
+      "src"
+    ]
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
@@ -23,7 +25,7 @@
     "swagger-autogen": "^2.23.7"
   },
   "dependencies": {
-    "@hocuspocus/server": "^2.15.3",
+    "@hocuspocus/server": "^4.7.1",
     "angular-expressions": "^1.7.1",
     "bcrypt": "^6.0.0",
     "body-parser": "^1.20.9",
@@ -47,6 +49,8 @@
     "xml": "^1.0.1"
   },
   "overrides": {
-    "xmldom": "npm:@xmldom/xmldom@^0.8.15"
+    "xmldom": "npm:@xmldom/xmldom@^0.8.15",
+    "@hocuspocus/common": "4.7.1",
+    "crossws": "0.4.15"
   }
 }

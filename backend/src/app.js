@@ -174,12 +174,12 @@ cronJobs();
 // control is done per document in onAuthenticate. Defining onAuthenticate makes Hocuspocus wait for it
 // before attaching the document (onConnect alone runs concurrently with the first queued messages).
 // The client sends a dummy token to trigger it: authentication relies on the httpOnly token cookie.
-var hocus = require('@hocuspocus/server')
+var { Server: HocuspocusServer } = require('@hocuspocus/server')
 
 // Permissions allowing to write non-audit documents (vulnerabilities and custom fields editors)
 var dataWritePermissions = ['vulnerabilities:create', 'vulnerabilities:update', 'custom-fields:create', 'custom-fields:update']
 
-const serverHocus = hocus.Server.configure({
+const serverHocus = new HocuspocusServer({
   port: process.env.COLLAB_WEBSOCKET_PORT || 8440,
 
   // Refuse the websocket upgrade if the user is not authenticated
@@ -193,8 +193,8 @@ const serverHocus = hocus.Server.configure({
   },
 
   // Called for each document opened on the websocket, before any document data is exchanged
-  async onAuthenticate({ documentName, requestHeaders, connection }) {
-    var decodedToken = auth.decodeTokenFromCookieHeader(requestHeaders.cookie)
+  async onAuthenticate({ documentName, requestHeaders, connectionConfig }) {
+    var decodedToken = auth.decodeTokenFromCookieHeader(requestHeaders.get('cookie')) // Web standard Headers (Hocuspocus v4)
     if (!decodedToken || !acl.isAllowed(decodedToken.role, 'audits:read'))
       throw new Error('Unauthorized')
 
@@ -208,17 +208,17 @@ const serverHocus = hocus.Server.configure({
       )
       if (!access.read)
         throw new Error('Forbidden')
-      connection.readOnly = !access.write
+      connectionConfig.readOnly = !access.write
     }
     // Other documents (vulnerabilities, custom fields default text) contain data readable by any
     // authenticated user, but only users allowed to edit this data can push changes
     else {
-      connection.readOnly = !dataWritePermissions.some(permission => acl.isAllowed(decodedToken.role, permission))
+      connectionConfig.readOnly = !dataWritePermissions.some(permission => acl.isAllowed(decodedToken.role, permission))
     }
   }
 })
 serverHocus.listen()
-app.set('hocuspocus', serverHocus) // Used to close the editing sessions after a backup restore
+app.set('hocuspocus', serverHocus.hocuspocus) // Used to close the editing sessions after a backup restore
 
 
 if(config.apidoc) {

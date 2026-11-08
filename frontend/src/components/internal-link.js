@@ -1,11 +1,11 @@
 
 import { Extension } from '@tiptap/core';
-import { Plugin, PluginKey } from 'prosemirror-state';
+import { Plugin, PluginKey } from '@tiptap/pm/state';
 
 // Finding titles are stored base64 encoded in the menu options (data-value attribute). UTF-8 encoding: btoa alone
 // fails on characters outside Latin-1 (typographic apostrophe, oe ligature...)
-const encodeOption = (text) => btoa(String.fromCharCode(...new TextEncoder().encode(text)));
-const decodeOption = (value) => new TextDecoder().decode(Uint8Array.from(atob(value), (c) => c.charCodeAt(0)));
+export const encodeOption = (text) => btoa(String.fromCharCode(...new TextEncoder().encode(text)));
+export const decodeOption = (value) => new TextDecoder().decode(Uint8Array.from(atob(value), (c) => c.charCodeAt(0)));
 
 export const TriggerMenuExtension = Extension.create({
   name: 'triggerMenu',

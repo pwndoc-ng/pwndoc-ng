@@ -509,7 +509,7 @@
      <bubble-menu
       class="editor-bubble-menu"
       :editor="editor"
-      :tippy-options="{ duration: 100 }"
+      :options="{ placement: 'top', offset: 6 }"
       v-if="editor && !commentMode"
     >
       <button @click="editor.chain().focus().toggleBold().run()" :class="{ 'is-active': editor.isActive('bold') }">
@@ -539,7 +539,7 @@
   class="bubble-menu"
   v-if="editor && !commentMode"
   :editor="editor"
-  :tippy-options="{ placement: 'bottom', animation: 'fade' }"
+  :options="{ placement: 'bottom', offset: 6 }"
 >
   <section class="bubble-menu-section-container">
     <section class="message-section">
@@ -602,59 +602,27 @@
 <script>
 import { defineComponent,ref } from 'vue';
 
-import { Editor, EditorContent, BubbleMenu, VueNodeViewRenderer  } from "@tiptap/vue-3";
+import { Editor, EditorContent, VueNodeViewRenderer } from "@tiptap/vue-3";
+import { BubbleMenu } from "@tiptap/vue-3/menus";
 //  Import extensions
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 
 
 import { LanguageTool } from './languagetool'
-import Highlight from "@tiptap/extension-highlight";
-import Underline from "@tiptap/extension-underline";
-import StarterKit from "@tiptap/starter-kit";
-import Table from "@tiptap/extension-table";
-import TableCell from "@tiptap/extension-table-cell";
-import TableRow from "@tiptap/extension-table-row";
-import TableHeader from "@tiptap/extension-table-header";
-import Link from "@tiptap/extension-link";
-import CustomImage from "./editor-image";
-//import Caption from "./editor-caption";
-import { Figure } from "./figure";
+import { contentExtensions, lowlight } from './editor-extensions'
 import { CommentHighlight, commentHighlightKey, quoteFromRange } from "./comment-highlight";
 import { TriggerMenuExtension } from './internal-link';
 import {v4 as uuidv4} from 'uuid';
 import UserService from '@/services/user';
 import Collaboration from '@tiptap/extension-collaboration'
-import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
+import { fixPluginRegistration, keepUndoManagerTracking, setInitialCollaborativeContent } from './editor-collaboration'
+import CollaborationCaret from '@tiptap/extension-collaboration-caret'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
 
 
 
-import css from 'highlight.js/lib/languages/css'
-import js from 'highlight.js/lib/languages/javascript'
-import http from 'highlight.js/lib/languages/http'
-import ts from 'highlight.js/lib/languages/typescript'
-import html from 'highlight.js/lib/languages/xml'
-import bash from 'highlight.js/lib/languages/bash';
-import sql from 'highlight.js/lib/languages/sql';
-import json from 'highlight.js/lib/languages/json';
 import CodeBlockComponent from './CodeBlockComponent.vue'
-
-import { all, createLowlight } from 'lowlight'
-
-// create a lowlight instance
-const lowlight = createLowlight(all)
-
-// you can also register languages
-lowlight.register('html', html)
-lowlight.register('css', css)
-lowlight.register('javascripts', js)
-lowlight.register('ts', ts)
-lowlight.register('http', http)
-lowlight.register('bash', bash);
-lowlight.register('sql', sql);
-lowlight.register('json', json);
-
 
 const Diff = require("diff");
 //  Internal libs
@@ -739,6 +707,7 @@ export default defineComponent({
       countChange:0,
       countChangeAfterUpdate:-1,
       initialeDataUpdated:false,
+      emptyInitialValue: false, // Initialized with an empty value and not modified since (value may arrive later)
       commentSelection: null, // Selected passage to comment: {quote, top, left}
       zoom: {show: false, src: '', alt: '', fullSize: false}, // Image zoom dialog
       htmlEncode: Utils.htmlEncode,
@@ -797,40 +766,18 @@ export default defineComponent({
      }
 
     let extensionEditor = [
-        StarterKit.configure({
-          codeBlock: false, // Disable standard codeBlock to use code block highlight
+        // Content of the editor (schema and HTML): editor-extensions.js
+        ...contentExtensions({
+          collab: this.collab,
+          codeBlock: CodeBlockLowlight
+            .extend({
+              addNodeView() {
+                return VueNodeViewRenderer(CodeBlockComponent)
+              },
+            })
+            .configure({ lowlight }),
         }),
-
-        Highlight.configure({
-          multicolor: true,
-        }),
-        Link.configure({
-          protocols: ['ftp', 'mailto'],
-             linkOnPaste: false,
-              openOnClick: false,
-        }),
-        CodeBlockLowlight
-          .extend({
-            addNodeView() {
-              return VueNodeViewRenderer(CodeBlockComponent)
-            },
-          })
-          .configure({ lowlight }),
-        Underline,
-        Table.configure({
-          resizable: true,
-        }),
-        TableRow,
-        TableHeader,
-        TableCell,
         TriggerMenuExtension,
-        CustomImage.configure({
-          HTMLAttributes: {
-            class: "custom-image",
-          },
-          allowBase64: true
-        }),
-        Figure,
         CommentHighlight.configure(), // New instance per editor: its storage (field target) must not be shared
         LanguageTool.configure({
          apiUrl: `https://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/v2/check`, 
@@ -863,7 +810,7 @@ export default defineComponent({
           document: ydoc,
           field: this.fullId
       }))
-      extensionEditor.push(CollaborationCursor.configure({
+      extensionEditor.push(CollaborationCaret.configure({
           provider: this.provider,
           user: {
             name:  this.username,
@@ -885,9 +832,11 @@ export default defineComponent({
         // focusable wrapper of the q-field around the editor, which hands it to another control and cancels the selection
         attributes: (state) => (this.editor && this.editor.isEditable ? {} : { tabindex: '-1' }),
       },
+      onTransaction: () => this.keepUndoManagerTracking(),
       onUpdate: ({editor}) => {
         setTimeout(() => updateMatch(editor))
         if(this.state && this.initialeDataUpdated && this.countChangeAfterUpdate>0 && this.countChangeAfterUpdate<this.countChange){
+           this.emptyInitialValue = false
            this.$emit('editorchange') // need save only if sync is done
         } else {
           this.countChange++
@@ -902,10 +851,13 @@ export default defineComponent({
       disablePasteRules: true,
     });
 
+    // Bubble menus register their plugin after the creation: see editor-collaboration.js
+    fixPluginRegistration(this.editor);
+
     // Listen to auto correction toggle changes
     this.autoCorrectionToggleListener = (event) => {
-      if (this.editor && this.editor.extensionStorage.languagetool) {
-        this.editor.extensionStorage.languagetool.updateLanguageToolState();
+      if (this.editor && this.editor.storage.languagetool) {
+        this.editor.storage.languagetool.updateLanguageToolState();
       }
     };
     window.addEventListener('autoCorrectionToggleChanged', this.autoCorrectionToggleListener);
@@ -972,7 +924,7 @@ export default defineComponent({
     },
 
     match() {
-      return this.editor ? this.editor.extensionStorage.languagetool.match.value : null;
+      return this.editor ? this.editor.storage.languagetool.match.value : null;
     },
     matchMessage() {
      // console.log('matchmessage',this.match.message,this.match)
@@ -1045,6 +997,18 @@ export default defineComponent({
   },
 
   methods: {
+    // TipTap Collaboration restores the undo manager of the collaboration when the plugin views are recreated (the
+    // bubble menus register their plugin when mounted), but loses track of it when the views are destroyed several
+    // times in a row: undone changes could no longer be redone. The undo manager must track its own transactions
+    // (default of Yjs) to fill the redo stack.
+    // Collaborative editors: see editor-collaboration.js
+    setInitialCollaborativeContent(value) {
+      if (this.collab) setInitialCollaborativeContent(this.editor, this.flattenCodeBlocks(value));
+      else this.editor.commands.setContent(this.flattenCodeBlocks(value), { emitUpdate: false });
+    },
+    keepUndoManagerTracking() {
+      if (this.collab) keepUndoManagerTracking(this.editor);
+    },
     acceptSuggestion(sug)  {
       this.editor.commands.insertContent(sug.value)
     },
@@ -1053,11 +1017,19 @@ export default defineComponent({
 
     },
     async updateInitialeValue(value){
+    // Value received after an initialization with an empty value (e.g. custom fields loaded after the editor): applied
+    // if the editor is still empty and was not modified
+    if (this.initialeDataUpdated && this.emptyInitialValue && value && this.editor && this.editor.getHTML() === '<p></p>') {
+      this.emptyInitialValue = false;
+      this.setInitialCollaborativeContent(value);
+      return;
+    }
 
               
     if( typeof this.$route.params.auditId == 'undefined' && (this.idUnique.split('-')[0]=="undefined" || this.idUnique.split('-') == ""  )&& this.initialeDataUpdated==false){
       // if editor is init not in vuln edit context like cutom field
-      this.editor.commands.setContent(this.flattenCodeBlocks(value), false);
+      this.editor.commands.setContent(this.flattenCodeBlocks(value), { emitUpdate: false });
+      this.emptyInitialValue = !value
       this.initialeDataUpdated=true
       this.editor.setEditable(this.editable && this.initialeDataUpdated);
       this.$emit('ready')
@@ -1068,8 +1040,9 @@ export default defineComponent({
           for (let i = 0; i < 200; i++) { // 25 second to connect web socket failed after
             if(this.status=='connected' && this.state){
               if(this.editor.getHTML() != value && this.editor.getHTML()=='<p></p>'){
-                this.editor.commands.setContent(this.flattenCodeBlocks(value), false);
+                this.setInitialCollaborativeContent(value);
               }
+              this.emptyInitialValue = !value && this.editor.getHTML() === '<p></p>'
               this.initialeDataUpdated=true
               this.editor.setEditable(this.editable && this.initialeDataUpdated);
               this.$emit('ready')
@@ -1288,6 +1261,13 @@ export default defineComponent({
     },
     updateHTML() {
       if (!this.initialeDataUpdated) return;
+      // Editor initialized empty and not modified, value received since (e.g. default text of a custom field):
+      // shown in the editor instead of being overwritten by the empty content of the editor
+      if (this.emptyInitialValue && this.modelValue && this.editor.getHTML() === '<p></p>') {
+        this.emptyInitialValue = false;
+        this.setInitialCollaborativeContent(this.modelValue);
+        return;
+      }
       this.json = this.editor.getJSON();
       this.html = this.editor.getHTML();
       this.html = this.highlightAllCodeBlocks(this.html);
@@ -1383,7 +1363,7 @@ export default defineComponent({
 }
 
 
-.collaboration-cursor__caret {
+.collaboration-carets__caret {
   position: relative;
   margin-left: -1px;
   margin-right: -1px;
@@ -1393,7 +1373,7 @@ export default defineComponent({
   pointer-events: none;
 }
 
-.collaboration-cursor__label {
+.collaboration-carets__label {
  text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;
  color:white;
   position: absolute;

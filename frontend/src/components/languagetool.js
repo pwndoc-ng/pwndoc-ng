@@ -1,6 +1,6 @@
 import { Extension } from '@tiptap/core'
-import { Decoration, DecorationSet } from 'prosemirror-view'
-import { Plugin, PluginKey } from 'prosemirror-state'
+import { Decoration, DecorationSet } from '@tiptap/pm/view'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { debounce } from 'lodash'
 import { v4 as uuidv4 } from 'uuid'
 import { Dexie } from 'dexie'
