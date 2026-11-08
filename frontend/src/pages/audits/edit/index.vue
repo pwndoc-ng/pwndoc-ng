@@ -463,18 +463,16 @@ export default defineComponent({
       return label || finding.title
     },
 
+    // Page of the audit shown to the other users of the audit
     getMenuSection: function() {
-      if (this.$router.currentRoute.name && this.$router.currentRoute.name === 'general')
-        return {menu: 'general', room: this.auditId}
-      else if (this.$router.currentRoute.name && this.$router.currentRoute.name === 'network')
-        return {menu: 'network', room: this.auditId}
-      else if (this.$router.currentRoute.name && this.$router.currentRoute.name === 'addFindings')
-        return {menu: 'addFindings', room: this.auditId}
-      else if (this.$router.currentRoute.name && this.$router.currentRoute.name === 'editFinding' && this.$router.currentRoute.params.findingId)
-        return {menu: 'editFinding', finding: this.$router.currentRoute.params.findingId, room: this.auditId}
-      else if (this.$router.currentRoute.name && this.$router.currentRoute.name === 'editSection' && this.$router.currentRoute.params.sectionId)
-        return {menu: 'editSection', section: this.$router.currentRoute.params.sectionId, room: this.auditId}
-      
+      const route = this.$router.currentRoute.value
+      if (route.name === 'general' || route.name === 'network' || route.name === 'addFindings')
+        return {menu: route.name, room: this.auditId}
+      else if (route.name === 'editFinding' && route.params.findingId)
+        return {menu: 'editFinding', finding: route.params.findingId, room: this.auditId}
+      else if (route.name === 'editSection' && route.params.sectionId)
+        return {menu: 'editSection', section: route.params.sectionId, room: this.auditId}
+
       return {menu: 'undefined', room: this.auditId}
     },
 

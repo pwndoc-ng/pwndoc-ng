@@ -329,9 +329,7 @@ module.exports = function(request, app) {
         expect((await request(app).post('/api/users/token').send({username: 'profileuser', password: 'Profile123'})).status).toBe(200)
       })
 
-      // BUG: src/routes/user.js:290 the password policy check is `newPassword && newPassword.length==0 && ...`, never true:
-      // PUT /api/users/me {currentPassword, newPassword: 'a', confirmPassword: 'a'} sets a one character password (200)
-      it.skip('Refuses a new password not matching the password policy', async () => {
+      it('Refuses a new password not matching the password policy', async () => {
         var response = await update({currentPassword: 'Profile123', newPassword: 'weak', confirmPassword: 'weak'})
         expect(response.status).toBe(422)
         expect((await request(app).post('/api/users/token').send({username: 'profileuser', password: 'weak'})).status).toBe(401)

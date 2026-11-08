@@ -131,26 +131,19 @@ module.exports = function(request, app) {
         expect(audit.collaborators.map(r => r._id)).toEqual([collaboratorId])
       })
 
-      // BUG: src/routes/audit.js:150 compares the requested reviewer ids (strings) with audit.creator._id (ObjectId)
-      // with ===: always false, the creator of the audit is accepted as reviewer (200 instead of 422)
-      it.skip('Creator cannot be reviewer of the audit', async () => {
+      it('Creator cannot be reviewer of the audit', async () => {
         var response = await updateGeneral({reviewers: [{_id: reviewerId}, {_id: creatorId}]})
         expect(response.status).toBe(422)
         expect((await getAudit()).reviewers.map(r => r._id)).toEqual([reviewerId])
       })
 
-      // BUG: src/routes/audit.js:184 (and :168) compares the ids of the request with the populated audit.reviewers
-      // (audit.collaborators) ObjectIds with ===: a reviewer of the audit is accepted as collaborator (200 instead of 422)
-      it.skip('Reviewer of the audit cannot be added as collaborator', async () => {
+      it('Reviewer of the audit cannot be added as collaborator', async () => {
         var response = await updateGeneral({collaborators: [{_id: collaboratorId}, {_id: reviewerId}]})
         expect(response.status).toBe(422)
         expect((await getAudit()).collaborators.map(r => r._id)).toEqual([collaboratorId])
       })
 
-      // BUG: src/routes/audit.js:157-162 (and :167-172, :183-188) the 'return' in forEach does not stop the handler:
-      // PUT general {collaborators: [{_id: X}], reviewers: [{_id: X}]} answers 422 but the update is applied anyway,
-      // then a second answer is sent (ERR_HTTP_HEADERS_SENT thrown in the .catch: unhandled promise rejection).
-      it.skip('Same user as collaborator and reviewer is refused without modifying the audit', async () => {
+      it('Same user as collaborator and reviewer is refused without modifying the audit', async () => {
         var response = await updateGeneral({collaborators: [{_id: collaboratorId}, {_id: reviewerId}], reviewers: [{_id: reviewerId}]})
         expect(response.status).toBe(422)
         expect((await getAudit()).collaborators.map(r => r._id)).toEqual([collaboratorId])
@@ -187,11 +180,7 @@ module.exports = function(request, app) {
         expect((await request(app).get(`/api/audits/${auditId}`).set('Cookie', creatorCookie)).status).toBe(200)
       })
 
-      // BUG: src/routes/audit.js:137 (same pattern at :245, :266, :321, :361, :388, :447, :470, :572) the async handlers
-      // await Audit.getAudit() outside of any try/catch: for a user without read access (or a bad id) the promise
-      // rejection is unhandled, the request never gets an answer and Node.js >= 15 stops the process
-      // (any authenticated user can crash the backend with PUT /api/audits/<id of another audit>/general).
-      it.skip('Edition routes answer 404 to users without access to the audit', async () => {
+      it('Edition routes answer 404 to users without access to the audit', async () => {
         expect((await updateGeneral({name: 'Hijacked'}, otherCookie)).status).toBe(404)
         expect((await request(app).put(`/api/audits/${auditId}/network`).set('Cookie', otherCookie).send({scope: []})).status).toBe(404)
         expect((await addFinding({title: 'Injected'}, otherCookie)).status).toBe(404)
@@ -219,10 +208,7 @@ module.exports = function(request, app) {
         expect(response.body.datas.scope.map(s => s.name)).toEqual(['10.0.0.0/24', 'app.example.com'])
       })
 
-      // BUG: src/routes/audit.js:215-217 PUT general replaces the scope by its names only ({name}) and the frontend
-      // sends the scope with every save of the general page: saving the general information deletes the hosts and
-      // services of the network page (e.g. imported from nmap).
-      it.skip('Saving the general information keeps the hosts of the scope', async () => {
+      it('Saving the general information keeps the hosts of the scope', async () => {
         expect((await updateGeneral({date: '2026-01-27', scope: ['10.0.0.0/24', 'app.example.com']})).status).toBe(200)
         var response = await request(app).get(`/api/audits/${auditId}/network`).set('Cookie', creatorCookie)
         expect(response.body.datas.scope[0].hosts).toHaveLength(1)

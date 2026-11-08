@@ -287,7 +287,7 @@ module.exports = function(app) {
             Response.BadParameters(res, 'Missing some required parameters');
             return;
         }
-        if (req.body.newPassword && req.body.newPassword.length==0 && passwordpolicy.strongPassword(req.body.newPassword)!==true){
+        if (req.body.newPassword && passwordpolicy.strongPassword(req.body.newPassword)!==true){
             Response.BadParameters(res, 'New Password does not match the password policy');
             return;
         }

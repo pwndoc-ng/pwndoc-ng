@@ -6,7 +6,7 @@ export default async ({ urlPath, router, redirect }) => {
     User.refreshToken()
     .then()
     .catch(err => {
-      if (!router.currentRoute.path.startsWith('/login'))
+      if (!router.currentRoute.value.path.startsWith('/login'))
         if (err === 'Expired refreshToken')
           redirect('/login?tokenError=2')
         else

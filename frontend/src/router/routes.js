@@ -5,19 +5,19 @@ export default [
     {path: '', redirect: 'audits' },
     {path: 'audits', component: () => import('pages/audits'), meta: {breadcrumb: 'Audits'}, children: [
       {path: '', name:'audits', component: () => import('pages/audits/list')},
-      {path: ':finding', name:'audits_by_find', component: () => import('pages/audits/list')},
-
-      {path: ':auditId', component: () => import('pages/audits/edit'), meta: {breadcrumb: 'Edit Audit'}, children: [
-        {path: '', redirect: 'general'},
+      // Audit edition: identifier of the audit only (/audits/<other text>: audits list filtered on a finding)
+      {path: ':auditId([0-9a-fA-F]{24})', component: () => import('pages/audits/edit'), meta: {breadcrumb: 'Edit Audit'}, children: [
+        {path: '', redirect: to => ({name: 'general', params: {auditId: to.params.auditId}})},
         {path: 'general', name:'general', component: () => import('pages/audits/edit/general')},
         {path: 'network', name: 'network', component: () => import('pages/audits/edit/network')},
         {path: 'findings/add', name: 'addFindings', component: () => import('pages/audits/edit/findings/add')},
         {path: 'findings/:findingId', name: 'editFinding', component: () => import('pages/audits/edit/findings/edit')},
         {path: 'sections/:sectionId', name: 'editSection', component: () => import('pages/audits/edit/sections')}
-      ]}
+      ]},
+      {path: ':finding', name:'audits_by_find', component: () => import('pages/audits/list')}
     ]},
     {path: 'data', component: () => import('pages/data'), meta: {breadcrumb: 'Datas'}, children: [
-      {path: '', redirect: 'collaborators'},
+      {path: '', redirect: '/data/collaborators'},
       {path: 'collaborators', component: () => import('pages/data/collaborators')},
       {path: 'companies', component: () => import('pages/data/companies')},
       {path: 'clients', component: () => import('pages/data/clients')},

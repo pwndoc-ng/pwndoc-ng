@@ -140,56 +140,39 @@ module.exports = function(app, io) {
             return;
         }
 
+        // Identifiers compared as strings (request: strings, audit: populated documents with ObjectIds)
+        var idOf = (user) => String(user && user._id !== undefined ? user._id : user);
+        var sameUser = (a, b) => idOf(a) === idOf(b);
+        var conflict = "A user cannot simultaneously be a reviewer and a collaborator/creator";
+
         if (req.body.reviewers) {
-            if (req.body.reviewers.some(element => !element._id)) {
+            if (req.body.reviewers.some(element => !element || !element._id)) {
                 Response.BadParameters(res, "One or more reviewer is missing an _id");
                 return;
             }
-
-            // Is the new reviewer the creator of the audit? 
-            if (req.body.reviewers.some(element => element._id === audit.creator._id)) {
-                Response.BadParameters(res, "A user cannot simultaneously be a reviewer and a collaborator/creator");
+            // Reviewer: neither the creator nor a collaborator (new collaborators of the request, current ones otherwise)
+            var collaborators = req.body.collaborators || audit.collaborators || [];
+            if (req.body.reviewers.some(reviewer => sameUser(reviewer, audit.creator) || collaborators.some(collaborator => sameUser(collaborator, reviewer)))) {
+                Response.BadParameters(res, conflict);
                 return;
-            }
-
-            // Is the new reviewer one of the new collaborators that will override current collaborators? 
-            if (req.body.collaborators) {
-                req.body.reviewers.forEach((reviewer) => {
-                    if (req.body.collaborators.some(element => !element._id || element._id === reviewer._id)) {
-                        Response.BadParameters(res, "A user cannot simultaneously be a reviewer and a collaborator/creator");
-                        return;
-                    }
-                });
-            }
-
-            // If no new collaborators are being set, is the new reviewer one of the current collaborators? 
-            else if (audit.collaborators) {
-                req.body.reviewers.forEach((reviewer) => {
-                    if (audit.collaborators.some(element => element._id === reviewer._id)) {
-                        Response.BadParameters(res, "A user cannot simultaneously be a reviewer and a collaborator/creator");
-                        return;
-                    }
-                });
             }
         }
 
         if (req.body.collaborators) {
-            if (req.body.collaborators.some(element => !element._id)) {
+            if (req.body.collaborators.some(element => !element || !element._id)) {
                 Response.BadParameters(res, "One or more collaborator is missing an _id");
                 return;
             }
-            
-            // Are the new collaborators part of the current reviewers?
-            req.body.collaborators.forEach((collaborator) => {
-                if (audit.reviewers.some(element => element._id === collaborator._id)) {
-                    Response.BadParameters(res, "A user cannot simultaneously be a reviewer and a collaborator/creator");
-                    return;
-                }
-            });
+            // Collaborator: not a reviewer (new reviewers of the request, current ones otherwise)
+            var reviewers = req.body.reviewers || audit.reviewers || [];
+            if (req.body.collaborators.some(collaborator => reviewers.some(reviewer => sameUser(reviewer, collaborator)))) {
+                Response.BadParameters(res, conflict);
+                return;
+            }
 
             // If the new collaborator already gave a review, remove said review, accept collaborator
             if (audit.approvals) {
-                var newApprovals = audit.approvals.filter((approval) => !req.body.collaborators.some((collaborator) => approval.toString() === collaborator._id));
+                var newApprovals = audit.approvals.filter((approval) => !req.body.collaborators.some((collaborator) => sameUser(approval, collaborator)));
                 update.approvals = newApprovals;
             }
         }
@@ -212,8 +195,14 @@ module.exports = function(app, io) {
         if (req.body.collaborators) update.collaborators = req.body.collaborators;
         if (req.body.reviewers) update.reviewers = req.body.reviewers;
         if (req.body.language && utils.validFilename(req.body.language)) update.language = req.body.language;
-        if (req.body.scope && typeof(req.body.scope === "array")) {
-            update.scope = req.body.scope.map(item => {return {name: item}});
+        // Scope: names of the page General information, hosts and services kept (page Network)
+        if (Array.isArray(req.body.scope)) {
+            update.scope = req.body.scope.map(item => {
+                var name = (item && typeof item === 'object') ? item.name : item;
+                var current = (audit.scope || []).find(scope => scope.name === name);
+                var hosts = current && (typeof current.toObject === 'function' ? current.toObject() : current).hosts;
+                return hosts ? {name: name, hosts: hosts} : {name: name};
+            });
         }
         if (req.body.template) update.template = req.body.template;
         if (req.body.customFields) update.customFields = req.body.customFields;

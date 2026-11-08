@@ -8,71 +8,59 @@ const api = axios.create({
 })
 
 let refreshPending = false
-let requestsQueue = []
+let requestsQueue = [] // Requests received during the refresh of the token: {config, resolve, reject}
 
-// Redirect to login if response is 401 (Unauthenticated)
+// Endpoints answering 401 for a reason other than an expired access token (wrong password, wrong TOTP code...):
+// no refresh of the token. URLs of the services are relative ('users/token') or absolute ('/users/token').
+const ENDPOINTS_WITHOUT_REFRESH = ['users/token', 'settings/public', 'users/totp', 'users/me']
+const isEndpoint = (url, endpoint) => new RegExp(`(^|/)${endpoint}$`).test(String(url || '').split('?')[0])
+
+// Request sent again after the refresh of the token (a second 401 is not refreshed again)
+const retry = (config) => api.request({ ...config, _retried: true })
+
+const settleQueue = (error) => {
+  const queue = requestsQueue
+  requestsQueue = []
+  queue.forEach(request => error ? request.reject(error) : request.resolve(retry(request.config)))
+}
+
+// Expired access token (401): token refreshed, then the request is sent again. Redirect to login if the refresh fails.
 api.interceptors.response.use(
-  response => response, 
+  response => response,
   error => {
-    // Ensure error.response exists before accessing its properties
-    if (!error.response) {
+    if (!error.response || error.response.status !== 401) {
       return Promise.reject(error)
     }
+    const originalRequest = error.config || {}
 
-    const originalRequest = error.config
-
-    // **** 401 exceptions to avoid infinite loop
-
-    // 401 after User.refreshToken function call
-    if (error.response.status === 401 && originalRequest.url.endsWith('/users/refreshtoken')) {
+    // 401 of the refresh itself: session ended
+    if (isEndpoint(originalRequest.url, 'users/refreshtoken')) {
       User.clear()
       return Promise.reject(error)
     }
-
-    // 401 after login request
-    if (error.response.status === 401 && originalRequest.url.endsWith('/users/token')) {
+    if (ENDPOINTS_WITHOUT_REFRESH.some(endpoint => isEndpoint(originalRequest.url, endpoint)) || originalRequest._retried) {
       return Promise.reject(error)
     }
 
-    // 401 after settings request (needed since it is called on app loading)
-    if (error.response.status === 401 && originalRequest.url.endsWith('/settings/public')) {
-      return Promise.reject(error)
-    }
-
-    // 401 after totp
-    if (error.response.status === 401 && originalRequest.url.endsWith('/users/totp')) {
-      return Promise.reject(error)
-    }
-
-    // 401 after wrong password on profile
-    if (error.response.status === 401 && originalRequest.url.endsWith('/users/me')) {
-      return Promise.reject(error)
-    }
-
-    // **** End of exceptions
-
-    // All other 401 calls
-    if (error.response.status === 401) {
-      if (!refreshPending) {
-        refreshPending = true
-        return api.get('/users/refreshtoken')
-          .then(() => {
-            requestsQueue.forEach(e => e())
-            requestsQueue = []
-          })
-          .catch(err => {
-            Router.push('/login')
-            return Promise.reject(err)
-          })
-          .finally(() => {
-            refreshPending = false
-          })
-      }
-      return new Promise((resolve) => {
-        requestsQueue.push(() => resolve(api.request(originalRequest)))
+    if (refreshPending) {
+      return new Promise((resolve, reject) => {
+        requestsQueue.push({ config: originalRequest, resolve, reject })
       })
     }
-    return Promise.reject(error)
+    refreshPending = true
+    return api.get('/users/refreshtoken')
+      .finally(() => {
+        refreshPending = false
+      })
+      .then(() => {
+        const replay = retry(originalRequest)
+        settleQueue(null)
+        return replay
+      }, (refreshError) => {
+        settleQueue(refreshError)
+        Router.push('/login')
+        return Promise.reject(refreshError)
+      })
   }
 )
 

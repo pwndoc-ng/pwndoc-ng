@@ -171,6 +171,7 @@
               :comment-target="commentTargets.base"
               custom-element="QCardSection"
               :locale="audit?.language || 'en'"
+              :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
             />
 
 

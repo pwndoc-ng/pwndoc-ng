@@ -154,6 +154,19 @@ app.use(bodyParser.urlencoded({
 
 app.use(cookieParser())
 
+// Express 4 does not handle the rejected promises of async route handlers: the request had no answer and the
+// unhandled rejection stopped the process (e.g. PUT on an audit without access). Their errors are passed to the
+// error handler defined after the routes.
+;['get', 'post', 'put', 'delete'].forEach(method => {
+  var route = app[method].bind(app)
+  app[method] = (path, ...handlers) => {
+    if (handlers.length === 0) return route(path) // app.get(setting)
+    return route(path, ...handlers.map(handler => (typeof handler === 'function' && handler.constructor.name === 'AsyncFunction')
+      ? (req, res, next) => handler(req, res, next).catch(next)
+      : handler))
+  }
+})
+
 // Routes import
 require('./routes/user')(app);
 require('./routes/audit')(app, io);
@@ -229,6 +242,18 @@ if(config.apidoc) {
 app.get("*", function(req, res) {
     res.status(404).json({"status": "error", "data": "Route undefined"});
 })
+
+// Errors of the routes (async handlers): same answers as the routes (NotFound, BadParameters...)
+app.use(function(err, req, res, next) {
+    if (res.headersSent)
+        return next(err);
+    require('./lib/httpResponse.js').Internal(res, err);
+});
+
+// Last resort: an unhandled rejection is logged instead of stopping the process
+process.on('unhandledRejection', (reason) => {
+    console.error('Unhandled promise rejection:', reason);
+});
 
 // Start server
 https.listen(config.port, config.host)

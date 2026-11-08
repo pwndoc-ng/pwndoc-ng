@@ -85,20 +85,13 @@ describe('routes', () => {
     expect(router.currentRoute.value.matched.at(-1).name).toBe('audits_by_find')
   })
 
-  // BUG: src/router/routes.js:8-10 '/audits/:finding' (audits list filtered by finding) and '/audits/:auditId' (audit
-  // edition, redirected to general) have the same path: '/audits/<id>' always opens the audits list filtered on a
-  // finding named <id>. pages/audits/list/audits-list.js:208,226 navigate to "/audits/" + id after creating or
-  // cloning an audit: the user lands on an empty audits list instead of the new audit.
-  it.skip('opens the general page of an audit for /audits/<id>', async () => {
+  it('opens the general page of an audit for /audits/<id>', async () => {
     const { path, components } = await resolve(`/audits/${ID}`)
     expect(path).toBe(`/audits/${ID}/general`)
     expect(components).toEqual(['home', 'audits', 'audit-edit', 'general'])
   })
 
-  // BUG: src/router/routes.js:20 the relative redirect 'collaborators' of '/data' is resolved against the URL
-  // '/data' (-> '/collaborators', unknown, then '/' and '/audits'): opening /data (typed URL, bookmark, 'Datas'
-  // breadcrumb link) shows the audits instead of the collaborators ('/data/collaborators' would be needed)
-  it.skip('redirects /data to the collaborators page', async () => {
+  it('redirects /data to the collaborators page', async () => {
     const { path, components } = await resolve('/data')
     expect(path).toBe('/data/collaborators')
     expect(components).toEqual(['home', 'data', 'collaborators'])
@@ -176,10 +169,7 @@ describe('boot/auth navigation guard', () => {
     expect(router.currentRoute.value.fullPath).toBe('/login')
   })
 
-  // BUG: src/boot/auth.js:9 the periodic refresh reads router.currentRoute.path, which is undefined with vue-router 4
-  // (currentRoute is a ref: currentRoute.value.path): when the refresh fails, a TypeError is thrown in the catch and
-  // the user is never redirected to the login page
-  it.skip('redirects to the login page when the periodic refresh fails', async () => {
+  it('redirects to the login page when the periodic refresh fails', async () => {
     const { redirect } = await boot('/audits')
     vi.mocked(UserService.refreshToken).mockRejectedValueOnce('Expired refreshToken')
     await vi.advanceTimersByTimeAsync(14 * 60 * 1000)

@@ -71,18 +71,22 @@ describe('boot/axios expired access token (401)', () => {
     const first = api.get('audits')
     const second = api.get('vulnerabilities')
     const response = await second
-    await first
+    expect((await first).data.datas).toBe('200 audits')
     expect(response.data.datas).toBe('200 vulnerabilities')
-    expect(requests).toEqual(['GET audits', 'GET vulnerabilities', 'GET /users/refreshtoken', 'GET vulnerabilities'])
+    expect(requests).toEqual(['GET audits', 'GET vulnerabilities', 'GET /users/refreshtoken', 'GET audits', 'GET vulnerabilities'])
     expect(Router.push).not.toHaveBeenCalled()
   })
 
-  // BUG: src/boot/axios.js:56-69 the request whose 401 starts the token refresh is never replayed: its promise
-  // resolves with undefined, so the caller gets no data (TypeError on response.data) or treats it as a success
-  it.skip('replays the request which started the refresh', async () => {
+  it('replays the request which started the refresh', async () => {
     statuses['audits'] = [401]
     const response = await api.get('audits')
     expect(response && response.data.datas).toBe('200 audits')
+    expect(requests).toEqual(['GET audits', 'GET /users/refreshtoken', 'GET audits'])
+  })
+
+  it('does not refresh again when the replayed request answers 401', async () => {
+    statuses['audits'] = [401, 401]
+    await expect(api.get('audits')).rejects.toMatchObject({ response: { status: 401 } })
     expect(requests).toEqual(['GET audits', 'GET /users/refreshtoken', 'GET audits'])
   })
 
@@ -95,9 +99,7 @@ describe('boot/axios expired access token (401)', () => {
     expect(requests).toEqual(['GET audits', 'GET /users/refreshtoken'])
   })
 
-  // BUG: src/boot/axios.js:63-73 when the refresh fails, the requests queued during the refresh are never settled
-  // (requestsQueue is not rejected nor cleared): their callers wait forever (e.g. loading spinners never stop)
-  it.skip('settles the requests queued during a failed refresh', async () => {
+  it('settles the requests queued during a failed refresh', async () => {
     statuses['audits'] = [401]
     statuses['vulnerabilities'] = [401]
     statuses['/users/refreshtoken'] = [401]
@@ -116,14 +118,7 @@ describe('boot/axios expired access token (401)', () => {
       expect(User.clear).toHaveBeenCalledTimes(url === '/users/refreshtoken' ? 1 : 0)
     })
 
-  // BUG: src/boot/axios.js:27-50 the 401 exceptions test url.endsWith('/users/...') but the services call relative
-  // URLs without leading slash ('users/token', 'users/me', 'users/totp', 'settings/public', 'users/refreshtoken'):
-  // - wrong password on the login page: a token refresh is attempted, it fails, and the login page shows the error of
-  //   the refresh ("Invalid refreshToken"...) instead of the login error, and redirects to /login
-  // - wrong current password when updating the profile (PUT users/me -> 401): the refresh succeeds and, the request
-  //   not being replayed, the promise resolves with undefined: the profile page notifies a successful update
-  // - wrong TOTP code (users/totp -> 401): same problem as the profile
-  it.skip.each(['users/token', 'users/me', 'users/totp', 'settings/public', 'users/refreshtoken'])(
+  it.each(['users/token', 'users/me', 'users/totp', 'settings/public', 'users/refreshtoken'])(
     'does not refresh the token for the 401 of %s (URLs used by the services)', async (url) => {
       statuses[url] = [401]
       await expect(api.post(url, {})).rejects.toMatchObject({ response: { status: 401, data: { datas: `401 ${url}` } } })

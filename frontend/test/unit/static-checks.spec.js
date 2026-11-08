@@ -89,12 +89,7 @@ describe('vue-router 4 API', () => {
   const usages = () => scripts.flatMap((file) =>
     [...readSource(file).matchAll(/currentRoute\.(?!value\b)(\w+)/g)].map((match) => `${file}: currentRoute.${match[1]}`))
 
-  // BUG: vue-router 3 API used with vue-router 4 (router.currentRoute is a ref):
-  // - src/boot/auth.js:9 router.currentRoute.path is undefined: TypeError when the periodic token refresh fails,
-  //   the user is not redirected to the login page
-  // - src/pages/audits/edit/index.vue:467-476 getMenuSection() always returns {menu: 'undefined'}: the other users of
-  //   the audit never see in which page (general, network, finding, section) a user is
-  it.skip('uses router.currentRoute.value', () => {
+  it('uses router.currentRoute.value', () => {
     expect(usages()).toEqual([])
   })
 
@@ -102,4 +97,15 @@ describe('vue-router 4 API', () => {
     const known = ['boot/auth.js', 'pages/audits/edit/index.vue']
     expect(usages().filter((usage) => !known.some((file) => usage.startsWith(`${file}:`)))).toEqual([])
   })
+})
+
+describe('audit pages', () => {
+  // Custom fields of the audit pages read-only outside the EDIT state (review, approved)
+  it.each(['pages/audits/edit/general/general.html', 'pages/audits/edit/sections/sections.html', 'pages/audits/edit/findings/edit/edit.html'])(
+    '%s gives the read-only state to the custom fields', (file) => {
+      const template = readSource(file)
+      const customFields = [...template.matchAll(/<custom-fields\b[^>]*>/g)].map((match) => match[0])
+      expect(customFields.length).toBeGreaterThan(0)
+      customFields.forEach((tag) => expect(tag).toContain(':readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"'))
+    })
 })
