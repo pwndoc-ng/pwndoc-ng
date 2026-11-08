@@ -114,9 +114,19 @@ export default {
             return this.vulnTypes.filter(type => type.locale === this.currentLanguage);
         },
 
+        // Vulnerabilities of the current tab: archived ones only in the archives tab
+        tabVulnerabilities() {
+            const archives = this.mainTab === 'archives';
+            return this.vulnerabilities.filter(vuln => !!vuln.archived === archives);
+        },
+
+        archivedCount() {
+            return this.vulnerabilities.filter(vuln => vuln.archived).length;
+        },
+
         computedVulnerabilities() {
             if (!this.dtLanguage) return [];
-            let filtered = this.vulnerabilities.filter(vuln =>
+            let filtered = this.tabVulnerabilities.filter(vuln =>
                 vuln.details.some(detail => detail.locale === this.dtLanguage && detail.title)
             );
             return filtered;
@@ -283,6 +293,28 @@ export default {
                     message: $t('msg.vulnerabilityDeletedOk'),
                     color: 'positive',
                     textColor:'white',
+                    position: 'top-right'
+                })
+            })
+            .catch((err) => {
+                Notify.create({
+                    message: err.response.data.datas,
+                    color: 'negative',
+                    textColor: 'white',
+                    position: 'top-right'
+                })
+            })
+        },
+
+        // Archive (hidden when adding findings) or restore a vulnerability
+        setArchived: function(row, archived) {
+            VulnerabilityService.archiveVulnerability(row._id, archived)
+            .then(() => {
+                this.getVulnerabilities();
+                Notify.create({
+                    message: archived ? $t('archives.archivedOk', [this.getDtTitle(row)]) : $t('archives.restoredOk', [this.getDtTitle(row)]),
+                    color: 'positive',
+                    textColor: 'white',
                     position: 'top-right'
                 })
             })

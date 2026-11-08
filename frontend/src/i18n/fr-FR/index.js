@@ -397,6 +397,14 @@ export default {
     preview: 'Aperçu',
     vulnTypeDescriptionHint: 'Facultatif. Disponible dans le rapport via findings[i].vulnTypeDescription (HTML avec images, comme la description d\'un finding)',
     selectVulnTypeToEdit: 'Sélectionnez un type de vulnérabilité dans la liste pour modifier son nom et sa description',
+    archives: {
+        title: 'Archives',
+        archive: 'Archiver',
+        restore: 'Sortir des archives',
+        archivedOk: '{0} archivée',
+        restoredOk: '{0} sortie des archives',
+        info: "Les vulnérabilités archivées ne sont plus proposées lors de l'ajout de findings depuis la base de vulnérabilités. Elles restent modifiables, exportables et peuvent être sorties des archives.",
+    },
     proposals: {
         title: 'Propositions',
         status: {

@@ -9,6 +9,13 @@
                     <q-badge v-if="pendingProposals" color="orange-8" rounded class="q-ml-xs">{{ pendingProposals }}</q-badge>
                 </div>
             </q-tab>
+            <q-tab name="archives">
+                <div class="row items-center no-wrap">
+                    <q-icon name="mdi-archive-outline" size="xs" class="q-mr-xs" />
+                    {{ $t('archives.title') }}
+                    <q-badge v-if="archivedCount" color="grey-6" rounded class="q-ml-xs">{{ archivedCount }}</q-badge>
+                </div>
+            </q-tab>
         </q-tabs>
     </div>
 </div>
@@ -21,11 +28,16 @@
         />
     </div>
 </div>
-<div v-show="mainTab === 'vulnerabilities'" class="row">
+<!-- Same table for the vulnerabilities and the archives tabs (rows filtered by tabVulnerabilities) -->
+<div v-show="mainTab === 'vulnerabilities' || mainTab === 'archives'" class="row">
     <div v-if="languages.length === 0" class="col-md-4 offset-md-4 q-mt-md">
         <p>{{$t('noLanguage')}} <a href="/data/custom">{{$t('nav.data')}} -> {{$t('customData')}} -> {{$t('languages')}}</a></p>
     </div>
     <div v-else class="col-md-8 col-12 offset-md-2 q-mt-md">
+        <q-banner v-if="mainTab === 'archives'" dense class="bg-grey-3 text-grey-9 q-mb-sm rounded-borders">
+            <template #avatar><q-icon name="mdi-archive-outline" /></template>
+            {{ $t('archives.info') }}
+        </q-banner>
         <q-table
         class="sticky-header-table"
         :columns="dtHeaders"
@@ -55,8 +67,8 @@
                 <q-toggle :label="$t('btn.valid')" v-model="search.valid" :true-value=0 />
                 <q-toggle :label="$t('btn.new')" color="light-blue" v-model="search.new" :true-value=1 />
                 <q-toggle :label="$t('btn.updates')" color="orange" v-model="search.updates" :true-value=2 />
-                <q-btn 
-                v-if="UserService.isAllowed('vulnerabilities:update')"
+                <q-btn
+                v-if="UserService.isAllowed('vulnerabilities:update') && mainTab === 'vulnerabilities'"
                 class="q-ml-md"
                 :label="$t('mergeVulnerabilities')"
                 outline
@@ -65,8 +77,8 @@
                 @click="$refs.mergeModal.show()"
                 />
                 <q-space />
-                <q-btn-dropdown 
-                v-if="UserService.isAllowed('vulnerabilities:create')"
+                <q-btn-dropdown
+                v-if="UserService.isAllowed('vulnerabilities:create') && mainTab === 'vulnerabilities'"
                 unelevated
                 color="secondary"
                 no-caps
@@ -157,7 +169,10 @@
                             <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.view')}}</q-tooltip>                            
                         </q-btn>
                         <q-btn size="sm" flat color="secondary" icon="fa fa-fingerprint" @click="goToAudits(props.row)">
-                            <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.findAudits')}}</q-tooltip>                            
+                            <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.findAudits')}}</q-tooltip>
+                        </q-btn>
+                        <q-btn v-if="UserService.isAllowed('vulnerabilities:update')" size="sm" flat color="grey-8" :icon="props.row.archived ? 'mdi-archive-arrow-up-outline' : 'mdi-archive-arrow-down-outline'" @click="setArchived(props.row, !props.row.archived)">
+                            <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{ props.row.archived ? $t('archives.restore') : $t('archives.archive') }}</q-tooltip>
                         </q-btn>
                         <q-btn v-if="UserService.isAllowed('vulnerabilities:delete')" size="sm" flat color="negative" icon="fa fa-trash" @click="confirmDeleteVulnerability(props.row)">
                             <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.delete')}}</q-tooltip>                            
@@ -167,8 +182,8 @@
             </template>          
             
             <template v-slot:bottom="scope">
-                <span v-if="computedVulnerabilities.length === 1">{{filteredRowsCount}} / 1 {{$t('vulnerabilityNum1')}} ({{$t('total')}}: {{vulnerabilities.length}})</span>                
-                <span v-else>{{filteredRowsCount}} / {{computedVulnerabilities.length}} {{$t('vulnerabilitiesNums')}} ({{$t('total')}}: {{vulnerabilities.length}})</span>    
+                <span v-if="computedVulnerabilities.length === 1">{{filteredRowsCount}} / 1 {{$t('vulnerabilityNum1')}} ({{$t('total')}}: {{tabVulnerabilities.length}})</span>
+                <span v-else>{{filteredRowsCount}} / {{computedVulnerabilities.length}} {{$t('vulnerabilitiesNums')}} ({{$t('total')}}: {{tabVulnerabilities.length}})</span>
                 <q-space />
                 <span>{{$t('resultsPerPage')}}</span>
                 <q-select

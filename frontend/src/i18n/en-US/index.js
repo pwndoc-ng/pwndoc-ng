@@ -514,6 +514,14 @@ export default {
     preview: 'Preview',
     vulnTypeDescriptionHint: 'Optional. Available in the report as findings[i].vulnTypeDescription (HTML with images, like a finding description)',
     selectVulnTypeToEdit: 'Select a vulnerability type in the list to edit its name and description',
+    archives: {
+        title: 'Archives',
+        archive: 'Archive',
+        restore: 'Restore from archives',
+        archivedOk: '{0} archived',
+        restoredOk: '{0} restored from archives',
+        info: 'Archived vulnerabilities are no longer proposed when adding findings from the vulnerabilities database. They can still be edited, exported or restored.',
+    },
     proposals: {
         title: 'Proposals',
         status: {
