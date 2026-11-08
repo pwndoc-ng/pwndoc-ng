@@ -2,6 +2,11 @@
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from 'prosemirror-state';
 
+// Finding titles are stored base64 encoded in the menu options (data-value attribute). UTF-8 encoding: btoa alone
+// fails on characters outside Latin-1 (typographic apostrophe, oe ligature...)
+const encodeOption = (text) => btoa(String.fromCharCode(...new TextEncoder().encode(text)));
+const decodeOption = (value) => new TextDecoder().decode(Uint8Array.from(atob(value), (c) => c.charCodeAt(0)));
+
 export const TriggerMenuExtension = Extension.create({
   name: 'triggerMenu',
 
@@ -289,8 +294,7 @@ export const TriggerMenuExtension = Extension.create({
         const index = optionElement ? optionElement.getAttribute('data-index') : 0;
         // Create the link in clickable text format
         const linkMark = state.schema.marks.link;
-        const linkText = decodeURI(atob(selectedOption)); // You can customize the displayed text
-        const linkUrl = decodeURI(selectedOption); // The URL will be the option value
+        const linkText = decodeOption(selectedOption); // Title of the finding (no decodeURI: a title can contain '%')
         
         // Insert the link text
         tr.insertText(linkText, deleteFrom);
@@ -338,7 +342,7 @@ export const TriggerMenuExtension = Extension.create({
           return '<div class="menu-separator"></div>';
         }
         return `
-          <div class="menu-option" data-value="${btoa(option.value)}" data-index="${option.unique_id}">
+          <div class="menu-option" data-value="${encodeOption(option.value)}" data-index="${option.unique_id}">
             <span class="icon">🎯</span>
             ${encodeHTMLEntities(option.value)}
             ${option.shortcut ? `<span class="shortcut">${option.shortcut}</span>` : ''}
