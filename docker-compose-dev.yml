@@ -44,7 +44,8 @@ services:
       - ./frontend/public:/app/public
       - ./frontend/.postcssrc.js:/app/.postcssrc.js
       - ./frontend/babel.config.js:/app/babel.config.js
-      - ./frontend/quasar.conf.js:/app/quasar.conf.js
+      - ./frontend/quasar.config.cjs:/app/quasar.config.cjs
+      - ./frontend/index.html:/app/index.html
       - ./frontend/package.json:/app/package.json
       - ./frontend/package-lock.json:/app/package-lock.json
     restart: always

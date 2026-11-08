@@ -7,8 +7,8 @@
   "author": "Stanley Hammer",
   "private": true,
   "scripts": {
-    "build": "export NODE_OPTIONS=--openssl-legacy-provider && quasar build",
-    "dev": "export NODE_OPTIONS=--openssl-legacy-provider && quasar dev",
+    "build": "quasar build",
+    "dev": "quasar dev",
     "test": "quasar --version && npm --version && echo \"No test specified\" && exit 0"
   },
   "dependencies": {
@@ -43,14 +43,15 @@
     "quasar": "^2.35.2",
     "socket.io-client": "^4.8.4",
     "vue": "^3.5.45",
-    "vue-i18n": "^9.14.5",
+    "vue-i18n": "^11.4.18",
+    "vue-router": "^4.6.4",
     "vue3-sticky-directive": "^0.0.2",
     "vuedraggable": "^4.1.0",
     "yjs": "^13.6.33"
   },
   "devDependencies": {
-    "@quasar/app-webpack": "^3.15.1",
-    "@quasar/cli": "^2.5.0",
+    "@quasar/app-webpack": "^4.4.5",
+    "@quasar/cli": "^5.0.9",
     "buffer": "^6.0.3",
     "strip-ansi": "^3.0.1",
     "stylus": "^0.64.0",
@@ -58,9 +59,8 @@
     "uuid": "^11.1.1"
   },
   "engines": {
-    "node": ">= 8.9.0",
-    "npm": ">= 5.6.0",
-    "yarn": ">= 1.6.0"
+    "node": "^28 || ^26 || ^24 || ^22 || ^20",
+    "npm": ">= 6.14.12"
   },
   "browserslist": [
     "> 1%",
