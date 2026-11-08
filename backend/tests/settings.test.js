@@ -235,6 +235,25 @@ module.exports = function(request, app) {
       expect(response.body.datas).toEqual(defaultSettings);
     })
 
+    it('Does not execute MongoDB operators from settings input', async () => {
+      var response = await request(app).put('/api/settings')
+        .set('Cookie', [
+          `token=JWT ${userToken}`
+        ])
+        .send({
+          $unset: {'report.enabled': 1},
+          $rename: {'reviews.enabled': 'injected'}
+        });
+      expect(response.status).toBe(200);
+
+      var response = await request(app).get('/api/settings')
+        .set('Cookie', [
+          `token=JWT ${userToken}`
+        ]);
+      expect(response.status).toBe(200);
+      expect(response.body.datas).toEqual(defaultSettings);
+    })
+
     it('Export settings', async () => {
       var response = await request(app).get('/api/settings/export')
         .set('Cookie', [

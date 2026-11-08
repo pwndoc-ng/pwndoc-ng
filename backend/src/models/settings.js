@@ -93,10 +93,16 @@ SettingSchema.statics.getPublic = () => {
 };
 
 // Update Settings
+// The input is applied to the document (paths of the schema only) and not given as an update query:
+// MongoDB operators of the input ($unset, $rename...) are not executed
 SettingSchema.statics.update = (settings) => {
     return new Promise((resolve, reject) => {
-        const query = Settings.findOneAndUpdate({}, settings, { new: true, runValidators: true });
-        query.exec()
+        Settings.findOne({})
+            .then(current => {
+                current = current || new Settings({});
+                current.set(settings);
+                return current.save();
+            })
             .then(settings => resolve(settings))
             .catch(err => reject(err));
     });

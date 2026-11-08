@@ -1008,8 +1008,11 @@ export default defineComponent({
             /([{}:;,.]|<p>|<\/p>|<pre><code>|<\/code><\/pre>|<[uo]l><li>.*<\/li><\/[uo]l>|\s+)/
           );
         };
-        var value = this.modelValue || "";
-        var diff = HtmlDiff.diff(this.diff, value);
+        // Both versions are sanitized before the diff (broken tags cannot smuggle attributes through the
+        // diff markers), and the result is sanitized again before v-html
+        var value = Utils.htmlEncode(this.modelValue || "");
+        var previous = Utils.htmlEncode(this.diff || "");
+        var diff = HtmlDiff.diff(previous, value);
         diff.forEach((part) => {
           const diffclass = part.added
             ? "diffadd"
@@ -1035,6 +1038,7 @@ export default defineComponent({
           content += value;
         });
       }
+      content = Utils.htmlEncodeDiff(content);
       // Images are stored by id: the raw HTML of the diff needs their download URL
       return content.replace(/(<img\b[^>]*?\ssrc=")([^"]+)(")/g, (match, before, src, after) => before + Utils.normalizeImageUrl(src) + after);
     },

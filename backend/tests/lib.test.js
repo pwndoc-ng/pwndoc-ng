@@ -586,6 +586,45 @@ module.exports = function () {
         expect(evaluate("title | upper", {title: 'sql injection'})).toBe('SQL INJECTION')
         expect(evaluate("(findings | where: 'severity == \"High\"').length", {findings: [{severity: 'High'}, {severity: 'Low'}]})).toBe(1)
       })
+
+      it('Filters read own properties only', () => {
+        var scope = {findings: [{title: 'XSS', cvss: {score: 6.1}}, {title: 'SQLi', cvss: {score: 9.8}}]}
+        expect(evaluate("findings | select: 'title'", scope)).toEqual(['XSS', 'SQLi'])
+        expect(evaluate("findings | select: 'cvss.score'", scope)).toEqual([6.1, 9.8])
+        expect(evaluate("findings | select: 'constructor'", scope)).toEqual([undefined, undefined])
+        expect(evaluate("findings | select: 'constructor.constructor'", scope)).toEqual([undefined, undefined])
+        expect(evaluate("findings | select: 'title.constructor'", scope)).toEqual([undefined, undefined])
+        expect(() => evaluate("findings | map: 'constructor'", scope)).toThrow(/Filter 'constructor' is not defined/)
+        expect(evaluate("findings | select: 'title' | map: 'upper'", scope)).toEqual(['XSS', 'SQLI'])
+      })
+
+      it('Groups findings whatever the value of the attribute', () => {
+        var scope = {findings: [{title: 'A', severity: '__proto__'}, {title: 'B', severity: 'High'}, {title: 'C', severity: 'High'}]}
+        var groups = evaluate("findings | groupBy: 'severity'", scope)
+        expect(groups.map(g => [g.key, g.value.map(f => f.title)])).toEqual([['__proto__', ['A']], ['High', ['B', 'C']]])
+      })
+    })
+
+    describe('Translations', () => {
+      var translate = require('../src/translate').translate
+
+      it('Translates with the dictionaries', () => {
+        expect(translate('Attack Vector', 'fr')).toBe("Vecteur d'attaque")
+        expect(translate('Not translated', 'fr')).toBe('Not translated')
+        expect(translate('Attack Vector', 'unknown')).toBe('Attack Vector')
+      })
+
+      it('Returns translations only, not the properties of the dictionary object', () => {
+        expect(translate('constructor', 'fr')).toBe('constructor')
+        expect(translate('__proto__', 'fr')).toBe('__proto__')
+        expect(translate('hasOwnProperty', 'fr')).toBe('hasOwnProperty')
+      })
+
+      it('Reads the dictionaries of the translate folder only', () => {
+        expect(translate('dev', '../config/config')).toBe('dev')
+        expect(translate('name', '../../package')).toBe('name')
+        expect(translate('Attack Vector', 'fr.json')).toBe('Attack Vector')
+      })
     })
 
     describe('Report images width', () => {

@@ -401,9 +401,10 @@ expressions.filters.fromTo = function(start, end, locale) {
 expressions.filters.groupBy = function(input, key) {
     return expressions.filters.loopObject(
         input.reduce(function(rv, x) {
-            (rv[x[key]] = rv[x[key]] || []).push(x);
+            var group = _getPropertyValue(x, key);
+            (rv[group] = rv[group] || []).push(x);
             return rv;
-        }, {})
+        }, Object.create(null)) // No prototype: a value such as '__proto__' is a group like any other
     );
 }
 
@@ -484,6 +485,8 @@ expressions.filters.mailto = function(input, address = null) {
 // Applies a filter on a sequence of objects: {scope | select: 'name' | map: 'lower' | join: ', '}
 expressions.filters.map = function(input, filter) {
     let args = Array.prototype.slice.call(arguments, 2);
+    if (!Object.prototype.hasOwnProperty.call(expressions.filters, filter) || typeof expressions.filters[filter] !== 'function')
+        throw new Error(`Filter '${filter}' is not defined`);
     return input.map(x => expressions.filters[filter](x, ...args));
 }
 
@@ -1003,12 +1006,15 @@ expressions.filters.translate = function(input, locale) {
 }
 
 // Filters helper: handles the use of dotted notation as property names.
+// Only own properties are read: the report templates have no access to the prototypes (constructor, __proto__...)
 // Source: https://stackoverflow.com/a/37510735
 function _getPropertyValue(obj, dataToRetrieve) {
-  return dataToRetrieve
+  return String(dataToRetrieve)
     .split('.')
     .reduce(function(o, k) {
-      return o && o[k];
+      if (o === null || o === undefined || !Object.prototype.hasOwnProperty.call(Object(o), k))
+        return undefined;
+      return o[k];
     }, obj);
 }
 
