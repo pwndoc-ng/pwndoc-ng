@@ -5,7 +5,7 @@
         <q-tab name="collaborators" :label="$t('collaborators')" />
     </q-tabs>
     <div class="row">
-        <q-tab-panels v-model="selectedTab" class="bg-transparent col-md-10 col-12 offset-md-1 q-mt-md" @before-transition="Utils.syncEditors($refs)">
+        <q-tab-panels v-model="selectedTab" class="bg-transparent col-md-10 col-12 offset-md-1 q-mt-md">
             <q-tab-panel name="vulnerabilities">
                 <q-card>
                     <q-card-section>

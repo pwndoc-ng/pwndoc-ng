@@ -81,12 +81,13 @@ UserSchema.statics.create = function (users) {
         })
         .catch((err) => {
             if (err.code === 11000) {
-                if (err.result.nInserted === 0)
+                // MongoDB driver 6: inserted documents in insertedDocs, message in writeError.err
+                var inserted = err.insertedDocs ? err.insertedDocs.length : ((err.result && err.result.insertedCount) || 0)
+                if (inserted === 0)
                     reject({fn: 'BadParameters', message: 'Username already exists'});
                 else {
-                    var errorMessages = [] 
-                    err.writeErrors.forEach(e => errorMessages.push(e.errmsg || "no errmsg"))
-                    resolve({created: err.result.nInserted, duplicates: errorMessages});
+                    var errorMessages = (err.writeErrors || []).map(e => e.errmsg || (e.err && e.err.errmsg) || 'Duplicate')
+                    resolve({created: inserted, duplicates: errorMessages});
                 }
             }
             else
