@@ -167,8 +167,8 @@ module.exports = function () {
               `<w:bCs/>`+
               `<w:i/>`+
               `<w:iCs/>`+
+              `<w:strike/>`+ // OOXML schema order (docx 9): strike before u
               `<w:u w:val="single"/>`+
-              `<w:strike/>`+
             `</w:rPr>`+
             `<w:t xml:space="preserve">Mark</w:t>`+
           `</w:r>`+
@@ -546,6 +546,46 @@ module.exports = function () {
         expect(ooxml).toEqual(expected)
       })
 
+      // Lists use the numbering definitions of the report template (numId)
+      it('Numbered list uses the numbering of the template', () => {
+        var ooxml = html2ooxml("<ol><li><p>One</p></li><li><p>Two</p></li></ol>", "", ["42"])
+        expect(ooxml.match(/<w:numId w:val="42"\/>/g)).toHaveLength(2)
+        expect(ooxml).not.toContain('undefined')
+      })
+
+      it('Bullet list uses the bullet numbering of the template', () => {
+        var ooxml = html2ooxml("<ul><li><p>A</p><ul><li><p>B</p></li></ul></li></ul>")
+        expect(ooxml.match(/<w:numId w:val="1"\/>/g)).toHaveLength(2)
+        expect(ooxml).toContain('<w:ilvl w:val="1"/>')
+      })
+
+      it('Table at full width', () => {
+        var ooxml = html2ooxml("<table><tbody><tr><td><p>A</p></td><td><p>B</p></td></tr></tbody></table>")
+        expect(ooxml).toContain('<w:tblW w:type="pct" w:w="5000"/>') // 5000 fiftieths of a percent: 100%
+        expect(ooxml).toContain('<w:t xml:space="preserve">B</w:t>')
+      })
+
+    })
+
+    describe('Report expressions', () => {
+      var expressions = require('angular-expressions')
+      var evaluate = (tag, scope) => reportGenerator.parser(tag).get(scope, {scopeList: [scope], num: 0})
+
+      it('Rejects sandbox-escape expressions (CVE-2026-44643)', () => {
+        expect(require('angular-expressions/package.json').version).not.toMatch(/^1\.5\.[01]$/)
+        expect(() => expressions.compile('a | __proto__')({}, {})).toThrow(/Filter '__proto__' is not defined/)
+      })
+
+      it('Accepts template expressions longer than 250 characters', () => {
+        var tag = Array.from({length: 30}, (_, i) => `v${i} = (count + ${i})`).join('; ') + '; v29'
+        expect(tag.length).toBeGreaterThan(250)
+        expect(evaluate(tag, {count: 1})).toBe(30)
+      })
+
+      it('Template expressions with filters', () => {
+        expect(evaluate("title | upper", {title: 'sql injection'})).toBe('SQL INJECTION')
+        expect(evaluate("(findings | where: 'severity == \"High\"').length", {findings: [{severity: 'High'}, {severity: 'Low'}]})).toBe(1)
+      })
     })
 
     describe('Report images width', () => {

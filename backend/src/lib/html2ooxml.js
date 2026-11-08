@@ -204,12 +204,12 @@ function html2ooxml(html, style = "", listIds = []) {;
               // We're in a bullet list - use existing template definition (numId="1")
               let bulletLevel = Math.min(bullet_state.length - 1, 8);
               const bulletId = 1; // Use existing template definition
-              cParagraphProperties.numbering = { reference: bulletId, level: bulletLevel };
+              cParagraphProperties.numbering = { reference: String(bulletId), level: bulletLevel }; // docx 9: string reference (a number is read as a definition)
             } else if (list_state.length > 0) {
               // We're in a numbered list
               let numberLevel = Math.min(list_state.length - 1, 8);
               const elementListId = listIdsByLevel[numberLevel];
-              cParagraphProperties.numbering = { reference: elementListId, level: numberLevel };
+              cParagraphProperties.numbering = { reference: String(elementListId), level: numberLevel };
             } else {
               // No numbering if we're not in a real list - leave as default
             }
@@ -443,7 +443,10 @@ tmpCells.push({
   parser.write(html);
   parser.end();
 
-  let prepXml = doc.documentWrapper.document.body.prepForXml({});
+  // docx 9: a numbered paragraph registers its numbering instance in the file. The lists use the numbering
+  // definitions of the report template (numId of the template), not definitions created by docx: nothing to register
+  const xmlContext = { stack: [], file: { Numbering: { createConcreteNumberingInstance: () => {} } } };
+  let prepXml = doc.documentWrapper.document.body.prepForXml(xmlContext);
 
   if (!prepXml || !prepXml["w:body"]) {
     throw new Error("Le document généré est vide ou mal formé");

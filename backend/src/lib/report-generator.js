@@ -616,7 +616,7 @@ expressions.filters.upper = function(input) {
 // Source: https://docxtemplater.com/docs/angular-parse/#data-filtering
 expressions.filters.where = function(input, query) {
     return input.filter(function (item) {
-        return expressions.compile(query)(item);
+        return expressions.compile(query, COMPILE_OPTIONS)(item);
     });
 };
 
@@ -1021,6 +1021,10 @@ String.prototype.format = function () {
     });
 };
 
+// angular-expressions >= 1.7 refuses expressions longer than 250 characters by default:
+// template tags can be longer (e.g. variables computed in the Default Template)
+var COMPILE_OPTIONS = {maxExpressionLength: 10000};
+
 // Compile all angular expressions
 var angularParser = function(tag) {
     expressions = {...expressions, ...customGenerator.expressions};
@@ -1030,7 +1034,8 @@ var angularParser = function(tag) {
         };
     }
     const expr = expressions.compile(
-        tag.replace(/(’|‘)/g, "'").replace(/(“|”)/g, '"')
+        tag.replace(/(’|‘)/g, "'").replace(/(“|”)/g, '"'),
+        COMPILE_OPTIONS
     );
     return {
         get: function(scope, context) {
@@ -1068,6 +1073,8 @@ function parser(tag) {
     // https://docxtemplater.readthedocs.io/en/latest/configuration.html#default-parser
     return angularParser(tag);
 }
+exports.parser = parser // Exported for the tests
+
 function cvssStrToObject(cvss) {
     var initialState = 'Not Defined'
     var res = {AV:initialState, AC:initialState, PR:initialState, UI:initialState, S:initialState, C:initialState, I:initialState, A:initialState, E:initialState, RL:initialState, RC:initialState, CR:initialState, IR:initialState, AR:initialState, MAV:initialState, MAC:initialState, MPR:initialState, MUI:initialState, MS:initialState, MC:initialState, MI:initialState, MA:initialState};
