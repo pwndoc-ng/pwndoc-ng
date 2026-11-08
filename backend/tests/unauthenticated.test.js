@@ -335,5 +335,30 @@ module.exports = function(request, app) {
         expect(response.status).toBe(401)
       })
     })
+
+    describe('Testing application routes', () => {
+      it('Unknown routes answer 404', async () => {
+        var response = await request(app).get('/api/unknown')
+        expect(response.status).toBe(404)
+        expect(response.body.status).toBe('error')
+        expect(JSON.stringify(response.body)).toContain('Route undefined')
+        response = await request(app).delete('/api/unknown')
+        expect(response.status).toBe(404)
+      })
+
+      it('CORS: methods allowed, no origin allowed', async () => {
+        var response = await request(app).get('/api/users/init').set('Origin', 'https://evil.example.com')
+        expect(response.headers['access-control-allow-methods']).toBe('GET,POST,DELETE,PUT,OPTIONS')
+        expect(response.headers['access-control-expose-headers']).toBe('Content-Disposition')
+        expect(response.headers['access-control-allow-origin']).toBeUndefined()
+        expect(response.headers['access-control-allow-credentials']).toBeUndefined()
+      })
+
+      it('API documentation served when enabled in the configuration', async () => {
+        var response = await request(app).get('/api-docs/')
+        expect(response.status).toBe(200)
+        expect(response.text).toContain('swagger-ui')
+      })
+    })
   })
 }

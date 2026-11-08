@@ -45,6 +45,21 @@ module.exports = function(request, app) {
       expect((await download('20261108-120000-abcdef01', userCookie)).status).toBe(403)
     })
 
+    it('Invalid parameters are refused', async () => {
+      var backups = (await listBackups()).body.datas.length
+      expect((await createBackup({name: 'x'.repeat(101)})).status).toBe(422)
+      expect((await createBackup({name: {$ne: ''}})).status).toBe(422)
+      expect((await createBackup({password: 1234})).status).toBe(422)
+      expect((await createBackup({categories: 'users'})).status).toBe(422)
+      // Upload: raw file required
+      var response = await request(app).post('/api/backups/upload').set('Cookie', adminCookie).set('Content-Type', 'application/octet-stream')
+      expect(response.status).toBe(422)
+      response = await request(app).post('/api/backups/upload').set('Cookie', adminCookie).send({file: 'UEsDBA=='})
+      expect(response.status).toBe(422)
+      expect((await restore('20261108-120000-abcdef01', {password: ['x']})).status).toBe(422)
+      expect((await listBackups()).body.datas.length).toBe(backups)
+    })
+
     it('Full backup is stored on the server with every collection and the template files', async () => {
       var response = await createBackup({name: 'Full backup'})
       expect(response.status).toBe(201)
