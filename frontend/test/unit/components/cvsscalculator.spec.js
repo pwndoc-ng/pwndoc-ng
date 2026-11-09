@@ -123,15 +123,23 @@ describe('cvss-calculator vector', () => {
     expect(wrapper.vm.cvss.baseMetricScore).toBe('2.3')
   })
 
-  // BUG: src/components/cvsscalculator.vue:974-984 cvssStrToObject only sets the metrics present in the new vector:
-  // when the vector is changed by the parent (data reloaded, collaborative update, '' for a reset), the metrics absent
-  // from it keep their previous value and the component emits a vector mixing the old and the new metrics
-  it.skip('forgets the metrics absent from a new vector given by the parent', async () => {
+  it('forgets the metrics absent from a new vector given by the parent', async () => {
     mountCalculator(`${BASE}/E:F/RL:O`)
     await wrapper.setProps({ modelValue: 'CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H' })
     await flushPromises()
     expect(wrapper.props('modelValue')).toBe('CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H')
     expect(wrapper.vm.cvssObj.E).toBe('')
+    expect(wrapper.vm.cvssObj.RL).toBe('')
+  })
+
+  it('resets the metrics for an empty vector given by the parent, without emitting an empty CVSS vector', async () => {
+    mountCalculator(`${BASE}/E:F`)
+    const count = emitted().length
+    await wrapper.setProps({ modelValue: '' })
+    await flushPromises()
+    expect(Object.entries(wrapper.vm.cvssObj).filter(([metric, value]) => metric !== 'version' && value)).toEqual([])
+    expect(emitted().length).toBe(count)
+    expect(wrapper.props('modelValue')).toBe('')
   })
 
   it('opens the temporal and environmental metrics according to the settings', () => {

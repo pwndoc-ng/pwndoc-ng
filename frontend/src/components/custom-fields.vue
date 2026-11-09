@@ -338,7 +338,14 @@ export default defineComponent({
       },
 
       validate: function() {
-          Object.keys(this.$refs).forEach(key => key.startsWith('field') && this.$refs[key][0].validate())
+          Object.keys(this.$refs).forEach(key => {
+              if (!key.startsWith('field'))
+                  return
+              // Refs of the fields in v-for: empty arrays once the field is removed
+              var field = [].concat(this.$refs[key])[0]
+              if (field && typeof field.validate === 'function')
+                  field.validate()
+          })
       },
 
       requiredFieldsEmpty: function() {

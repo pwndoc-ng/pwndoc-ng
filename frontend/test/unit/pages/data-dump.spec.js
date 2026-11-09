@@ -14,6 +14,7 @@ import VulnerabilityService from '@/services/vulnerability'
 import CompanyService from '@/services/company'
 import ClientService from '@/services/client'
 import UserService from '@/services/user'
+import CollabService from '@/services/collaborator'
 import { mockDialog, mockNotify, lastNotification } from '../../helpers/quasar'
 
 let wrapper
@@ -207,14 +208,31 @@ describe('companies and clients import', () => {
     expect(ClientService.createClients).toHaveBeenCalledWith([{ email: 'a@acme.com', company: { name: 'ACME' } }])
   })
 
-  // BUG: src/pages/data/dump/dump.html:83 (and clients/collaborators inputs) the file inputs accept '.yml, .json' but
-  // importCompanies / importClients / importCollaborators only read YAML: a .json file is ignored ('Bad Extension' in
-  // the console) and an empty import is sent to the server, without any error for the user
-  it.skip('refuses a companies JSON file instead of sending an empty import', async () => {
-    vi.spyOn(CompanyService, 'createCompanies').mockResolvedValue({ data: { datas: { created: 0, duplicates: 0 } } })
+  it('imports the companies, clients and collaborators of JSON files (several files merged)', async () => {
+    vi.spyOn(CompanyService, 'createCompanies').mockResolvedValue({ data: { datas: { created: 2, duplicates: 0 } } })
+    vi.spyOn(CollabService, 'createCollab').mockResolvedValue({ data: { datas: { created: 1, duplicates: 0 } } })
     mountPage()
-    await importFiles('importCompanies', [new File([JSON.stringify([{ name: 'ACME' }])], 'companies.json')])
-    expect(CompanyService.createCompanies).not.toHaveBeenCalledWith([])
+    await importFiles('importCompanies', [
+      new File([JSON.stringify([{ name: 'ACME' }])], 'companies.json'),
+      yamlFile(YAML.safeDump({ name: 'Globex' }), 'more.yml')
+    ])
+    expect(CompanyService.createCompanies).toHaveBeenCalledTimes(1)
+    expect(_.sortBy(CompanyService.createCompanies.mock.calls[0][0], 'name')).toEqual([{ name: 'ACME' }, { name: 'Globex' }])
+    await importFiles('importCollaborators', [new File([JSON.stringify({ username: 'bob' })], 'users.JSON')])
+    expect(CollabService.createCollab).toHaveBeenCalledWith([{ username: 'bob' }])
+  })
+
+  it('shows the error of an unreadable JSON file and sends nothing', async () => {
+    const notify = mockNotify()
+    vi.spyOn(ClientService, 'createClients')
+    mountPage()
+    await importFiles('importClients', [new File(['[{"email": '], 'clients.json')])
+    expect(ClientService.createClients).not.toHaveBeenCalled()
+    expect(lastNotification(notify).color).toBe('negative')
+    expect(lastNotification(notify).message).toMatch(/^Parsing Error/)
+    await importFiles('importClients', [new File(['"text"'], 'clients.json')])
+    expect(lastNotification(notify).message).toBe('Invalid JSON format detected')
+    expect(ClientService.createClients).not.toHaveBeenCalled()
   })
 })
 

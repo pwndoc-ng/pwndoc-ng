@@ -334,50 +334,54 @@ export default {
             })
         },
 
-        importCompanies: function(files) {
-            this.companies = [];
+        // Companies, clients and collaborators: YAML or JSON files (a list or a single item), sent once all are read
+        importDataFiles: function(files, property, create) {
+            this[property] = [];
             var pending = 0;
             for (var i=0; i<files.length; i++) {
                 ((file) => {
                     var fileReader = new FileReader();
-                    fileReader.onloadend = (e) => {
-                        var compFile;
-                        var ext = file.name.split('.').pop();
-                        if (ext === "yml") {
-                            try {
-                                compFile = YAML.safeLoad(fileReader.result);
-                                if (typeof compFile === 'object') {
-                                    if (Array.isArray(compFile)) {
-                                        this.companies = compFile;
-                                    }
-                                    else
-                                        this.companies.push(compFile);
-                                }
-                                else
-                                    throw new Error ($t('err.invalidYamlFormat'))
-                            }
-                            catch(err) {
-                                console.log(err);
-                                var errMsg = err;
-                                if (err.mark) errMsg = $t('err.parsingError2',[err.mark.line,err.mark.column]);                              
-                                Notify.create({
-                                    message: errMsg,
-                                    color: 'negative',
-                                    textColor: 'white',
-                                    position: 'top-right'
-                                })
-                                return;
-                            }
+                    fileReader.onloadend = () => {
+                        try {
+                            this[property] = this[property].concat(this.parseDataFile(file.name, fileReader.result));
                         }
-                        else
-                            console.log('Bad Extension')
+                        catch(err) {
+                            console.log(err);
+                            Notify.create({
+                                message: err.message,
+                                color: 'negative',
+                                textColor: 'white',
+                                position: 'top-right'
+                            })
+                            return;
+                        }
                         pending--;
-                        if (pending === 0) this.createCompanies();
+                        if (pending === 0) create();
                     }
                     pending++;
                     fileReader.readAsText(file);
                 })(files[i])
             }
+        },
+
+        // Content of an imported file (.json, YAML otherwise), error with the message for the user if it cannot be read
+        parseDataFile: function(name, text) {
+            var json = /\.json$/i.test(name);
+            var data;
+            try {
+                data = (json)? JSON.parse(text): YAML.safeLoad(text);
+            }
+            catch(err) {
+                if (json) throw new Error($t('err.parsingError1', [err.message]));
+                throw new Error((err.mark)? $t('err.parsingError2', [err.mark.line, err.mark.column]): err.message);
+            }
+            if (!data || typeof data !== 'object')
+                throw new Error($t((json)? 'err.invalidJsonFormat': 'err.invalidYamlFormat'));
+            return data;
+        },
+
+        importCompanies: function(files) {
+            this.importDataFiles(files, 'companies', this.createCompanies)
         },
 
         downloadCompanies: function() {
@@ -477,49 +481,7 @@ export default {
         },
 
         importClients: function(files) {
-            this.clients = [];
-            var pending = 0;
-            for (var i=0; i<files.length; i++) {
-                ((file) => {
-                    var fileReader = new FileReader();
-                    fileReader.onloadend = (e) => {
-                        var cltsFile;
-                        var ext = file.name.split('.').pop();
-                        if (ext === "yml") {
-                            try {
-                                cltsFile = YAML.safeLoad(fileReader.result);
-                                if (typeof cltsFile === 'object') {
-                                    if (Array.isArray(cltsFile)) {
-                                        this.clients = cltsFile;
-                                    }
-                                    else
-                                        this.clients.push(cltsFile);
-                                }
-                                else
-                                    throw new Error ($t('err.invalidYamlFormat'))
-                            }
-                            catch(err) {
-                                console.log(err);
-                                var errMsg = err;
-                                if (err.mark) errMsg = $t('err.parsingError2',[err.mark.line,err.mark.column]);                              
-                                Notify.create({
-                                    message: errMsg,
-                                    color: 'negative',
-                                    textColor: 'white',
-                                    position: 'top-right'
-                                })
-                                return;
-                            }
-                        }
-                        else
-                            console.log('Bad Extension')
-                        pending--;
-                        if (pending === 0) this.createClients();
-                    }
-                    pending++;
-                    fileReader.readAsText(file);
-                })(files[i])
-            }
+            this.importDataFiles(files, 'clients', this.createClients)
         },
 
         downloadClients: function() {
@@ -619,49 +581,7 @@ export default {
         },
 
         importCollaborators: function(files) {
-            this.users = [];
-            var pending = 0;
-            for (var i=0; i<files.length; i++) {
-                ((file) => {
-                    var fileReader = new FileReader();
-                    fileReader.onloadend = (e) => {
-                        var cltsFile;
-                        var ext = file.name.split('.').pop();
-                        if (ext === "yml") {
-                            try {
-                                cltsFile = YAML.safeLoad(fileReader.result);
-                                if (typeof cltsFile === 'object') {
-                                    if (Array.isArray(cltsFile)) {
-                                        this.users = cltsFile;
-                                    }
-                                    else
-                                        this.users.push(cltsFile);
-                                }
-                                else
-                                    throw new Error ($t('err.invalidYamlFormat'))
-                            }
-                            catch(err) {
-                                console.log(err);
-                                var errMsg = err;
-                                if (err.mark) errMsg = $t('err.parsingError2',[err.mark.line,err.mark.column]);                              
-                                Notify.create({
-                                    message: errMsg,
-                                    color: 'negative',
-                                    textColor: 'white',
-                                    position: 'top-right'
-                                })
-                                return;
-                            }
-                        }
-                        else
-                            console.log('Bad Extension')
-                        pending--;
-                        if (pending === 0) this.createCollab();
-                    }
-                    pending++;
-                    fileReader.readAsText(file);
-                })(files[i])
-            }
+            this.importDataFiles(files, 'users', this.createCollab)
         },
 
         downloadUsers: function() {

@@ -112,7 +112,7 @@ export default {
     err: {
         notDefinedLanguage: '没有定义这种语言',
         invalidYamlFormat: '检测到无效的 YAML 格式',
-        parsingError1: '解析错误： {0}',
+        parsingError1: '解析错误： {0}',
         parsingError2: '解析错误： line {0}， column: {1}',
         invalidJsonFormat: '检测到无效的 JSON 格式',
         jsonMustBeAnObject: 'JSON 必须为 object。',

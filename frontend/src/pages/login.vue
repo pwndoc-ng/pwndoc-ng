@@ -197,7 +197,7 @@ export default defineComponent({
       },
 
       checkInit() {
-          Loading.show({message: $t('msg.tryingToContactBackend'), customClass: 'loading', backgroundColor: 'blue-grey-8'});
+          Loading.show({message: $t('msg.tryingToContactBackend'), html: true, customClass: 'loading', backgroundColor: 'blue-grey-8'});
           UserService.isInit()
           .then((data) => {
               Loading.hide();

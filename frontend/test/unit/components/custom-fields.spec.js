@@ -174,10 +174,7 @@ describe('custom-fields validation', () => {
     expect(wrapper.text()).toContain('Field is required')
   })
 
-  // BUG: src/components/custom-fields.vue:340-342 validate() calls this.$refs[key][0].validate() for every ref
-  // starting with 'field': when the list of fields gets shorter (e.g. finding category changed, so fewer custom
-  // fields), the refs of the removed fields remain as empty arrays and the validation (save) throws a TypeError
-  it.skip('validates the fields after some of them have been removed', async () => {
+  it('validates the fields after some of them have been removed', async () => {
     mountFields([field('a', 'input'), field('b', 'input')])
     await wrapper.setProps({ modelValue: [field('a', 'input')] })
     expect(() => wrapper.vm.requiredFieldsEmpty()).not.toThrow()

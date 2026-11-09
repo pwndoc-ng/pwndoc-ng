@@ -65,10 +65,7 @@ describe('textarea-array', () => {
     expect(model.value).toEqual(['a', 'b'])
   })
 
-  // BUG: src/components/textarea-array.vue:48-62 with no-empty-line (audit scope, general page), typing Enter at the
-  // end of the text emits the lines without the new empty one, the watcher of modelValue then rewrites the text
-  // without the line break: a new line cannot be started by typing (it has to be pasted or typed in the middle)
-  it.skip('lets the user type a new line with no-empty-line', async () => {
+  it('lets the user type a new line with no-empty-line', async () => {
     mountWithModel(['srv-01'], { noEmptyLine: true })
     await textarea().setValue('srv-01\n')
     await flushPromises()

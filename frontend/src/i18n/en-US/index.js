@@ -121,9 +121,9 @@ export default {
     err: {
         notDefinedLanguage: 'Not defined for this language',
         invalidYamlFormat: 'Invalid YAML format detected',
-        parsingError1: 'Parsing Error: {0}',
+        parsingError1: 'Parsing Error: {0}',
         parsingError2: 'Parsing Error: line {0}, column: {1}',
-        invalidJsonFormat: 'Invalid JSON format detected',
+        invalidJsonFormat: 'Invalid JSON format detected',
         jsonMustBeAnObject: 'JSON must be an object.',
         importingSettingsError: 'Error importing settings',
         errorWhileParsingJsonContent: 'Error while parsing JSON content: {0}',

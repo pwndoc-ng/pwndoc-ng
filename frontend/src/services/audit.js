@@ -5,7 +5,7 @@ export default {
     var queryParams = "?";
     if (filters)
       if (filters.findingTitle)
-        queryParams += `findingTitle=${filters.findingTitle}`;
+        queryParams += `findingTitle=${encodeURIComponent(filters.findingTitle)}`;
     return  api.get(`audits${queryParams}`)
   },
 

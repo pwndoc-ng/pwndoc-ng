@@ -57,9 +57,7 @@ describe('login page loading', () => {
     expect(wrapper.text()).toContain(wrapper.vm.$t(key))
   })
 
-  // BUG: src/pages/login.vue:200 the loading message msg.tryingToContactBackend ('<p>Trying to contact backend</p>')
-  // is shown without html: true: Quasar renders it as text, the user sees the <p> tags
-  it.skip('shows the loading message without HTML tags', async () => {
+  it('shows the loading message without HTML tags', async () => {
     await mountLogin()
     const [options] = Loading.show.mock.calls[0]
     expect(options.html === true || !/<[a-z]/i.test(options.message)).toBe(true)

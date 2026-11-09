@@ -173,9 +173,7 @@ describe('API services', () => {
     await expect(AuditService.getAudit('a1')).resolves.toEqual({ data: { datas: [{ _id: 'a1' }] } })
   })
 
-  // BUG: src/services/audit.js:8 the finding title is not URL-encoded in the query string: a title containing
-  // '&', '#' or '+' (e.g. "Cross-Site Scripting (XSS) & CSRF") is cut or altered when searching the audits of a finding
-  it.skip('encodes the finding title in the query string of getAudits', () => {
+  it('encodes the finding title in the query string of getAudits', () => {
     AuditService.getAudits({ findingTitle: 'XSS & CSRF #1' })
     expect(lastCall().args[0]).toBe(`audits?findingTitle=${encodeURIComponent('XSS & CSRF #1')}`)
   })
