@@ -543,6 +543,7 @@ export default {
     goBack: 'Gehe zurück',
     twoStepVerification: '2-Stufige-Verifizierung',
     twoStepVerificationMessage: 'Öffnen Sie Ihre Authentifizierungs-App und geben Sie den angezeigten Sicherheitscode ein.',
+    captionText: 'Text der Beschriftung',
     captions: 'Beschriftungen',
     captionsDescription: 'Fügt Beschriftungslabel hinzu, welche im Bericht genutzt werden (Standard ist \'Abbildung\')',
     // Remediation

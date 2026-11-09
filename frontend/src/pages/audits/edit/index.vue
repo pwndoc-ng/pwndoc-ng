@@ -1,6 +1,6 @@
 <template>
   <div :class="{ 'comments-panel-open': commentsStore.panelOpen }">
-    <q-drawer side="left" :modelValue="true" :width="400">
+    <q-drawer side="left" v-model="sectionsDrawer" show-if-above :width="400">
       <q-splitter horizontal v-model="splitterRatio" :limits="[50, 80]" style="height: 100%">
         <template v-slot:before>
           <q-list class="home-drawer">
@@ -267,6 +267,12 @@
         
       </q-splitter>
     </q-drawer>
+    <!-- Menu hidden on small screens (or zoomed windows): button to show it again -->
+    <q-page-sticky v-if="!sectionsDrawer" class="z-fab" position="bottom-left" :offset="[18, 18]">
+      <q-btn fab-mini color="secondary" icon="menu" @click="sectionsDrawer = true">
+        <q-tooltip :delay="500">{{$t('sections')}}</q-tooltip>
+      </q-btn>
+    </q-page-sticky>
     <!-- Review comments of the audit -->
     <q-drawer side="right" v-model="commentsStore.panelOpen" :width="380" bordered>
       <comments-panel />
@@ -294,6 +300,8 @@ import { createCommentsStore, targetKey } from '@/services/comments';
 export default defineComponent({
   data () {
       return {
+        // Menu of the sections: shown above the breakpoint of the drawer, with a button below
+        sectionsDrawer: false,
         auditId: "",
         findings: [],
         users: [],

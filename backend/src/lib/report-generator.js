@@ -1056,6 +1056,9 @@ var angularParser = function(tag) {
             for (let i = 0, len = num + 1; i < len; i++) {
                 obj = _.merge(obj, scopeList[i]);
             }
+            // $index: position in the innermost loop (e.g. {'VULN-'+($index+1)} in the loop of the findings)
+            const scopePathItem = context.scopePathItem || [];
+            obj.$index = scopePathItem[scopePathItem.length - 1];
             return expr(scope, obj);
         }
     };

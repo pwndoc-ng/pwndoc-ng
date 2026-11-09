@@ -10,7 +10,8 @@ import { encodeOption, decodeOption } from 'components/internal-link'
 import { docTextIndex, quoteFromRange, findQuote, imageAnchorKey, imageAnchorAt, findImage } from 'components/comment-highlight'
 
 // HTML of the editors for a corpus of contents: reference output of TipTap v3, identical to TipTap v2 except the
-// default colspan="1" rowspan="1" of the table cells, no longer written (ignored by the report generator)
+// default colspan="1" rowspan="1" of the table cells, no longer written (ignored by the report generator), and the
+// captions (<legend>), dropped by TipTap v2 (extension not loaded)
 import FIXTURE from '../../fixtures/editor-html.json'
 
 const extensions = contentExtensions()
@@ -46,6 +47,33 @@ describe('HTML of the editors', () => {
   it('does not add an empty paragraph after tables, images and code blocks', () => {
     expect(roundTrip('<p>a</p><pre><code>b</code></pre>')).toBe('<p>a</p><pre><code>b</code></pre>')
     expect(roundTrip('<img src="6aef2c3a3b1d4e5f60718293" alt="">')).toBe('<img class="custom-image" src="6aef2c3a3b1d4e5f60718293" alt="">')
+  })
+
+  it('keeps the captions read by the report generator (issue #16)', () => {
+    expect(roundTrip('<legend label="Table" alt="Ports ouverts"></legend>')).toBe('<legend label="Table" alt="Ports ouverts"></legend>')
+    expect(roundTrip('<p>a</p><legend alt="Capture"></legend>')).toBe('<p>a</p><legend label="Figure" alt="Capture"></legend>')
+  })
+
+  it('inserts a caption with a label of the settings (caption menu of the toolbar)', () => {
+    const editor = new Editor({ element: null, extensions, content: '<p>Texte</p>' })
+    editor.commands.setTextSelection(editor.state.doc.content.size)
+    expect(editor.commands.caption({ label: 'Table', alt: '' })).toBe(true)
+    expect(editor.getHTML()).toBe('<p>Texte</p><legend label="Table" alt=""></legend>')
+    editor.destroy()
+  })
+
+  it('resizable table columns in the editors made editable after their creation (issue #266)', () => {
+    const hasColumnResizing = (editor) => editor.state.plugins.some((plugin) => plugin.key.startsWith('tableColumnResizing$'))
+    // Editor component: created read-only, editable once the content is loaded
+    const editor = new Editor({ element: document.createElement('div'), extensions, editable: false, content: '<table><tbody><tr><td><p>x</p></td></tr></tbody></table>' })
+    expect(hasColumnResizing(editor)).toBe(true)
+    editor.setEditable(true)
+    expect(hasColumnResizing(editor)).toBe(true)
+    expect(editor.getHTML()).toBe('<table style="min-width: 25px;"><colgroup><col style="min-width: 25px;"></colgroup><tbody><tr><td><p>x</p></td></tr></tbody></table>')
+    editor.destroy()
+    const editable = new Editor({ element: document.createElement('div'), extensions })
+    expect(editable.state.plugins.filter((plugin) => plugin.key.startsWith('tableColumnResizing$'))).toHaveLength(1)
+    editable.destroy()
   })
 
   it('collaborative editors: same content, undo / redo of the collaboration', () => {

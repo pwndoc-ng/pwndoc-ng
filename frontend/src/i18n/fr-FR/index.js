@@ -340,6 +340,7 @@ export default {
     cvssEnvironmentalScore: "Score environnemental CVSS",
     twoStepVerification: "Validation en deux étapes",
     twoStepVerificationMessage: "Ouvrez votre application d'authentification et saisissez le code de sécurité qu'elle affiche.",
+    captionText: 'Texte de la légende',
     captions: "Légendes",
     captionsDescription: "Ajoutez les libellés de légende utilisés dans le rapport (par défaut : 'Figure')",
     auditType: "Type d'audit",

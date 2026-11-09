@@ -1,77 +1,51 @@
-import { Node, NodeSelection } from "@tiptap/core";
+import { Node } from "@tiptap/core";
+import { VueNodeViewRenderer } from "@tiptap/vue-3";
 
-export default class Caption extends Node {
-  get name() {
-    return "caption";
-  }
+import CaptionView from "./editor-caption-view.vue";
 
-  get schema() {
+// Caption of a figure, a table or a code block: <legend label="Figure" alt="Text"></legend>
+// Labels configured in the settings (Settings > Captions). In the report (html2ooxml): paragraph with the style
+// Caption, "<label> <number (SEQ field)> - <text>"
+export default Node.create({
+  name: "caption",
+  group: "block",
+  atom: true,
+  draggable: true,
+  selectable: true,
+
+  addAttributes() {
     return {
-      attrs: {
-        label: {
-          default: "Figure",
-        },
-        alt: {
-          default: "",
-        },
+      label: {
+        default: "Figure",
+        parseHTML: (element) => element.getAttribute("label") || "Figure",
+        renderHTML: (attributes) => ({ label: attributes.label }),
       },
-      group: "block",
-      draggable: true,
-      parseDOM: [
-        {
-          tag: "legend[alt]",
-          getAttrs: (dom) => ({
-            label: dom.getAttribute("label"),
-            alt: dom.getAttribute("alt"),
-          }),
-        },
-      ],
-      toDOM: (node) => ["legend", node.attrs],
+      alt: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("alt") || "",
+        renderHTML: (attributes) => ({ alt: attributes.alt || "" }),
+      },
     };
-  }
+  },
 
-  commands({ type }) {
-    return (attrs) => (state, dispatch) =>
-      dispatch(state.tr.replaceSelectionWith(type.create(attrs)));
-  }
+  parseHTML() {
+    return [{ tag: "legend" }];
+  },
 
-  get view() {
+  renderHTML({ HTMLAttributes }) {
+    return ["legend", HTMLAttributes];
+  },
+
+  addCommands() {
     return {
-      props: ["node", "updateAttrs"],
-      computed: {
-        label: {
-          get() {
-            return this.node.attrs.label;
-          },
-          set(label) {
-            this.updateAttrs({
-              label,
-            });
-          },
-        },
-        alt: {
-          get() {
-            return this.node.attrs.alt;
-          },
-          set(alt) {
-            this.updateAttrs({
-              alt,
-            });
-          },
-        },
-      },
-      template: `
-      <div style="margin: 0px auto 16px auto; display: table">
-        <div style="max-width:600px" class="cursor-pointer">
-          <span>{{label}} - </span>
-          <span v-if="alt" class="text-italic">{{alt}}</span>
-          <span v-else class="text-italic text-grey-7">Caption</span>
-        </div>
-        <q-popup-edit v-model="alt" auto-save>
-          <q-input style="width:600px" autofocus :prefix="label+' - '" v-model="alt" placeholder="Caption" />
-        </q-popup-edit>
-      </div>
-      `,
+      caption:
+        (attributes) =>
+        ({ commands }) =>
+          commands.insertContent({ type: this.name, attrs: attributes }),
     };
-  }
-}
+  },
+
+  addNodeView() {
+    return VueNodeViewRenderer(CaptionView);
+  },
+});

@@ -4,9 +4,11 @@ import StarterKit from '@tiptap/starter-kit' // Includes Link and Underline (Tip
 import Highlight from '@tiptap/extension-highlight'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { Table, TableCell, TableRow, TableHeader } from '@tiptap/extension-table'
+import { columnResizing } from '@tiptap/pm/tables'
 
 import CustomImage from './editor-image'
 import { Figure } from './figure'
+import Caption from './editor-caption'
 
 import css from 'highlight.js/lib/languages/css'
 import js from 'highlight.js/lib/languages/javascript'
@@ -29,6 +31,30 @@ lowlight.register('bash', bash)
 lowlight.register('sql', sql)
 lowlight.register('json', json)
 
+// Tables with resizable columns, also in the editors created read-only and made editable once their content is loaded
+// (editor component): the table extension only adds the column resizing to the editors editable at their creation
+// (issue #266). Resizing is inactive while the editor is read-only (checked by ProseMirror).
+export const ResizableTable = Table.extend({
+  addProseMirrorPlugins() {
+    const plugins = this.parent?.() || []
+    if (!this.options.resizable || this.editor.isEditable) return plugins
+    return [
+      columnResizing({
+        handleWidth: this.options.handleWidth,
+        cellMinWidth: this.options.cellMinWidth,
+        defaultCellMinWidth: this.options.cellMinWidth,
+        View: this.options.View,
+        lastColumnResizable: this.options.lastColumnResizable,
+      }),
+      ...plugins,
+    ]
+  },
+  // Table view of the column resizing plugin
+  addNodeView() {
+    return this.options.resizable ? null : this.parent?.()
+  },
+})
+
 // collab: undo / redo provided by the collaboration (Yjs)
 // codeBlock: code block extension (the editor component adds its node view, same schema)
 export function contentExtensions({ collab = false, codeBlock = CodeBlockLowlight.configure({ lowlight }) } = {}) {
@@ -47,7 +73,7 @@ export function contentExtensions({ collab = false, codeBlock = CodeBlockLowligh
       multicolor: true,
     }),
     codeBlock,
-    Table.configure({
+    ResizableTable.configure({
       resizable: true,
     }),
     TableRow,
@@ -60,5 +86,6 @@ export function contentExtensions({ collab = false, codeBlock = CodeBlockLowligh
       allowBase64: true,
     }),
     Figure,
+    Caption, // <legend label alt>: captions inserted with the labels of the settings
   ]
 }

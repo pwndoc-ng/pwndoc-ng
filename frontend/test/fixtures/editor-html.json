@@ -26,7 +26,7 @@
   "<p>Fin par une image</p><img src=\"6aef2c3a3b1d4e5f60718293\" alt=\"\">": "<p>Fin par une image</p><img class=\"custom-image\" src=\"6aef2c3a3b1d4e5f60718293\" alt=\"\">",
   "<table><tbody><tr><td><p>Fin par un tableau</p></td></tr></tbody></table>": "<table style=\"min-width: 25px;\"><colgroup><col style=\"min-width: 25px;\"></colgroup><tbody><tr><td><p>Fin par un tableau</p></td></tr></tbody></table>",
   "<figure><img src=\"6aef2c3a3b1d4e5f60718293\" alt=\"fig\"><figcaption>Légende</figcaption></figure>": "<figure><img src=\"6aef2c3a3b1d4e5f60718293\" alt=\"fig\" draggable=\"false\" contenteditable=\"false\"><figcaption>Légende</figcaption></figure>",
-  "<legend label=\"Figure\" alt=\"légende\"></legend>": "<p></p>",
+  "<legend label=\"Figure\" alt=\"légende\"></legend>": "<legend label=\"Figure\" alt=\"légende\"></legend>",
   "<p>Texte avec &lt;script&gt; échappé &amp; entités</p>": "<p>Texte avec &lt;script&gt; échappé &amp; entités</p>",
   "<div>div inconnue</div><span>span</span>": "<p>div inconnue</p><p>span</p>",
   "<p><span style=\"color: red\">style inline</span></p>": "<p>style inline</p>",

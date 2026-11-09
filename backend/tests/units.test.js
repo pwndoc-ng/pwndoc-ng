@@ -257,6 +257,27 @@ module.exports = function() {
         expect(evaluate("t | upper", {})).toBeUndefined()
       })
 
+      // Template rendered by docxtemplater with the parser of the reports
+      var render = (text, data) => {
+        var PizZip = require('pizzip')
+        var Docxtemplater = require('docxtemplater')
+        var zip = new PizZip()
+        zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>')
+        zip.file('word/document.xml', `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t xml:space="preserve">${text}</w:t></w:r></w:p></w:body></w:document>`)
+        var doc = new Docxtemplater(zip, {parser: reportGenerator.parser, paragraphLoop: true})
+        doc.render(data)
+        return doc.getFullText()
+      }
+
+      it('$index: position in the loop (issues #216, #276)', () => {
+        var data = {findings: [{title: 'XSS', references: ['a', 'b']}, {title: 'SQLi', references: ['c']}]}
+        expect(render("{#findings}{'VULN-'+($index+1)} {title};{/findings}", data)).toBe('VULN-1 XSS;VULN-2 SQLi;')
+        // Innermost loop
+        expect(render("{#findings}{$index}:{#references}{$index}{/references};{/findings}", data)).toBe('0:01;1:0;')
+        // Outside of a loop
+        expect(evaluate("$index", {})).toBeUndefined()
+      })
+
       it('Lines of a text', () => {
         expect(evaluate("t | lines", {t: '<p>first</p><p>second</p>'})).toEqual(['first', 'second'])
         expect(evaluate("t | lines", {t: 'first\nsecond'})).toEqual(['first', 'second'])
