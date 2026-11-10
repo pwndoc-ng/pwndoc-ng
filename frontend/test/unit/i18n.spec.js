@@ -5,10 +5,11 @@ import { baseCompile } from '@intlify/message-compiler'
 import messages from '@/i18n'
 import { sourceFiles, readSource, flattenMessages } from '../helpers/source'
 
-const LOCALES = ['en-US', 'fr-FR', 'de-DE', 'zh-CN']
+const LOCALES = ['en-US', 'fr-FR', 'de-DE', 'zh-CN', 'pt-BR']
+// Translations kept complete (no fallback to English)
+const COMPLETE = ['fr-FR', 'pt-BR']
 const flat = Object.fromEntries(LOCALES.map((locale) => [locale, flattenMessages(messages[locale])]))
 const en = flat['en-US']
-const fr = flat['fr-FR']
 
 // 'quantifier' is inserted between a number and a noun: empty except in Chinese (个)
 const INTENTIONALLY_EMPTY = ['quantifier']
@@ -38,26 +39,27 @@ function usedKeys() {
 }
 
 describe('i18n messages', () => {
-  it('declares the 4 languages of the language selector', () => {
+  it('declares the 5 languages of the language selector', () => {
     expect(Object.keys(messages).sort()).toEqual([...LOCALES].sort())
   })
 
-  it('has every en-US key translated in fr-FR', () => {
-    expect(Object.keys(en).filter((key) => !(key in fr))).toEqual([])
+  it.each(COMPLETE)('has every en-US key translated in %s', (locale) => {
+    expect(Object.keys(en).filter((key) => !(key in flat[locale]))).toEqual([])
   })
 
-  it('has no fr-FR key unknown in en-US (dead or misspelled key)', () => {
-    expect(Object.keys(fr).filter((key) => !(key in en))).toEqual([])
+  it.each(COMPLETE)('has no %s key unknown in en-US (dead or misspelled key)', (locale) => {
+    expect(Object.keys(flat[locale]).filter((key) => !(key in en))).toEqual([])
   })
 
   it.each(LOCALES)('has no empty message in %s (an empty translation is displayed, no fallback)', (locale) => {
     expect(emptyKeys(locale)).toEqual([])
   })
 
-  it('uses the same placeholders in en-US and fr-FR', () => {
+  it.each(COMPLETE)('uses the same placeholders in en-US and %s', (locale) => {
+    const translated = flat[locale]
     const mismatches = Object.keys(en)
-      .filter((key) => key in fr && placeholders(en[key]).join() !== placeholders(fr[key]).join())
-      .map((key) => `${key}: ${JSON.stringify(en[key])} / ${JSON.stringify(fr[key])}`)
+      .filter((key) => key in translated && placeholders(en[key]).join() !== placeholders(translated[key]).join())
+      .map((key) => `${key}: ${JSON.stringify(en[key])} / ${JSON.stringify(translated[key])}`)
     expect(mismatches).toEqual([])
   })
 

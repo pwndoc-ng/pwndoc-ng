@@ -172,9 +172,9 @@ describe('language-selector', () => {
     localStorage.setItem('system_language', 'en-US')
   })
 
-  it('offers the 4 languages of the translations', () => {
+  it('offers the 5 languages of the translations', () => {
     wrapper = mount(LanguageSelector)
-    expect(wrapper.findComponent(QSelect).props('options').map((option) => option.value)).toEqual(['en-US', 'fr-FR', 'zh-CN', 'de-DE'])
+    expect(wrapper.findComponent(QSelect).props('options').map((option) => option.value)).toEqual(['en-US', 'fr-FR', 'zh-CN', 'de-DE', 'pt-BR'])
   })
 
   it('selects the saved language', () => {

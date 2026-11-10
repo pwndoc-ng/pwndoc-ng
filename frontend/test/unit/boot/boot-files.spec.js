@@ -16,7 +16,7 @@ describe('boot/i18n', () => {
   it('uses the composition API mode with English as fallback', () => {
     expect(i18n.mode).toBe('composition')
     expect(i18n.global.fallbackLocale.value).toBe('en-US')
-    expect(i18n.global.availableLocales.sort()).toEqual(['de-DE', 'en-US', 'fr-FR', 'zh-CN'])
+    expect(i18n.global.availableLocales.sort()).toEqual(['de-DE', 'en-US', 'fr-FR', 'pt-BR', 'zh-CN'])
   })
 
   it('translates in the JS files with $t, with list and named parameters', () => {
