@@ -1,4 +1,5 @@
 import { Node } from "@tiptap/core";
+import { NodeSelection } from "@tiptap/pm/state";
 import { VueNodeViewRenderer } from "@tiptap/vue-3";
 
 import CaptionView from "./editor-caption-view.vue";
@@ -38,10 +39,13 @@ export default Node.create({
 
   addCommands() {
     return {
+      // A selected node (image just uploaded, table) is kept: the caption is inserted after it instead of replacing it
       caption:
         (attributes) =>
-        ({ commands }) =>
-          commands.insertContent({ type: this.name, attrs: attributes }),
+        ({ state, commands }) =>
+          state.selection instanceof NodeSelection
+            ? commands.insertContentAt(state.selection.to, { type: this.name, attrs: attributes })
+            : commands.insertContent({ type: this.name, attrs: attributes }),
     };
   },
 

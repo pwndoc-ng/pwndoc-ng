@@ -384,7 +384,6 @@ export default {
     phone: '座机',
     cell: '手机',
     role: '角色',
-    collatorator: '审计员',
     addCollaborator: '添加审计员',
     editCollaborator: '编辑审计员',
     addCompany: '添加公司',

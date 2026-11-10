@@ -1,7 +1,7 @@
 <div>
     <breadcrumb
     buttons
-    :title="audit ? `${audit.name} (${audit.auditType || 'Audit Type not set'})` : 'Loading...'"
+    :title="audit?.name ? `${audit.name} (${audit.auditType || 'Audit Type not set'})` : 'Loading...'"
     :state="parentState"
     :approvals="parentApprovals"
   >
@@ -10,6 +10,7 @@
         v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
         color="positive"
         :label="$t('btn.save') + ' (ctrl+s)'"
+        :disable="!loaded"
         no-caps
         @click="updateSection"
       />
@@ -23,7 +24,7 @@
             <!-- For retrocompatibility, test if section.text exists -->
             <q-card-section v-if="section.text"> 
                 <div class="row justify-end"><comment-button :target="commentTargets.text" /></div>
-                <basic-editor ref="basiceditor_section" noSync v-model="section.text" :comment-target="commentTargets.text" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT" />
+                <basic-editor ref="basiceditor_section" noSync v-model="section.text" :idUnique="textEditorId" :comment-target="commentTargets.text" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT" @ready="textEditorReady" />
             </q-card-section>
             <custom-fields v-else 
             ref="customfields" 

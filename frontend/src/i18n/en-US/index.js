@@ -398,7 +398,6 @@ export default {
     phone: 'Phone',
     cell: 'Cell',
     role: 'Role',
-    collatorator: 'Collatorator',
     addCollaborator: 'Add Collaborator',
     editCollaborator: 'Edit Collaborator',
     addCompany: 'Add Company',
@@ -715,6 +714,9 @@ export default {
     twoStepVerification: '2-Step Verification',
     twoStepVerificationMessage: 'Open your authentication app and enter the security code it provides.',
     captionText: 'Caption text',
+    editorDisconnected: 'Connection lost: your changes are kept and will be shared once connected again',
+    editorDocumentReloaded: 'The shared document was reloaded: your changes not yet shared were dropped',
+    imageUploadFailed: 'The image could not be uploaded',
     captions: 'Captions',
     captionsDescription: 'Add Caption labels that will be used in the report (Default is \'Figure\')',
     // Remediation

@@ -249,11 +249,11 @@
                                         <q-expansion-item :label="auditType.name" popup header-class="expansion-header">
                                             <q-item>
                                                 <q-item-section>
-                                                    <div v-for="(language,idx) of languages" class="q-mb-sm">
-                                                        <q-select 
-                                                        v-if="auditType.templates && auditType.templates[idx]"
+                                                    <div v-for="language of languages" class="q-mb-sm">
+                                                        <q-select
+                                                        v-if="getAuditTypeTemplate(auditType, language.locale)"
                                                         readonly
-                                                        v-model="auditType.templates[idx].template"
+                                                        :model-value="getAuditTypeTemplate(auditType, language.locale).template"
                                                         :label="`${language.language} ${$t('template')}`"
                                                         :options="templates" 
                                                         option-value="_id"
@@ -343,11 +343,11 @@
                                   
                                             <q-item>
                                               <q-item-section>
-                                                <div v-for="(language, idx) in languages" :key="idx">
+                                                <div v-for="language in languages" :key="language.locale">
                                                   <q-select
                                                     ref="validate-template-edit"
-                                                    v-if="auditType.templates[idx]"
-                                                    v-model="auditType.templates[idx].template"
+                                                    v-if="getAuditTypeTemplate(auditType, language.locale)"
+                                                    v-model="getAuditTypeTemplate(auditType, language.locale).template"
                                                     label-slot
                                                     :options="getTemplateOptionsLanguage(language.locale)"
                                                     option-value="template"
@@ -364,11 +364,12 @@
                                                     </template>
                                                   </q-select>
                                   
-                                                  <!-- needed for updating old Audit Types without templates -->
+                                                  <!-- needed for updating old Audit Types without templates (or without the template of this language: added, never put at the index of another language) -->
                                                   <q-select
                                                     v-else
                                                     ref="validate-template-edit2"
-                                                    v-model="auditType.templates[idx]"
+                                                    :model-value="null"
+                                                    @update:model-value="auditType.templates.push($event)"
                                                     label-slot
                                                     :options="getTemplateOptionsLanguage(language.locale)"
                                                     option-value="template"
@@ -768,7 +769,7 @@
                                 :options="cfDisplayOptions"
                                 emit-value
                                 map-options
-                                @input="newCustomField.displaySub = ''"
+                                @update:model-value="newCustomField.displaySub = ''"
                                 outlined dense
                                 />
                             </q-item-section>
@@ -967,7 +968,7 @@
                       <draggable v-model="customFields" item-key="_id" class="row bg-grey-2 q-pa-sm" handle=".drag-handle">
                         <template #item="{ element: field, index: idx }">
                           <q-item
-                            v-if="field.display === newCustomField.display && field.displaySub === newCustomField.displaySub"
+                            v-if="canDisplayCustomField(field)"
                             :class="`col-md-${field.size || 12} col-12 offset-md-${field.offset || 0}`"
                             class="relative-position q-pa-xs"
                           >
@@ -1077,7 +1078,7 @@
                                 <template v-slot:append>
                                   <q-icon name="event" class="cursor-pointer">
                                     <q-popup-proxy transition-show="scale" transition-hide="scale">
-                                      <q-date v-model="tempDate" mask="YYYY-MM-DD" @update:model-value="setFieldValue(field, $event)" />
+                                      <q-date :model-value="getFieldValue(field)" mask="YYYY-MM-DD" @update:model-value="setFieldValue(field, $event)" />
                                     </q-popup-proxy>
                                   </q-icon>
                                 </template>

@@ -77,6 +77,8 @@ export default defineComponent({
       mine: false,
       rows: [],
       loading: false,
+      // Number of the last request: only its answer is shown (filters changed quickly, answers in any order)
+      lastRequest: 0,
     }
   },
 
@@ -116,18 +118,21 @@ export default defineComponent({
     kindInfo,
 
     async load() {
+      const request = ++this.lastRequest
       this.loading = true
       try {
         const params = { status: this.status }
         if (this.mine) params.mine = 'true'
         if (this.vulnerabilityFilter) params.vulnerability = this.vulnerabilityFilter.id
         const response = await VulnerabilityService.getProposals(params)
-        this.rows = response.data.datas
+        if (request === this.lastRequest)
+          this.rows = response.data.datas
       }
       catch (err) {
         console.log(err)
       }
-      this.loading = false
+      if (request === this.lastRequest)
+        this.loading = false
     },
 
     onChanged() {

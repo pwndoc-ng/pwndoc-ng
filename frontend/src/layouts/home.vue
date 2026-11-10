@@ -73,7 +73,8 @@ export default defineComponent({
   data () {
     return {
       userService: UserService,
-      pendingProposals: 0 // Vulnerability proposals to review (reviewers)
+      pendingProposals: 0, // Vulnerability proposals to review (reviewers)
+      proposalsRequest: 0 // Number of the last request of the count: refreshed at each navigation, answers in any order
     }
   },
 
@@ -95,8 +96,13 @@ export default defineComponent({
   methods: {
       refreshPendingProposals() {
           if (!UserService.isAllowed('vulnerabilities:update')) return;
+          var request = ++this.proposalsRequest;
           VulnerabilityService.getProposalsCount()
-          .then((data) => { this.pendingProposals = data.data.datas.pending })
+          .then((data) => {
+              // An older answer must not replace the count of the last request
+              if (request === this.proposalsRequest)
+                  this.pendingProposals = data.data.datas.pending
+          })
           .catch(() => {});
       },
       logout: function() {

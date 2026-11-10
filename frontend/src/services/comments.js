@@ -45,6 +45,20 @@ export const FINDING_FIELD_TABS = {
 export function createCommentsStore(auditId, options) {
   // options: {getAudit(): audit object of the edit page, getCustomFields(): custom fields definitions,
   //           canEdit(): current user is an editor of the audit, navigate(comment): go to the commented element}
+
+  // Lists of comments (answers of the refreshes and of the changes) applied in the order of the requests: refreshes
+  // crossing each other (socket 'updateComments' sent after each change) would end with an outdated list
+  let listsRequested = 0
+  let listApplied = 0
+  const requestList = async (call) => {
+    const request = ++listsRequested
+    const response = await call()
+    if (request > listApplied) {
+      listApplied = request
+      store.items = response.data.datas
+    }
+  }
+
   const store = reactive({
     auditId: auditId,
     items: [],
@@ -59,8 +73,7 @@ export function createCommentsStore(auditId, options) {
 
     async load() {
       try {
-        const response = await AuditService.getComments(this.auditId)
-        this.items = response.data.datas
+        await requestList(() => AuditService.getComments(this.auditId))
         this.loaded = true
       }
       catch (err) {
@@ -234,8 +247,7 @@ export function createCommentsStore(auditId, options) {
 
     async request(call) {
       try {
-        const response = await call()
-        this.items = response.data.datas
+        await requestList(call)
         return true
       }
       catch (err) {

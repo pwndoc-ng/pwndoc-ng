@@ -64,11 +64,12 @@
           <template v-if="isReviewer">
             <q-btn v-if="selectable" flat no-caps :label="allSelected ? $t('proposals.unselectAll') : $t('proposals.selectAll')" @click="toggleAll" />
             <q-space />
-            <q-btn flat no-caps color="negative" :label="$t('proposals.reject')" @click="reject" />
+            <q-btn flat no-caps color="negative" :label="$t('proposals.reject')" :disable="sending" @click="reject" />
             <q-btn
               unelevated
               no-caps
               color="positive"
+              :loading="sending"
               :disable="!creation && !selected.length"
               :label="creation ? $t('proposals.acceptCreation') : $t('proposals.acceptSelection', { count: selected.length })"
               @click="accept"
@@ -76,7 +77,7 @@
           </template>
           <template v-else>
             <q-space />
-            <q-btn flat no-caps color="negative" :label="$t('proposals.withdraw')" @click="withdraw" />
+            <q-btn flat no-caps color="negative" :label="$t('proposals.withdraw')" :loading="sending" @click="withdraw" />
           </template>
         </q-card-actions>
       </template>
@@ -106,6 +107,10 @@ export default defineComponent({
       visible: false,
       detail: null,
       selected: [],
+      // Number of the last proposal opened: only its answer is shown (rows clicked quickly, answers in any order)
+      lastOpen: 0,
+      // Decision being sent (accept, reject, withdraw): a double click sends it once
+      sending: false,
     }
   },
 
@@ -181,14 +186,17 @@ export default defineComponent({
     userName,
 
     async open(proposalId) {
+      const request = ++this.lastOpen
       try {
         const response = await VulnerabilityService.getProposal(proposalId)
+        if (request !== this.lastOpen) return
         this.detail = response.data.datas
         this.selected = this.rows.map((row) => row.field) // Everything selected by default
         this.visible = true
       }
       catch (err) {
-        this.notifyError(err)
+        if (request === this.lastOpen)
+          this.notifyError(err)
       }
     },
 
@@ -217,14 +225,10 @@ export default defineComponent({
     },
 
     async accept() {
-      try {
+      await this.send(async () => {
         const response = await VulnerabilityService.acceptProposal(this.proposal._id, this.creation ? [] : this.selected)
         this.notify(response.data.datas.status === 'partial' ? $t('proposals.partiallyAcceptedOk') : $t('proposals.acceptedOk'))
-        this.done()
-      }
-      catch (err) {
-        this.notifyError(err)
-      }
+      })
     },
 
     reject() {
@@ -235,16 +239,10 @@ export default defineComponent({
         ok: { label: $t('proposals.reject'), color: 'negative' },
         cancel: { label: $t('btn.cancel'), color: 'white' },
         persistent: true,
-      }).onOk(async (comment) => {
-        try {
-          await VulnerabilityService.rejectProposal(this.proposal._id, comment)
-          this.notify($t('proposals.rejectedOk'))
-          this.done()
-        }
-        catch (err) {
-          this.notifyError(err)
-        }
-      })
+      }).onOk((comment) => this.send(async () => {
+        await VulnerabilityService.rejectProposal(this.proposal._id, comment)
+        this.notify($t('proposals.rejectedOk'))
+      }))
     },
 
     withdraw() {
@@ -253,16 +251,26 @@ export default defineComponent({
         message: $t('proposals.withdrawConfirm'),
         ok: { label: $t('btn.confirm'), color: 'negative' },
         cancel: { label: $t('btn.cancel'), color: 'white' },
-      }).onOk(async () => {
-        try {
-          await VulnerabilityService.withdrawProposal(this.proposal._id)
-          this.notify($t('proposals.withdrawnOk'))
-          this.done()
-        }
-        catch (err) {
-          this.notifyError(err)
-        }
-      })
+      }).onOk(() => this.send(async () => {
+        await VulnerabilityService.withdrawProposal(this.proposal._id)
+        this.notify($t('proposals.withdrawnOk'))
+      }))
+    },
+
+    // Decision on the proposal: one at a time (a second one would be refused, the proposal being no longer pending)
+    async send(decision) {
+      if (this.sending) return
+      this.sending = true
+      try {
+        await decision()
+        this.done()
+      }
+      catch (err) {
+        this.notifyError(err)
+      }
+      finally {
+        this.sending = false
+      }
     },
 
     done() {

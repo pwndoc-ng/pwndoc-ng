@@ -4,7 +4,7 @@ import { h } from 'vue'
 
 export default {
   name: 'BasicEditor',
-  props: ['modelValue', 'diff', 'editable', 'toolbar', 'collab', 'noSync', 'idUnique', 'commentTarget'],
+  props: ['modelValue', 'diff', 'editable', 'toolbar', 'collab', 'noSync', 'idUnique', 'commentTarget', 'loading'],
   emits: ['update:modelValue', 'editorchange'],
   methods: {
     updateHTML() {}

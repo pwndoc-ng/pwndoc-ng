@@ -8,7 +8,8 @@ import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { yUndoPluginKey } from '@tiptap/y-tiptap'
 import * as Y from 'yjs'
 
-import { fixPluginRegistration, setInitialCollaborativeContent, keepUndoManagerTracking } from 'components/editor-collaboration'
+import { createDocument } from '@tiptap/core'
+import { fixPluginRegistration, setInitialCollaborativeContent, keepUndoManagerTracking, fnv1a32, initialContentClientId, initialContentIds } from 'components/editor-collaboration'
 
 const editors = []
 
@@ -64,7 +65,7 @@ describe('setInitialCollaborativeContent', () => {
     expect(editor.getHTML()).toBe('<p>Contenu initial</p>')
   })
 
-  it('replaces an empty shared content (empty paragraph)', () => {
+  it('writes nothing for an empty value, then the value arriving later', () => {
     const editor = collaborativeEditor()
     setInitialCollaborativeContent(editor, '')
     expect(editor.getHTML()).toBe('<p></p>')
@@ -86,6 +87,124 @@ describe('setInitialCollaborativeContent', () => {
     expect(setInitialCollaborativeContent(editor, '<p>Sans collaboration</p>')).toBe(false)
     expect(editor.getHTML()).toBe('<p>Sans collaboration</p>')
     expect(onUpdate).not.toHaveBeenCalled()
+  })
+})
+
+describe('deterministic initial content (shared documents not loaded by the server)', () => {
+  const sync = (from, to) => Y.applyUpdate(to, Y.encodeStateAsUpdate(from, Y.encodeStateVector(to)))
+  const VALUE = '<p>Description <strong>enregistrée</strong> — « 漢字 »</p><ul><li><p>point</p></li></ul>'
+
+  it('same content written by two clients in the same field: same Yjs items, kept once', () => {
+    const [ann, bob] = [new Y.Doc(), new Y.Doc()]
+    setInitialCollaborativeContent(collaborativeEditor(ann), VALUE)
+    setInitialCollaborativeContent(collaborativeEditor(bob), VALUE)
+    sync(ann, bob)
+    sync(bob, ann)
+    expect(ann.getXmlFragment('field').length).toBe(2)
+    expect(Y.encodeStateAsUpdate(ann)).toEqual(Y.encodeStateAsUpdate(bob))
+    const merged = collaborativeEditor(ann)
+    expect(merged.getHTML()).toBe(VALUE)
+  })
+
+  it('client reconnecting with its copy after the server reloaded the document from the same value: not duplicated', () => {
+    const ann = new Y.Doc()
+    const annEditor = collaborativeEditor(ann)
+    setInitialCollaborativeContent(annEditor, VALUE)
+    annEditor.commands.insertContentAt(1, 'Ann: ') // Not saved
+    const reloaded = new Y.Doc() // Server restarted: Bob writes the value of the database again
+    setInitialCollaborativeContent(collaborativeEditor(reloaded), VALUE)
+    sync(ann, reloaded)
+    sync(reloaded, ann)
+    expect(collaborativeEditor(reloaded).getHTML()).toBe('<p>Ann: Description <strong>enregistrée</strong> — « 漢字 »</p><ul><li><p>point</p></li></ul>')
+  })
+
+  it('keeps a field with content, even an empty paragraph (text cleared by a user)', () => {
+    const ydoc = new Y.Doc()
+    const editor = collaborativeEditor(ydoc)
+    setInitialCollaborativeContent(editor, '<p>Texte</p>')
+    editor.commands.clearContent()
+    expect(editor.getHTML()).toBe('<p></p>')
+    setInitialCollaborativeContent(editor, '<p>Ancienne valeur</p>')
+    expect(editor.getHTML()).toBe('<p></p>')
+    expect(ydoc.getXmlFragment('field').length).toBe(1)
+  })
+
+  it.each(['', '<p></p>', null])('writes nothing for the empty value %j', (value) => {
+    const ydoc = new Y.Doc()
+    setInitialCollaborativeContent(collaborativeEditor(ydoc), value)
+    expect(ydoc.getXmlFragment('field').length).toBe(0)
+  })
+
+  it('client id: 32-bit FNV-1a of the field, a NUL character and the JSON of the content', () => {
+    // Reference values of the algorithm (also used by the tests of the backend emulating the clients)
+    expect(fnv1a32('')).toBe(0x811c9dc5)
+    expect(fnv1a32('a')).toBe(0xe40c292c)
+    expect(fnv1a32('foobar')).toBe(0xbf9cf968)
+    const editor = collaborativeEditor()
+    const doc = createDocument('<p>Texte</p>', editor.schema)
+    expect(initialContentClientId('a1-f1-basiceditor_description', doc)).toBe(fnv1a32(`a1-f1-basiceditor_description\u0000${JSON.stringify(doc.toJSON())}`))
+    expect(initialContentClientId('a1-f2-basiceditor_description', doc)).not.toBe(initialContentClientId('a1-f1-basiceditor_description', doc))
+    expect(initialContentClientId('a1-f1-basiceditor_description', createDocument('<p>Texte.</p>', editor.schema))).not.toBe(initialContentClientId('a1-f1-basiceditor_description', doc))
+  })
+
+  it('items of the initial content written with the client id of the content', () => {
+    const ydoc = new Y.Doc()
+    const editor = collaborativeEditor(ydoc, 'a1-f1-basiceditor_description')
+    setInitialCollaborativeContent(editor, '<p>Texte</p>')
+    const expected = initialContentClientId('a1-f1-basiceditor_description', createDocument('<p>Texte</p>', editor.schema))
+    // Items of the field written by the client id of the content (the meta map entry is written by the client of the document)
+    expect(ydoc.getXmlFragment('a1-f1-basiceditor_description').toArray().map((node) => node._item.id.client)).toEqual([expected])
+  })
+
+  it('keeps the client id of the initial content of the field in the meta map, in the same transaction', () => {
+    const ydoc = new Y.Doc()
+    const editor = collaborativeEditor(ydoc, 'a1-f1-basiceditor_description')
+    const origins = []
+    ydoc.on('afterTransaction', (transaction) => origins.push(transaction.origin))
+    setInitialCollaborativeContent(editor, '<p>Texte</p>')
+    expect(origins).toEqual(['pwndoc-initial-content'])
+    const expected = initialContentClientId('a1-f1-basiceditor_description', createDocument('<p>Texte</p>', editor.schema))
+    expect(ydoc.getMap('pwndoc').get('init:a1-f1-basiceditor_description')).toBe(expected)
+    expect(initialContentIds(ydoc)).toEqual({ 'a1-f1-basiceditor_description': expected })
+  })
+
+  // A local item in a transaction applying an update makes Yjs believe that another client uses the client id of the
+  // document: it changes it ("[yjs] Changed the client-id"), the awareness keeps the old one (own caret shown as another
+  // user, typing misplaced)
+  it('keeps the client id of the document (entry of the meta map written with the client id of the content)', () => {
+    const ydoc = new Y.Doc()
+    const clientID = ydoc.clientID
+    const editor = collaborativeEditor(ydoc, 'a1-f1-basiceditor_description')
+    setInitialCollaborativeContent(editor, '<p>Texte</p>')
+    expect(ydoc.clientID).toBe(clientID)
+    const expected = initialContentClientId('a1-f1-basiceditor_description', createDocument('<p>Texte</p>', editor.schema))
+    expect(ydoc.getMap('pwndoc')._map.get('init:a1-f1-basiceditor_description').id.client).toBe(expected)
+  })
+
+  it('writes no id when nothing is written (field with content, empty value)', () => {
+    const ydoc = new Y.Doc()
+    const editor = collaborativeEditor(ydoc)
+    setInitialCollaborativeContent(editor, '')
+    expect(initialContentIds(ydoc)).toEqual({})
+    editor.commands.insertContent('Saisie')
+    setInitialCollaborativeContent(editor, '<p>Valeur</p>')
+    expect(initialContentIds(ydoc)).toEqual({})
+  })
+
+  it('ids of the initial contents of all the fields of the document, other keys ignored', () => {
+    const ydoc = new Y.Doc()
+    setInitialCollaborativeContent(collaborativeEditor(ydoc, 'f-description'), '<p>a</p>')
+    setInitialCollaborativeContent(collaborativeEditor(ydoc, 'f-observation'), '<p>b</p>')
+    ydoc.getMap('pwndoc').set('other', 1)
+    expect(Object.keys(initialContentIds(ydoc)).sort()).toEqual(['f-description', 'f-observation'])
+  })
+
+  it('not undoable in an editor without collaboration (loaded value)', () => {
+    const editor = new Editor({ element: document.createElement('div'), extensions: [StarterKit] })
+    editors.push(editor)
+    setInitialCollaborativeContent(editor, '<p>Valeur chargée</p>')
+    editor.commands.undo()
+    expect(editor.getHTML()).toBe('<p>Valeur chargée</p>')
   })
 })
 

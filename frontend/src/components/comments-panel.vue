@@ -73,7 +73,7 @@
       />
       <div class="row justify-end q-gutter-sm q-mt-xs">
         <q-btn flat dense no-caps :label="$t('btn.cancel')" @click="store.draft = null" />
-        <q-btn color="orange-8" unelevated dense no-caps :label="$t('comments.add')" :disable="!draftText.trim()" @click="createComment" />
+        <q-btn color="orange-8" unelevated dense no-caps :label="$t('comments.add')" :disable="!draftText.trim()" :loading="creating" @click="createComment" />
       </div>
     </div>
 
@@ -143,9 +143,9 @@
                   :color="comment.resolved ? 'grey-8' : 'green'"
                   :icon="comment.resolved ? 'replay' : 'check'"
                   :label="comment.resolved ? $t('comments.reopen') : $t('comments.resolve')"
-                  @click="store.setResolved(comment, !comment.resolved)"
+                  @click="toggleResolved(comment, $event)"
                 />
-                <q-btn color="primary" unelevated dense no-caps :label="$t('comments.reply')" :disable="!replyText.trim()" @click="reply(comment)" />
+                <q-btn color="primary" unelevated dense no-caps :label="$t('comments.reply')" :disable="!replyText.trim()" :loading="replying" @click="reply(comment)" />
               </div>
             </q-card-section>
           </template>
@@ -172,6 +172,9 @@ export default defineComponent({
     return {
       draftText: '',
       replyText: '',
+      // Requests pending (the text is cleared at the answer): a double click sends the comment or the reply once
+      creating: false,
+      replying: false,
     }
   },
 
@@ -211,15 +214,34 @@ export default defineComponent({
 
   methods: {
     async createComment() {
-      if (!this.draftText.trim()) return
-      if (await this.store.create(this.draftText))
-        this.draftText = ''
+      if (this.creating || !this.draftText.trim()) return
+      this.creating = true
+      try {
+        if (await this.store.create(this.draftText))
+          this.draftText = ''
+      }
+      finally {
+        this.creating = false
+      }
     },
 
     async reply(comment) {
-      if (!this.replyText.trim()) return
-      if (await this.store.reply(comment, this.replyText))
-        this.replyText = ''
+      if (this.replying || !this.replyText.trim()) return
+      this.replying = true
+      try {
+        if (await this.store.reply(comment, this.replyText))
+          this.replyText = ''
+      }
+      finally {
+        this.replying = false
+      }
+    },
+
+    // Second click of a double click (MouseEvent.detail 2) ignored: once the first request answered, the button is the
+    // opposite action (reopen / resolve) at the same place
+    toggleResolved(comment, event) {
+      if (event && event.detail > 1) return
+      this.store.setResolved(comment, !comment.resolved)
     },
 
     remove(comment) {

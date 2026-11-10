@@ -3,7 +3,7 @@ import { Dialog, Notify, QSpinnerGears } from 'quasar';
 import AuditStateIcon from 'components/audit-state-icon'
 import Breadcrumb from 'components/breadcrumb'
 
-import AuditService from '@/services/audit'
+import AuditService, { errorMessage } from '@/services/audit'
 import DataService from '@/services/data'
 import CompanyService from '@/services/company'
 import UserService from '@/services/user'
@@ -18,6 +18,8 @@ export default {
             audits: [],
             // Loading state
             loading: true,
+            // Number of the last request of the audits
+            lastAuditsRequest: 0,
             // AuditTypes list
             auditTypes: [],
             // Companies list
@@ -25,6 +27,10 @@ export default {
             // Languages availbable
             languages: [],
             showCreateModal: false,
+            // Creation (or clone) of an audit pending: a double click creates it once
+            creatingAudit: false,
+            // Audits whose report is being generated
+            reportsPending: [],
             // Datatable headers
             dtHeaders: [
                 { name: 'name', label: $t('name'), field: 'name', align: 'left', sortable: true },
@@ -150,16 +156,25 @@ export default {
             })
         },
 
+        // Only the answer of the last search is shown (searches answered in any order)
         getAudits: function() {
+            var request = ++this.lastAuditsRequest
             this.loading = true
             AuditService.getAudits({findingTitle: this.search.finding})
             .then((data) => {
+                if (request !== this.lastAuditsRequest) return
                 this.audits = data.data.datas
-      
                 this.loading = false
             })
             .catch((err) => {
-                console.log(err)
+                if (request !== this.lastAuditsRequest) return
+                this.loading = false
+                Notify.create({
+                    message: errorMessage(err),
+                    color: 'negative',
+                    textColor:'white',
+                    position: 'top-right'
+                })
             })
         },
         formatDate(dateString) {
@@ -168,8 +183,9 @@ export default {
             return date.toLocaleDateString('fr-FR');
           },
         createAudit: function() {
+            if (this.creatingAudit) return;
             this.cleanErrors();
-            
+
             if (this.cloneExistingReport) {
                 // Mode clonage
                 if (!this.currentAudit.name)
@@ -183,25 +199,27 @@ export default {
                 // Create a cloned audit
                 this.createClonedAudit();
             } else {
-                // Normal creation mode
-                this.currentAudit.auditType = this.currentAudit.auditType.name;
-                if (!this.currentAudit.name)
+                // Normal creation mode. The type selected (object of the select) is kept for a new attempt, its name is sent
+                var auditType = this.currentAudit.auditType;
+                var audit = {...this.currentAudit, auditType: (auditType && typeof auditType === 'object') ? auditType.name : auditType};
+                if (!audit.name)
                     this.errors.name = "Name required";
-                if (!this.currentAudit.language)
+                if (!audit.language)
                     this.errors.language = "Language required";
-                if (!this.currentAudit.auditType)
+                if (!audit.auditType)
                     this.errors.auditType = "Assessment required";
-                    
+
                 if (this.errors.name || this.errors.language || this.errors.auditType)
                     return;
 
-                this.createNormalAudit();
+                this.createNormalAudit(audit);
             }
         },
 
         // Create a normal audit
-        createNormalAudit: function() {
-            AuditService.createAudit(this.currentAudit)
+        createNormalAudit: function(audit) {
+            this.creatingAudit = true;
+            AuditService.createAudit(audit)
             .then((response) => {
                 this.showCreateModal = false;
                 this.getAudits();
@@ -209,16 +227,20 @@ export default {
             })
             .catch((err) => {
                 Notify.create({
-                    message: err.response.data.datas,
+                    message: errorMessage(err),
                     color: 'negative',
                     textColor:'white',
                     position: 'top-right'
                 })
             })
+            .finally(() => {
+                this.creatingAudit = false;
+            })
         },
 
         // Create a cloned audit
         createClonedAudit: function() {
+            this.creatingAudit = true;
             AuditService.createClonedAudit(this.selectedAuditToClone, this.currentAudit.name)
             .then((response) => {
                 this.showCreateModal = false;
@@ -227,11 +249,14 @@ export default {
             })
             .catch((err) => {
                 Notify.create({
-                    message: err.response.data.datas,
+                    message: errorMessage(err),
                     color: 'negative',
                     textColor:'white',
                     position: 'top-right'
                 })
+            })
+            .finally(() => {
+                this.creatingAudit = false;
             })
         },
 
@@ -248,7 +273,7 @@ export default {
             })
             .catch((err) => {
                 Notify.create({
-                    message: err.response.data.datas,
+                    message: errorMessage(err),
                     color: 'negative',
                     textColor:'white',
                     position: 'top-right'
@@ -284,7 +309,12 @@ export default {
             })
         },
 
-        generateReport: function(auditId) {
+        generateReport: function(auditId, event) {
+            // One generation at a time per audit, and the second click of a double click ignored (the generation may
+            // already be answered): a double click downloads the report once
+            if (this.reportsPending.includes(auditId) || (event && event.detail > 1))
+                return
+            this.reportsPending.push(auditId)
             var downloadNotif = Notify.create({
                 spinner: QSpinnerGears,
                 message: 'Generating the Report',
@@ -327,6 +357,9 @@ export default {
                     timeout: 0,
                     classes: "text-pre-wrap"
                 })
+            })
+            .finally(() => {
+                this.reportsPending = this.reportsPending.filter(id => id !== auditId)
             })
         },
 

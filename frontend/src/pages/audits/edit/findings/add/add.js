@@ -3,7 +3,7 @@ import { Notify } from 'quasar';
 import Breadcrumb from 'components/breadcrumb';
 
 import VulnService from '@/services/vulnerability';
-import AuditService from '@/services/audit';
+import AuditService, { errorMessage } from '@/services/audit';
 import DataService from '@/services/data';
 import Utils from '@/services/utils';
 
@@ -41,6 +41,11 @@ export default {
 
             // Loading state
             loading: false,
+            // Number of the last request of the vulnerabilities
+            lastVulnerabilitiesRequest: 0,
+            // Creations pending (a double click creates the finding once): manual creation, vulnerabilities added
+            creatingFinding: false,
+            addingVulns: [],
             // Headers for vulnerabilities datatable
             dtVulnHeaders: [
                 {name: 'title', label: $t('title'), field: row => row.detail.title, align: 'left', sortable: true},
@@ -121,35 +126,14 @@ export default {
               vulnType: this.search.vulnType
             };
           },
-          vulnCategoriesOptions() {
-            return this.$_.uniq(this.$_.map(this.vulnerabilities, vuln => {
-              return vuln.category || $t('noCategory');
-            }));
-          },
-          vulnTypeOptions() {
-            return this.$_.uniq(
-              this.vulnerabilities.map(vuln => vuln.detail?.vulnType || $t('undefined'))
-            );
-          },
-          filteredVulnerabilities() {
-            if (!this.dtLanguage) return this.vulnerabilities; // If no language selected, display all
-            return this.vulnerabilities.filter(vuln => vuln.locale === this.dtLanguage);
-          },
+        // Options of the filters: values shown in the table ("No Category", "Undefined" type when empty)
         vulnCategoriesOptions: function() {
-            return this.$_.uniq(this.$_.map(this.vulnerabilities, vuln => {
-                return vuln.category || $t('noCategory')
-            }))
+            return this.$_.uniq(this.vulnerabilities.map(vuln => this.categoryLabel(vuln)))
         },
 
         vulnTypeOptions: function() {
-            return this.$_.uniq(
-              this.vulnerabilities.map(vuln => vuln.detail?.vulnType || $t('undefined'))
-            );
-          },
-          filteredVulnerabilities() {
-            if (!this.dtLanguage) return this.vulnerabilities; // If no language selected, display all
-            return this.vulnerabilities.filter(vuln => vuln.locale === this.dtLanguage);
-          }    
+            return this.$_.uniq(this.vulnerabilities.map(vuln => this.vulnTypeLabel(vuln)))
+        }
     },
 
     methods: {
@@ -164,16 +148,26 @@ export default {
             })
         },
 
-        // Get vulnerabilities by language
+        // Get vulnerabilities by language. Only the answer of the last language chosen is shown (languages changed
+        // quickly, answers in any order)
         getVulnerabilities: function() {
+            var request = ++this.lastVulnerabilitiesRequest
             this.loading = true
             VulnService.getVulnByLanguage(this.dtLanguage)
             .then((data) => {
+                if (request !== this.lastVulnerabilitiesRequest) return
                 this.vulnerabilities = data.data.datas;
                 this.loading = false
             })
             .catch((err) => {
-                console.log(err)
+                if (request !== this.lastVulnerabilitiesRequest) return
+                this.loading = false
+                Notify.create({
+                    message: errorMessage(err),
+                    color: 'negative',
+                    textColor:'white',
+                    position: 'top-right'
+                })
             })
         },
         getAudit: function() {
@@ -206,14 +200,22 @@ export default {
                 return row.details[index].title;         
         },
 
+        categoryLabel: function(vuln) {
+            return vuln.category || $t('noCategory')
+        },
+
+        vulnTypeLabel: function(vuln) {
+            return (vuln.detail && vuln.detail.vulnType) || $t('undefined')
+        },
+
         customFilter(rows, terms, cols, getCellValue) {
-            console.log('ok')
             var result = rows && rows.filter(row => {
               if (!row.detail || !row.detail.title) return false;
-          
+
+              // Values shown in the table: the "No Category" and "Undefined" options of the filters match the empty ones
               const title = row.detail.title.toLowerCase();
-              const category = row.category ? row.category.toLowerCase() : '';
-              const vulnType = row.detail.vulnType ? row.detail.vulnType.toLowerCase() : '';
+              const category = this.categoryLabel(row).toLowerCase();
+              const vulnType = this.vulnTypeLabel(row).toLowerCase();
           
               const searchTitle = terms.title ? terms.title.toLowerCase() : '';
               const searchCategory = terms.category ? terms.category.toLowerCase() : '';
@@ -231,11 +233,22 @@ export default {
           
 
 
-        addFindingFromVuln: function(vuln) {
+        // Custom fields loaded by the audit edit page (index.vue): the parent of this page is its RouterView
+        auditCustomFields: function() {
+            for (var parent = this.$parent; parent; parent = parent.$parent) {
+                if (parent.$data && Array.isArray(parent.$data.customFields))
+                    return parent.$data.customFields
+            }
+            return []
+        },
+
+        addFindingFromVuln: function(vuln, event) {
             var finding = null;
+            // Vulnerability being added, or second click of a double click (MouseEvent.detail 2, the first creation may
+            // already be answered): a double click adds it once
+            if ((vuln && this.addingVulns.includes(vuln._id)) || (event && event.detail > 1))
+                return
             if (vuln) {
-                console.log(vuln.detail.customFields)
-                console.log(Utils.filterCustomFields('vulnerability', vuln.category, this.$parent.customFields, [], this.audit.language))
                 finding = {
                     title: vuln.detail.title,
                     vulnType: vuln.detail.vulnType,
@@ -252,6 +265,7 @@ export default {
             }
 
             if (finding) {
+                this.addingVulns.push(vuln._id)
                 AuditService.createFinding(this.auditId, finding)
                 .then(() => {
                     this.findingTitle = "";
@@ -264,16 +278,23 @@ export default {
                 })
                 .catch((err) => {
                     Notify.create({
-                        message: err.response.data.datas,
+                        message: errorMessage(err),
                         color: 'negative',
                         textColor:'white',
                         position: 'top-right'
                     })
                 })
+                .finally(() => {
+                    this.addingVulns = this.addingVulns.filter(id => id !== vuln._id)
+                })
             }
         },
 
         addFinding: function(category) {
+            if (this.creatingFinding)
+                return
+            // Custom fields of the findings of the category (the fields of the vulnerabilities included)
+            var customFields = this.auditCustomFields()
             var finding = null;
             if (category && this.findingTitle) {
                 finding = {
@@ -287,7 +308,7 @@ export default {
                     references: [],
                     cvssv3: "",
                     category: category.name,
-                    customFields: [...Utils.filterCustomFields('finding', category.name, this.$parent.customFields, [], this.audit.language),...Utils.filterCustomFields('vulnerability', category.name, this.$parent.customFields, [], this.audit.language)]
+                    customFields: Utils.filterCustomFields('finding', category.name, customFields, [], this.audit.language)
                 };
             }
             else if (this.findingTitle){
@@ -301,11 +322,12 @@ export default {
                     priority: "",
                     references: [],
                     cvssv3: "",
-                    customFields: [...Utils.filterCustomFields('finding', '', this.$parent.customFields, [], this.audit.language),...Utils.filterCustomFields('vulnerability', '', this.$parent.customFields, [], this.audit.language)]
+                    customFields: Utils.filterCustomFields('finding', '', customFields, [], this.audit.language)
                 };
             }
 
             if (finding) {
+                this.creatingFinding = true
                 AuditService.createFinding(this.auditId, finding)
                 .then(() => {
                     this.findingTitle = "";
@@ -315,15 +337,18 @@ export default {
                         textColor:'white',
                         position: 'top-right'
                     })
-  
+
                 })
                 .catch((err) => {
                     Notify.create({
-                        message: err.response.data.datas,
+                        message: errorMessage(err),
                         color: 'negative',
                         textColor:'white',
                         position: 'top-right'
                     })
+                })
+                .finally(() => {
+                    this.creatingFinding = false
                 })
             }
         }

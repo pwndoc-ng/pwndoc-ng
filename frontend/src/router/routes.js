@@ -28,8 +28,9 @@ export default [
     {path: 'vulnerabilities', component: () => import('@/pages/vulnerabilities'), meta: {breadcrumb: 'Vulnerabilities'}},
     {path: 'profile', component: () => import('pages/profile')},
     {path: 'settings', component: () => import('pages/settings')},
-    {path: '403', name: '403', component: () => import('pages/403')},
-    {path: '404', name: '404', component: () => import('pages/404')}
+    // Optional reason of the error (params.error), shown by the page
+    {path: '403/:error?', name: '403', component: () => import('pages/403')},
+    {path: '404/:error?', name: '404', component: () => import('pages/404')}
   ]},
   {path: '/login', component: () => import('pages/login')},
   {path: '/:pathMatch(.*)*', redirect: '/'}

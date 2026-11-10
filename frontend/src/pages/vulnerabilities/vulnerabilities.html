@@ -323,6 +323,7 @@
         expand-icon-class="text-white"
         >
             <custom-fields 
+            v-if="customFieldsLoaded"
             ref="customfields" 
             :collab="false"
             v-model="currentVulnerability.details[currentDetailsIndex].customFields"
@@ -494,6 +495,7 @@
         header-class="bg-blue-grey-5 text-white" 
         expand-icon-class="text-white">
           <custom-fields
+            v-if="customFieldsLoaded"
             ref="customfields" 
             v-model="currentVulnerability.details[currentDetailsIndex].customFields"
             :key="currentDetailsIndex"

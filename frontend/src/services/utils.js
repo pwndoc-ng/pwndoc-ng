@@ -86,6 +86,15 @@ export default {
     return diffPurifier.sanitize(html, PURIFY_CONFIG);
   },
 
+  // Message of the server for a failed request (JSON in a Blob for the downloads), else the message of the error
+  async requestErrorMessage(err) {
+    var data = err.response && err.response.data;
+    if (data instanceof Blob) {
+      try { data = JSON.parse(await data.text()) } catch (e) { data = null }
+    }
+    return (data && data.datas) || err.message;
+  },
+
   // Update all basic-editor when noSync is necessary for performance (text with images).
   syncEditors: function (refs) {
     Object.keys(refs).forEach((key) => {

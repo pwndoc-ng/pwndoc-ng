@@ -20,7 +20,7 @@
               </q-item-section>
             </q-item>
           </q-card-section>
-          <q-card-section>
+          <q-card-section v-if="UserService.isAllowed('settings:read')">
             <div class="text-bold">{{$t('extendCvssTemporalEnvironment')}}</div>
             <q-item>
                 <q-item-section class="col-md-2">

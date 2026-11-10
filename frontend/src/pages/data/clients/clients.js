@@ -53,6 +53,12 @@ export default {
             },
             // Email to identify client to update
             idUpdate: '',
+            // Creation in progress (double click protection)
+            creating: false,
+            // Clients whose deletion was sent (double confirmation protection), removed when the deletion fails
+            deletedIds: [],
+            // Number of the last loading of the list
+            listRequest: 0
         }
     },
 
@@ -61,21 +67,42 @@ export default {
         this.getCompanies();
     },
 
+    unmounted: function() {
+        // The answers of the loadings still pending are ignored once the page is left
+        this.listRequest++;
+    },
+
     methods: {
         getClients: function() {
             this.loading = true
+            // Several loadings may be pending (page opened, refresh after a change): only the last one is applied
+            var request = ++this.listRequest
             ClientService.getClients()
             .then((data) => {
+                if (request !== this.listRequest)
+                    return
                 this.clients = data.data.datas
                 this.rows = data.data.datas
                 this.loading = false
             })
             .catch((err) => {
                 console.log(err)
+                if (request !== this.listRequest)
+                    return
+                this.loading = false
+                Notify.create({
+                    message: (err.response && err.response.data && err.response.data.datas) || err.message,
+                    color: 'negative',
+                    textColor:'white',
+                    position: 'top-right'
+                })
             })
         },
 
         createClient: function() {
+            // Double click or Enter pressed twice: the second request would be refused (client already exists)
+            if (this.creating)
+                return;
             this.cleanErrors();
             if (!this.currentClient.lastname)
                 this.errors.lastname = $t('msg.lastnameRequired');
@@ -87,10 +114,17 @@ export default {
             if (this.errors.lastname || this.errors.firstname || this.errors.email)
                 return;
 
+            this.creating = true;
+            var created = this.currentClient;
             ClientService.createClients([this.currentClient])
+            .finally(() => {
+                this.creating = false;
+            })
             .then(() => {
                 this.getClients();
-                this.$refs.createModal.hide();
+                // Not when the page was left, nor when the dialog was opened again meanwhile (new object)
+                if (this.$refs.createModal && this.currentClient === created)
+                    this.$refs.createModal.hide();
                 Notify.create({
                     message: $t('msg.clientCreatedOk'),
                     color: 'positive',
@@ -120,10 +154,13 @@ export default {
             if (this.errors.lastname || this.errors.firstname || this.errors.email)
                 return;
 
+            var updated = this.currentClient;
             ClientService.updateClient(this.idUpdate, this.currentClient)
             .then(() => {
                 this.getClients();
-                this.$refs.editModal.hide();
+                // Not when the page was left, nor when another client was opened meanwhile (new object)
+                if (this.$refs.editModal && this.currentClient === updated)
+                    this.$refs.editModal.hide();
                 Notify.create({
                     message: $t('msg.clientUpdatedOk'),
                     color: 'positive',
@@ -142,6 +179,10 @@ export default {
         },
 
         deleteClient: function(clientId) {
+            // A double click on the trash opens two confirmations: the client is deleted once
+            if (this.deletedIds.includes(clientId))
+                return;
+            this.deletedIds.push(clientId);
             ClientService.deleteClient(clientId)
             .then(() => {
                 this.getClients();
@@ -153,6 +194,7 @@ export default {
                 })
             })
             .catch((err) => {
+                this.deletedIds.splice(this.deletedIds.indexOf(clientId), 1);
                 Notify.create({
                     message: err.response.data.datas,
                     color: 'negative',
@@ -194,14 +236,17 @@ export default {
             this.errors.email = '';
         },
 
+        // New object for each opening: the answer of a request closes only the dialog of the client it was sent for
         cleanCurrentClient: function() {
-            this.currentClient.lastname = '';
-            this.currentClient.firstname = '';
-            this.currentClient.email = '';
-            this.currentClient.phone = '';
-            this.currentClient.cell = '';            
-            this.currentClient.title = '';        
-            this.currentClient.company = {name: ''};        
+            this.currentClient = {
+                lastname: '',
+                firstname: '',
+                email: '',
+                phone: '',
+                cell: '',
+                title: '',
+                company: {name: ''}
+            };
         },
 
         dblClick: function(evt, row) {

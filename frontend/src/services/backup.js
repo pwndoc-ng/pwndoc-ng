@@ -1,4 +1,5 @@
 import { api } from 'boot/axios'
+import Utils from '@/services/utils'
 
 // Backups of the instance data, stored on the server
 export default {
@@ -46,11 +47,7 @@ export default {
   },
 
   // Error message of a request (Blob body for the downloads)
-  async errorMessage(err) {
-    var data = err.response && err.response.data
-    if (data instanceof Blob) {
-      try { data = JSON.parse(await data.text()) } catch (e) { data = null }
-    }
-    return (data && data.datas) || err.message
+  errorMessage(err) {
+    return Utils.requestErrorMessage(err)
   }
 }

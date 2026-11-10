@@ -48,7 +48,8 @@
               @click="cleanCurrentAudit(); showCreateModal = true;"
             />
             
-            <q-dialog v-model="showCreateModal">
+            <!-- Not closed by a click outside: the second click of a double click on "New Audit" would close it -->
+            <q-dialog v-model="showCreateModal" no-backdrop-dismiss>
                 <q-card style="min-width: 600px">
                   <q-card-section>
                     <div class="text-h6">{{ $t('newAudit') }}</div>
@@ -123,8 +124,8 @@
                   </q-card-section>
               
                   <q-card-actions align="right">
-                    <q-btn flat label="Annuler" color="primary" v-close-popup />
-                    <q-btn color="secondary" label="Créer" @click="createAudit" />
+                    <q-btn flat :label="$t('btn.cancel')" color="primary" v-close-popup />
+                    <q-btn color="secondary" :label="$t('btn.create')" :loading="creatingAudit" @click="createAudit" />
                   </q-card-actions>
                 </q-card>
               </q-dialog>
@@ -199,7 +200,7 @@
                 <q-btn size="sm" flat class="edit-btn-color" :to="`/audits/${props.row._id}/general`" icon="fa fa-edit">
                   <q-tooltip>{{ $t('tooltip.editAudit') }}</q-tooltip>
                 </q-btn>
-                <q-btn size="sm" flat color="info" @click="generateReport(props.row._id)" icon="fa fa-download">
+                <q-btn size="sm" flat color="info" @click="generateReport(props.row._id, $event)" icon="fa fa-download">
                   <q-tooltip>{{ $t('tooltip.downloadReport') }}</q-tooltip>
                 </q-btn>
                 <q-btn size="sm" flat color="negative" @click="confirmDeleteAudit(props.row)" icon="fa fa-trash">

@@ -43,7 +43,7 @@ const CASES = [
   ['audit', AuditService, 'generateAuditReport', ['a1'], 'get', ['audits/a1/generate', { responseType: 'blob' }]],
   ['audit', AuditService, 'updateAuditSortFindings', ['a1', BODY], 'put', ['audits/a1/sortfindings', BODY]],
   ['audit', AuditService, 'updateAuditFindingPosition', ['a1', BODY], 'put', ['audits/a1/movefinding', BODY]],
-  ['audit', AuditService, 'toggleApproval', ['a1'], 'put', ['audits/a1/toggleApproval']],
+  ['audit', AuditService, 'toggleApproval', ['a1', { approved: true }], 'put', ['audits/a1/toggleApproval', { approved: true }]],
   ['audit', AuditService, 'updateReadyForReview', ['a1', BODY], 'put', ['audits/a1/updateReadyForReview', BODY]],
   ['audit', AuditService, 'getComments', ['a1'], 'get', ['audits/a1/comments']],
   ['audit', AuditService, 'createComment', ['a1', BODY], 'post', ['audits/a1/comments', BODY]],

@@ -45,7 +45,13 @@ export default {
                 file: '',
                 ext: ''
             },
-            templateId: ''
+            templateId: '',
+            // Creation in progress (double click protection)
+            creating: false,
+            // Templates whose deletion was sent (double confirmation protection), removed when the deletion fails
+            deletedIds: [],
+            // Number of the last loading of the list
+            listRequest: 0
         }
     },
 
@@ -57,16 +63,34 @@ export default {
         this.getTemplates()
     },
 
+    unmounted: function() {
+        // The answers of the loadings still pending are ignored once the page is left
+        this.listRequest++
+    },
+
     methods: {
         getTemplates: function() {
             this.loading = true
+            // Several loadings may be pending (page opened, refresh after a change): only the last one is applied
+            var request = ++this.listRequest
             TemplateService.getTemplates()
             .then((data) => {
+                if (request !== this.listRequest)
+                    return
                 this.templates = data.data.datas
                 this.loading = false
             })
             .catch((err) => {
                 console.log(err)
+                if (request !== this.listRequest)
+                    return
+                this.loading = false
+                Notify.create({
+                    message: (err.response && err.response.data && err.response.data.datas) || err.message,
+                    color: 'negative',
+                    textColor: 'white',
+                    position: 'top-right'
+                })
             })
         },
         customFilter(rows, terms, cols, getCellValue) {
@@ -82,9 +106,9 @@ export default {
                 if (!nameMatch) return false;
               }
               
-              // Check ext
-              if (terms.ext && row.ext) {
-                const extMatch = String(row.ext).toLowerCase().includes(String(terms.ext).toLowerCase());
+              // Check ext (the templates created before the extensions are docx templates, downloaded as .docx)
+              if (terms.ext) {
+                const extMatch = String(row.ext || 'docx').toLowerCase().includes(String(terms.ext).toLowerCase());
                 if (!extMatch) return false;
               }
               
@@ -95,38 +119,46 @@ export default {
         downloadTemplate: function(row) {
             TemplateService.downloadTemplate(row._id)
             .then((data) => {
-                status = exportFile(`${row.name}.${row.ext || 'docx'}`, data.data, {type: "application/octet-stream"})
-                if (!status)
-                    throw (status)
+                // true, or the error of the browser (download blocked...)
+                var status = exportFile(`${row.name}.${row.ext || 'docx'}`, data.data, {type: "application/octet-stream"})
+                if (status !== true)
+                    throw status
             })
-            .catch((err) => {
-                if (err.response.status === 404) {
-                    Notify.create({
-                        message: $t('msg.templateNotFound'),
-                        color: 'negative',
-                        textColor: 'white',
-                        position: 'top-right'
-                    })
-                }
-                else
-                    console.log(err.response)
+            .catch(async (err) => {
+                console.log(err.response || err)
+                Notify.create({
+                    message: (err.response && err.response.status === 404) ? $t('msg.templateNotFound') : await Utils.requestErrorMessage(err),
+                    color: 'negative',
+                    textColor: 'white',
+                    position: 'top-right'
+                })
             })
         },
 
         createTemplate: function() {
+            // Double click or Enter pressed twice: the second request would be refused (template already exists)
+            if (this.creating)
+                return;
             this.cleanErrors();
             if (!this.currentTemplate.name)
                 this.errors.name = $t('msg.nameRequired');
             if (!this.currentTemplate.file)
                 this.errors.file = $t('msg.fileRequired');
-                
+
             if (this.errors.name || this.errors.file)
                 return;
 
+            this.creating = true;
+            var created = this.currentTemplate;
             TemplateService.createTemplate(this.currentTemplate)
+            .finally(() => {
+                this.creating = false;
+            })
             .then(() => {
                 this.getTemplates();
-                this.$refs.createModal.hide();
+                // Not when the page was left, nor when the dialog was opened again meanwhile (new object)
+                if (this.$refs.createModal && this.currentTemplate === created)
+                    this.$refs.createModal.hide();
                 Notify.create({
                     message: $t('msg.templateCreatedOk'),
                     color: 'positive',
@@ -152,10 +184,13 @@ export default {
             if (this.errors.name)
                 return;
 
+            var updated = this.currentTemplate;
             TemplateService.updateTemplate(this.templateId, this.currentTemplate)
             .then(() => {
                 this.getTemplates();
-                this.$refs.editModal.hide();
+                // Not when the page was left, nor when another template was opened meanwhile (new object)
+                if (this.$refs.editModal && this.currentTemplate === updated)
+                    this.$refs.editModal.hide();
                 Notify.create({
                     message: $t('msg.templateUpdatedOk'),
                     color: 'positive',
@@ -174,6 +209,10 @@ export default {
         },
 
         deleteTemplate: function(templateId) {
+            // A double click on the trash opens two confirmations: the template is deleted once
+            if (this.deletedIds.includes(templateId))
+                return;
+            this.deletedIds.push(templateId);
             TemplateService.deleteTemplate(templateId)
             .then((data) => {
                 this.getTemplates();
@@ -185,6 +224,7 @@ export default {
                 })
             })
             .catch((err) => {
+                this.deletedIds.splice(this.deletedIds.indexOf(templateId), 1);
                 Notify.create({
                     message: err.response.data.datas,
                     color: 'negative',
@@ -229,12 +269,15 @@ export default {
         handleFile: function(files) {
             var file = files[0];
             var fileReader = new FileReader();
+            // Read asynchronously: the dialog may have been closed and another template opened meanwhile (new object,
+            // see cleanCurrentTemplate)
+            var template = this.currentTemplate;
 
             fileReader.onloadend = (e) => {
-                this.currentTemplate.file = fileReader.result.split(",")[1];
+                template.file = fileReader.result.split(",")[1];
             }
 
-            this.currentTemplate.ext = file.name.split('.').pop()
+            template.ext = file.name.split('.').pop()
             fileReader.readAsDataURL(file);
         },
 

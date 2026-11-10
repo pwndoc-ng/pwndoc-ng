@@ -7,6 +7,14 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 export const encodeOption = (text) => btoa(String.fromCharCode(...new TextEncoder().encode(text)));
 export const decodeOption = (value) => new TextDecoder().decode(Uint8Array.from(atob(value), (c) => c.charCodeAt(0)));
 
+// Style of the menu, added once to the page for all the editors
+const MENU_STYLE_ID = 'tiptap-trigger-menu-style';
+
+// The menu is opened after "::" by a key which types nothing (arrow, Tab...): the characters typed after "::" stay in the
+// text (IPv6 addresses, std::string...), as the modifier and editing keys
+const NOT_OPENING_KEYS = ['Shift', 'Control', 'Alt', 'AltGraph', 'Meta', 'CapsLock', 'Backspace', 'Delete', 'Enter', 'Escape'];
+const opensMenu = (event) => event.key.length > 1 && !NOT_OPENING_KEYS.includes(event.key);
+
 export const TriggerMenuExtension = Extension.create({
   name: 'triggerMenu',
 
@@ -15,9 +23,12 @@ export const TriggerMenuExtension = Extension.create({
     let selectedIndex = -1;
     let isMenuVisible = false;
     let auditAPI = -1;
+    let outsideClickListener = null;
 
-    const style = document.createElement('style');
-    style.textContent = `
+    if (!document.getElementById(MENU_STYLE_ID)) {
+      const style = document.createElement('style');
+      style.id = MENU_STYLE_ID;
+      style.textContent = `
       .tiptap-trigger-menu {
         position: absolute;
         background: white;
@@ -122,8 +133,9 @@ export const TriggerMenuExtension = Extension.create({
         text-align: center;
         font-size: 14px;
       }
-    `;
-    document.head.appendChild(style);
+      `;
+      document.head.appendChild(style);
+    }
 
     // Utility functions for state management
 
@@ -131,6 +143,8 @@ export const TriggerMenuExtension = Extension.create({
     return [
       new Plugin({
         key: new PluginKey('triggerMenu'),
+        // Menu opened (or loading) when the editor is destroyed (page left): removed
+        view: () => ({ destroy: () => closeMenu() }),
         props: {
           handleKeyDown(view, event) {
             // Check audit ID from path
@@ -158,14 +172,15 @@ export const TriggerMenuExtension = Extension.create({
                 return false; // Allow the event to propagate and delete the character
               }
             
-            // If the menu is visible, any key closes it except navigation keys
+            // If the menu is visible, any key closes it except navigation keys: Escape only closes it, the other keys keep
+            // their effect (typed character, caret moved)
             if (isMenuVisible) {
               const navigationKeys = ['ArrowUp', 'ArrowDown', 'Enter'];
               
               if (!navigationKeys.includes(event.key)) {
                 
                 closeMenu();
-                return true;
+                return event.key === 'Escape';
               }
 
               const options = menuElement.querySelectorAll('.menu-option');
@@ -207,7 +222,7 @@ export const TriggerMenuExtension = Extension.create({
             const { $from } = selection;
             const textBefore = $from.parent.textContent.slice($from.parentOffset - 2, $from.parentOffset);
 
-            if (textBefore === '::') {
+            if (textBefore === '::' && opensMenu(event)) {
               const coords = view.coordsAtPos($from.pos);
               
               showMenu(coords, view);
@@ -328,6 +343,10 @@ export const TriggerMenuExtension = Extension.create({
           isMenuVisible = false;
           selectedIndex = -1;
         }
+        if (outsideClickListener) {
+          document.removeEventListener('click', outsideClickListener);
+          outsideClickListener = null;
+        }
       }
         function renderMenuOptions(options) {
       if (!menuElement) return;
@@ -360,7 +379,9 @@ export const TriggerMenuExtension = Extension.create({
 
       closeMenu();
     
-      menuElement = document.createElement('div');
+      // Menu of this opening: the findings answered after it was closed (or opened again) are ignored
+      const element = document.createElement('div');
+      menuElement = element;
       menuElement.className = 'tiptap-trigger-menu';
       menuElement.style.top = `${coords.top + window.scrollY}px`;
       menuElement.style.left = `${coords.left + window.scrollX}px`;
@@ -369,34 +390,30 @@ export const TriggerMenuExtension = Extension.create({
       document.body.appendChild(menuElement);
       isMenuVisible = true;
 
+      element.addEventListener('click', (e) => {
+        const option = e.target.closest('.menu-option');
+        if (option) {
+          const value = option.getAttribute('data-value');
+          insertOption(value, view);
+        }
+      });
+      // Outside click handler (removed with the menu)
+      outsideClickListener = (e) => {
+        if (!element.contains(e.target)) closeMenu();
+      };
+      document.addEventListener('click', outsideClickListener);
+
       try {
-        // Simulate network delay (to be removed in production)
-        await new Promise(resolve => setTimeout(resolve, 1000));
         const options = await fetchMenuOptions();
+        if (menuElement !== element) return;
 
         renderMenuOptions(options);
         
         selectedIndex = 0;
         updateSelectedOption(menuElement.querySelectorAll('.menu-option'));
-
-        menuElement.addEventListener('click', (e) => {
-          const option = e.target.closest('.menu-option');
-          if (option) {
-            const value = option.getAttribute('data-value');
-            insertOption(value, view);
-          }
-        });
       } catch (error) {
-        showErrorState(error);
+        if (menuElement === element) showErrorState(error);
       }
-    
-      // Outside click handler
-      document.addEventListener('click', function closeMenuOnClick(e) {
-        if (!menuElement?.contains(e.target)) {
-          closeMenu();
-          document.removeEventListener('click', closeMenuOnClick);
-        }
-      });
     }
   },
 });

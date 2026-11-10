@@ -23,6 +23,11 @@ export default {
             currentDetailsIndex:0,
             // Loading state
             loading: true,
+            // Number of the last loading of the list: the answers of the older ones are ignored
+            vulnerabilitiesRequest: 0,
+            // Requests in progress (double click protection)
+            creating: false,
+            merging: false,
             rows:[],
             // Datatable headers
             dtHeaders: [
@@ -78,7 +83,11 @@ export default {
             vulnCategories: [],
             currentCategory: null,
             // Custom Fields
-            customFields: []
+            customFields: [],
+            // Until then, the custom fields of the vulnerability opened are kept as they are (not filtered, not shown)
+            customFieldsLoaded: false,
+            // Number of the last request of the count of the proposals (answers in any order)
+            proposalsRequest: 0
         }
     },
 
@@ -177,6 +186,10 @@ export default {
             DataService.getCustomFields()
             .then((data) => {
                 this.customFields = this.$_.cloneDeep(data.data.datas)
+                this.customFieldsLoaded = true
+                // Vulnerability being created or edited before this answer: add its custom fields
+                if (this.currentVulnerability.details.length > 0)
+                    this.setCurrentDetails()
             })
             .catch((err) => {
                 console.log(err)
@@ -207,8 +220,12 @@ export default {
 
         getVulnerabilities: function() {
             this.loading = true
+            // Refreshed after each action: a slow older answer would bring back a deleted or archived vulnerability
+            var request = ++this.vulnerabilitiesRequest
             VulnerabilityService.getVulnerabilities()
             .then((data) => {
+                if (request !== this.vulnerabilitiesRequest)
+                    return
                 this.vulnerabilities = data.data.datas
                 this.loading = false
             })
@@ -224,18 +241,28 @@ export default {
         },
 
         createVulnerability: function() {
+            // Double click or Enter pressed twice: created once
+            if (this.creating)
+                return;
             this.cleanErrors();
             var index = this.currentVulnerability.details.findIndex(obj => obj.title !== '');
             if (index < 0)
                 this.errors.title = $t('err.titleRequired');
-            
+
             if (this.errors.title)
                 return;
 
+            this.creating = true;
+            var created = this.currentVulnerability;
             VulnerabilityService.createVulnerabilities([this.currentVulnerability])
+            .finally(() => {
+                this.creating = false;
+            })
             .then(() => {
                 this.getVulnerabilities();
-                this.$refs.createModal.hide();
+                // Not when the page was left, nor when the dialog was opened again meanwhile (new object)
+                if (this.$refs.createModal && this.currentVulnerability === created)
+                    this.$refs.createModal.hide();
                 Notify.create({
                     message: $t('msg.vulnerabilityCreatedOk'),
                     color: 'positive',
@@ -262,11 +289,15 @@ export default {
             
             if (this.errors.title)
                 return;
-              
+
+            // Each opening edits a new copy: the answer closes the dialog only if it still shows the vulnerability sent
+            // (and if the page was not left during the request)
+            var updated = this.currentVulnerability;
             VulnerabilityService.updateVulnerability(this.vulnerabilityId, this.currentVulnerability)
             .then(() => {
                 this.getVulnerabilities();
-                this.$refs.editModal.hide();
+                if (this.currentVulnerability === updated && this.$refs.editModal)
+                    this.$refs.editModal.hide();
                 this.refreshPendingProposals();
                 Notify.create({
                     message: $t('msg.vulnerabilityUpdatedOk'),
@@ -368,18 +399,18 @@ export default {
             this.errors.title = '';
         },  
 
+        // New object for each opening: the answer of a request closes only the dialog of the vulnerability it was sent
+        // for (and nothing of a vulnerability opened before, such as its _id, is kept)
         cleanCurrentVulnerability: function() {
             this.cleanErrors();
-            this.currentVulnerability.cvssv3 = '';
-            this.currentVulnerability.priority = '';
-            this.currentVulnerability.remediationComplexity = '';
-            this.currentVulnerability.details = [];
+            this.currentVulnerability = {
+                cvssv3: '',
+                priority: '',
+                remediationComplexity: '',
+                details: [],
+                category: (this.currentCategory && this.currentCategory.name) ? this.currentCategory.name : null
+            };
             this.currentLanguage = this.dtLanguage;
-            if (this.currentCategory && this.currentCategory.name) 
-                this.currentVulnerability.category = this.currentCategory.name
-            else
-                this.currentVulnerability.category = null
-
             this.setCurrentDetails();
         },
 
@@ -404,7 +435,8 @@ export default {
                 this.currentVulnerability.details.push(details,)
                 index = this.currentVulnerability.details.length - 1;
             }
-            else {
+            // Filtered with the custom fields not loaded yet, the values of the vulnerability would be dropped
+            else if (this.customFieldsLoaded) {
                 this.currentVulnerability.details[index].customFields = this.$_.cloneDeep(Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, this.currentVulnerability.details[index].customFields, this.currentLanguage))
             }
             this.currentDetailsIndex = index;
@@ -527,7 +559,14 @@ export default {
         
 
         mergeVulnerabilities: function() {
+            // Double click: the second merge would fail (merged vulnerability deleted by the first one)
+            if (this.merging)
+                return;
+            this.merging = true;
             VulnerabilityService.mergeVulnerability(this.mergeVulnLeft, this.mergeVulnRight, this.mergeLanguageRight)
+            .finally(() => {
+                this.merging = false;
+            })
             .then(() => {
                 this.getVulnerabilities();
                 Notify.create({
@@ -561,9 +600,12 @@ export default {
         },
 
         refreshPendingProposals: function() {
+            var request = ++this.proposalsRequest
             VulnerabilityService.getProposalsCount()
             .then((data) => {
-                this.pendingProposals = data.data.datas.pending
+                // An older answer must not replace the count of the last request
+                if (request === this.proposalsRequest)
+                    this.pendingProposals = data.data.datas.pending
             })
             .catch((err) => console.log(err))
         }

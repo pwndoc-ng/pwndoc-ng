@@ -11,6 +11,7 @@
             color="orange"
             class="q-mr-sm"
             :label="$t('btn.backupFinding')"
+            :loading="proposing"
             no-caps
             @click="backupFinding()"
           />
@@ -41,7 +42,7 @@
           />
           <q-btn
             color="positive"
-            :disable="!readyToSave"
+            :disable="!readyToSave || !loaded"
             :label="$t('btn.save') + ' (ctrl+s)'"
             no-caps
             @click="updateFinding()"
@@ -65,6 +66,7 @@
             <q-separator vertical />
             <q-toggle
               :label="$t('completed')"
+              :disable="!loaded"
               v-model="finding.status"
               :true-value="0"
               :false-value="1"
@@ -93,7 +95,7 @@
                   stack-label
                   v-model="finding.title"
                   outlined
-                  :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                  :readonly="readonly"
                 >
                   <template #after><comment-button :target="commentTargets.title" /></template>
                 </q-input>
@@ -111,7 +113,7 @@
                   map-options
                   options-sanitize
                   outlined
-                  :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                  :readonly="readonly"
                 >
                   <template #after><comment-button :target="commentTargets.vulnType" /></template>
                 </q-select>
@@ -126,7 +128,8 @@
                       v-on:ready="readyToSave = true"
                       idUnique="basiceditor_description"
                       noSync
-                      :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      :editable="!readonly"
+                      :loading="!loaded"
                     />
                   </template>
                 </q-field>
@@ -140,7 +143,8 @@
                       v-on:editorchange="readyToSave ? needSave = true : null"
                       idUnique="basiceditor_observation"
                       noSync
-                      :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      :editable="!readonly"
+                      :loading="!loaded"
                     />
                   </template>
                 </q-field>
@@ -149,7 +153,7 @@
                     class="col"
                     :label="$t('references')"
                     v-model="finding.references"
-                    :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                    :readonly="readonly"
                   />
                   <comment-button class="q-mt-sm q-ml-xs" :target="commentTargets.references" />
                 </div>
@@ -172,6 +176,7 @@
               custom-element="QCardSection"
               :locale="audit?.language || 'en'"
               :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+              v-on:editorchange="readyToSave ? needSave = true : null"
             />
 
 
@@ -194,7 +199,8 @@
                       v-on:editorchange="readyToSave ? needSave = true : null"
                       idUnique="basiceditor_poc"
                       noSync
-                      :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      :editable="!readonly"
+                      :loading="!loaded"
                     />
                   </q-card-section>
                 </q-card>
@@ -215,7 +221,8 @@
                       v-model="finding.scope"
                       idUnique="basiceditor_scope"
                       v-on:editorchange="readyToSave ? needSave = true : null"
-                      :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      :editable="!readonly"
+                      :loading="!loaded"
                     />
                   </template>
                 </q-field>
@@ -227,7 +234,7 @@
               <div class="col-12">
                 <cvss-calculator
                   v-model="finding.cvssv3"
-                  :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                  :readonly="readonly"
                 />
               </div>
             </q-card>
@@ -251,7 +258,7 @@
                     emit-value
                     options-sanitize
                     outlined
-                    :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                    :readonly="readonly"
                   >
                     <template #after><comment-button :target="commentTargets.remediationComplexity" /></template>
                   </q-select>
@@ -270,7 +277,7 @@
                     emit-value
                     options-sanitize
                     outlined
-                    :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                    :readonly="readonly"
                   >
                     <template #after><comment-button :target="commentTargets.priority" /></template>
                   </q-select>
@@ -285,7 +292,8 @@
                       v-on:editorchange="readyToSave ? needSave = true : null"
                       idUnique="basiceditor_remediation"
                       noSync
-                      :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      :editable="!readonly"
+                      :loading="!loaded"
                     />
                   </template>
                 </q-field>

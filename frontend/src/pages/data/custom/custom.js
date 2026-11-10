@@ -89,6 +89,13 @@ export default {
 
             errors: {locale: '', language: '', auditType: '', vulnType: '', vulnCat: '', vulnCatField: '', sectionField: '', sectionName: '', fieldLabel: '', fieldType: ''},
 
+            // Creations in progress (double click protection: the second request would be refused, names are unique)
+            creating: {language: false, auditType: false, vulnType: false, vulnCat: false, customField: false, section: false},
+            // Loading of the custom fields in progress (promise), null once answered
+            customFieldsLoading: null,
+            // Number of the last loading of each list (see lastRequestOf)
+            listRequests: {},
+
             selectedTab: "languages",
         }
     },
@@ -126,6 +133,14 @@ export default {
     },
 
     methods: {
+        // Several reloads of a list may be pending (quick changes, each one reloads the list): the answer of an older
+        // one must not replace the last one. Returns the test telling if the loading started now is still the last one.
+        lastRequestOf: function(list) {
+            var request = (this.listRequests[list] || 0) + 1
+            this.listRequests[list] = request
+            return () => this.listRequests[list] === request
+        },
+
         getTemplates: function() {
             TemplateService.getTemplates()
             .then((data) => {
@@ -147,20 +162,39 @@ export default {
             })
             if (this.selectedTab === 'languages')
                 return !this.newLanguage.language || !this.newLanguage.locale
-            if (this.selectedTab === 'audit-types') 
-                return !this.newAuditType.name || this.newAuditType.templates.length !== this.languages.length || this.newAuditType.templates.some(e => !e)
+            // The templates are selected by index of language: some() would skip the holes of the sparse array (template
+            // of the first language missing when only the second one is selected)
+            if (this.selectedTab === 'audit-types')
+                return !this.newAuditType.name || this.newAuditType.templates.length !== this.languages.length || this.languages.some((language, idx) => !this.newAuditType.templates[idx])
         },
 
 /* ===== LANGUAGES ===== */
 
         // Get available languages
         getLanguages: function() {
+            var isLast = this.lastRequestOf('languages')
             DataService.getLanguages()
             .then((data) => {
+                if (!isLast())
+                    return
                 this.languages = data.data.datas;
                 if (this.languages.length > 0) {
-                    this.newVulnType.locale = this.languages[0].locale;
-                    this.cfLocale = this.languages[0].locale;
+                    // The languages chosen by the user are kept when they still exist (reload after a change)
+                    var locales = this.languages.map(e => e.locale)
+                    if (!locales.includes(this.newVulnType.locale)) {
+                        this.newVulnType.locale = locales[0];
+                        // The type being edited belongs to the language removed
+                        if (this.selectedVulnType && this.selectedVulnType.locale !== this.newVulnType.locale)
+                            this.selectedVulnType = null;
+                    }
+                    if (!locales.includes(this.cfLocale))
+                        this.cfLocale = locales[0];
+                    // Options added before the first loading had no language (hidden but sent): they belong to the
+                    // language now displayed
+                    this.newCustomField.options.forEach(option => {
+                        if (!option.locale)
+                            option.locale = this.cfLocale
+                    })
                 }
             })
             .catch((err) => {
@@ -170,13 +204,21 @@ export default {
 
         // Create Language
         createLanguage: function() {
-            if (this.requiredFieldsEmpty())
+            if (this.creating.language || this.requiredFieldsEmpty())
                 return;
 
+            var created = this.$_.cloneDeep(this.newLanguage);
+            this.creating.language = true;
             DataService.createLanguage(this.newLanguage)
+            .finally(() => {
+                this.creating.language = false;
+            })
             .then((data) => {
                 this.newLanguage.locale = "";
                 this.newLanguage.language = "";
+                // The edition replaces the whole list with its copy: without it, the save would delete the language
+                if (this.editLanguage)
+                    this.editLanguages.push(created);
                 this.getLanguages();
                 Notify.create({
                     message: 'Language created successfully',
@@ -227,9 +269,11 @@ export default {
 
         // Get available audit types
         getAuditTypes: function() {
+            var isLast = this.lastRequestOf('auditTypes')
             DataService.getAuditTypes()
             .then((data) => {
-                this.auditTypes = data.data.datas;
+                if (isLast())
+                    this.auditTypes = data.data.datas;
             })
             .catch((err) => {
                 console.log(err)
@@ -238,15 +282,23 @@ export default {
 
         // Create Audit type
         createAuditType: function() {
-            if (this.requiredFieldsEmpty())
+            if (this.creating.auditType || this.requiredFieldsEmpty())
                 return
 
+            var created = this.$_.cloneDeep(this.newAuditType);
+            this.creating.auditType = true;
             DataService.createAuditType(this.newAuditType)
+            .finally(() => {
+                this.creating.auditType = false;
+            })
             .then((data) => {
                 this.newAuditType.name = "";
                 this.newAuditType.templates = [];
                 this.newAuditType.sections = [];
                 this.newAuditType.hidden = [];
+                // The edition replaces the whole list with its copy: without it, the save would delete the audit type
+                if (this.editAuditType)
+                    this.editAuditTypes.push(created);
                 this.getAuditTypes();
                 Notify.create({
                     message: 'Audit type created successfully',
@@ -293,6 +345,12 @@ export default {
             this.editAuditTypes = this.editAuditTypes.filter(e => e.name !== auditType.name)
         },
 
+        // Template of an audit type for a language: by locale, the templates are not stored in the order of the languages
+        // (languages reordered after the creation of the audit type)
+        getAuditTypeTemplate: function(auditType, locale) {
+            return (auditType.templates || []).find(e => e && e.locale === locale)
+        },
+
         getTemplateOptionsLanguage: function(locale) {
             var result = []
             this.templates.forEach(e => result.push({name: e.name, locale: locale, template: e._id}))
@@ -304,9 +362,11 @@ export default {
 
         // Get available vulnerability types
         getVulnerabilityTypes: function() {
+            var isLast = this.lastRequestOf('vulnTypes')
             DataService.getVulnerabilityTypes()
             .then((data) => {
-                this.vulnTypes = data.data.datas;
+                if (isLast())
+                    this.vulnTypes = data.data.datas;
             })
             .catch((err) => {
                 console.log(err)
@@ -314,6 +374,8 @@ export default {
         },
         // Create a vulnerability type (name only) and select it to write its description
         createVulnerabilityType: function() {
+            if (this.creating.vulnType)
+                return;
             this.cleanErrors();
             if (!this.newVulnType.name)
                 this.errors.vulnType = "Name required";
@@ -322,7 +384,11 @@ export default {
                 return;
 
             var created = {name: this.newVulnType.name, locale: this.newVulnType.locale, description: ""};
+            this.creating.vulnType = true;
             DataService.createVulnerabilityType(created)
+            .finally(() => {
+                this.creating.vulnType = false;
+            })
             .then(() => {
                 this.newVulnType.name = "";
                 this.vulnTypes.push(created); // Shown right away, refreshed below
@@ -476,9 +542,11 @@ export default {
 
         // Get available vulnerability categories
         getVulnerabilityCategories: function() {
+            var isLast = this.lastRequestOf('vulnCategories')
             DataService.getVulnerabilityCategories()
             .then((data) => {
-                this.vulnCategories = data.data.datas;
+                if (isLast())
+                    this.vulnCategories = data.data.datas;
             })
             .catch((err) => {
                 console.log(err)
@@ -487,16 +555,26 @@ export default {
 
         // Create vulnerability category
         createVulnerabilityCategory: function() {
+            if (this.creating.vulnCat)
+                return;
             this.cleanErrors();
             if (!this.newVulnCat.name)
                 this.errors.vulnCat = "Name required";
-            
+
             if (this.errors.vulnCat)
                 return;
 
+            var created = this.$_.cloneDeep(this.newVulnCat);
+            this.creating.vulnCat = true;
             DataService.createVulnerabilityCategory(this.newVulnCat)
+            .finally(() => {
+                this.creating.vulnCat = false;
+            })
             .then((data) => {
                 this.newVulnCat = {name: "", sortValue: "cvssScore", sortOrder: "desc", sortAuto: true}
+                // The edition replaces the whole list with its copy: without it, the save would delete the category
+                if (this.editCategory)
+                    this.editCategories.push(created);
                 this.getVulnerabilityCategories();
                 Notify.create({
                     message: 'Vulnerability category created successfully',
@@ -593,18 +671,25 @@ getFieldValue(field) {
   },
         // Get available custom fields
         getCustomFields: function() {
-            DataService.getCustomFields()
+            var isLast = this.lastRequestOf('customFields')
+            var loading = DataService.getCustomFields()
               .then((data) => {
-                this.customFields = data.data.datas
-                console.log(this.customFields);
-
+                if (isLast())
+                    this.customFields = data.data.datas
               })
-              .catch((err) => console.error(err));
+              .catch((err) => console.error(err))
+              .finally(() => {
+                if (this.customFieldsLoading === loading)
+                    this.customFieldsLoading = null
+              });
+            this.customFieldsLoading = loading
           },
-          
+
 
         // Create custom field
         createCustomField: function() {
+            if (this.creating.customField)
+                return
             if (this.newCustomField.fieldType !== 'space') {
                 this.$refs['select-component'].validate()
                 this.$refs['input-label'].validate()
@@ -613,8 +698,18 @@ getFieldValue(field) {
                     return
             }
 
-            this.newCustomField.position = this.customFields.length
-            DataService.createCustomField(this.newCustomField)
+            this.creating.customField = true
+            // Position at the end of the list: a field created while the list is loading (page opened, reload after
+            // a change) waits for the answer, otherwise it would get the position of an existing field
+            var create = () => {
+                this.newCustomField.position = this.customFields.length
+                return DataService.createCustomField(this.newCustomField)
+            }
+            var creation = this.customFieldsLoading ? this.customFieldsLoading.then(create) : create()
+            creation
+            .finally(() => {
+                this.creating.customField = false
+            })
             .then((data) => {
                 this.newCustomField.label = ""
                 this.newCustomField.options = []
@@ -662,6 +757,8 @@ getFieldValue(field) {
 
          // Delete custom field
          deleteCustomField: function(customField) {
+            // The label is written by the administrators and shown in HTML (dialog and notification): escaped
+            var label = this.$_.escape(customField.label)
             Dialog.create({
                 title: 'Confirm Suppression',
                 message: `
@@ -670,7 +767,7 @@ getFieldValue(field) {
                         <i class="material-icons text-warning" style="font-size:42px">warning</i>
                     </div>
                     <div class="col-md-10">
-                        Custom Field <strong>${customField.label}</strong> will be permanently deleted.<br>
+                        Custom Field <strong>${label}</strong> will be permanently deleted.<br>
                         This field will be removed from <strong>ALL</strong> Vulnerablities and associated data
                         will be permanently <strong>LOST</strong>!
                     </div>
@@ -687,7 +784,7 @@ getFieldValue(field) {
                     this.getCustomFields()
                     Notify.create({
                         message: `
-                        Custom Field <strong>${customField.label}</strong> deleted successfully.<br>
+                        Custom Field <strong>${label}</strong> deleted successfully.<br>
                         <strong>${data.data.datas.vulnCount}</strong> Vulnerabilities were affected.`,
                         color: 'positive',
                         textColor:'white',
@@ -734,13 +831,19 @@ getFieldValue(field) {
         },
 
         addCustomFieldOption: function(options) {
-            options.push({locale: this.cfLocale, value: this.newCustomOption})
+            // No empty option, and each option once per language
+            var value = this.newCustomOption
+            if (!value || !value.trim() || options.some(e => e.locale === this.cfLocale && e.value === value))
+                return
+            options.push({locale: this.cfLocale, value: value})
             this.newCustomOption = ""
         },
 
         removeCustomFieldOption: function(options, option) {
             var index = options.findIndex(e => e.locale === option.locale && e.value === option.value)
-            options.splice(index, 1)
+            // splice(-1) would remove the last option
+            if (index >= 0)
+                options.splice(index, 1)
         },
 
         getOptionsGroup: function(options) {
@@ -757,9 +860,11 @@ getFieldValue(field) {
 
         // Get available sections
         getSections: function() {
+            var isLast = this.lastRequestOf('sections')
             DataService.getSections()
             .then((data) => {
-                this.sections = data.data.datas;
+                if (isLast())
+                    this.sections = data.data.datas;
             })
             .catch((err) => {
                 console.log(err)
@@ -768,20 +873,30 @@ getFieldValue(field) {
 
         // Create section
         createSection: function() {
+            if (this.creating.section)
+                return;
             this.cleanErrors();
             if (!this.newSection.field)
                 this.errors.sectionField = "Field required";
             if (!this.newSection.name)
                 this.errors.sectionName = "Name required";
-            
+
             if (this.errors.sectionName || this.errors.sectionField)
                 return;
 
+            var created = this.$_.cloneDeep(this.newSection);
+            this.creating.section = true;
             DataService.createSection(this.newSection)
+            .finally(() => {
+                this.creating.section = false;
+            })
             .then((data) => {
                 this.newSection.field = "";
                 this.newSection.name = "";
                 this.newSection.icon = ""
+                // The edition replaces the whole list with its copy: without it, the save would delete the section
+                if (this.editSection)
+                    this.editSections.push(created);
                 this.getSections();
                 Notify.create({
                     message: 'Section created successfully',

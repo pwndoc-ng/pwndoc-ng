@@ -12,9 +12,10 @@ import { FRONTEND_DIR, flattenMessages } from '../../helpers/source'
 const { CATEGORY_GROUPS, DEPENDENCIES } = BackupService
 const categories = CATEGORY_GROUPS.flatMap((group) => group.categories)
 
-// Categories and dependencies of the server (backend/src/lib/backup.js), when the backend is next to the frontend
+// Categories and dependencies of the server (backend/src/lib/backup.js): the backend is next to the frontend in the
+// repository, a missing file fails the tests instead of skipping them
 const backendFile = path.join(FRONTEND_DIR, '..', 'backend', 'src', 'lib', 'backup.js')
-const backendSource = fs.existsSync(backendFile) ? fs.readFileSync(backendFile, 'utf8') : null
+const backendSource = fs.readFileSync(backendFile, 'utf8')
 
 function backendCategories() {
   const block = backendSource.match(/var CATEGORIES = \{([\s\S]*?)\n\};/)[1]
@@ -58,7 +59,7 @@ describe('BackupService categories', () => {
     expect(keys.filter((key) => !flat[key])).toEqual([])
   })
 
-  describe.skipIf(!backendSource)('consistency with the server (backend/src/lib/backup.js)', () => {
+  describe('consistency with the server (backend/src/lib/backup.js)', () => {
     it('offers the categories of the server', () => {
       expect([...categories].sort()).toEqual(backendCategories().sort())
     })

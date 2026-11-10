@@ -51,7 +51,8 @@ export const Figure = Node.create({
     return [
       {
         tag: "figure",
-        contentElement: "figcaption",
+        // Caption as content; figures without caption (frequent in pasted web pages) have an empty one
+        contentElement: (dom) => dom.querySelector("figcaption") || dom.ownerDocument.createElement("figcaption"),
       },
     ];
   },
@@ -99,10 +100,11 @@ export const Figure = Node.create({
         ({ tr, commands }) => {
           const { doc, selection } = tr;
           const { from, to } = selection;
+          // Images of the editors (editor-image.js)
           const images = findChildrenInRange(
             doc,
             { from, to },
-            (node) => node.type.name === "image"
+            (node) => node.type.name === "custom_image"
           );
 
           if (!images.length) {
@@ -127,6 +129,8 @@ export const Figure = Node.create({
               type: this.name,
               attrs: {
                 src: node.attrs.src,
+                alt: node.attrs.alt,
+                title: node.attrs.title,
               },
             });
           });
@@ -162,9 +166,11 @@ export const Figure = Node.create({
             };
 
             return commands.insertContentAt(range, {
-              type: "image",
+              type: "custom_image",
               attrs: {
                 src: node.attrs.src,
+                alt: node.attrs.alt,
+                title: node.attrs.title,
               },
             });
           });
@@ -178,7 +184,7 @@ export const Figure = Node.create({
         find: inputRegex,
         type: this.type,
         getAttributes: (match) => {
-          const [, src, alt, title] = match;
+          const [, alt, src, title] = match; // ![alt](src "title")
 
           return { src, alt, title };
         },

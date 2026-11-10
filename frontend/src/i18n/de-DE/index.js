@@ -391,7 +391,6 @@ export default {
     phone: 'Telefon',
     cell: 'Mobiltelefon',
     role: 'Rolle',
-    collatorator: 'Mitarbeiter',
     addCollaborator: 'Mitarbeiter hinzufügen',
     editCollaborator: 'Mitarbeiter bearbeiten',
     addCompany: 'Firma hinzufügen',

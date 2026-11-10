@@ -16,6 +16,8 @@ export default {
             settings: {danger:{enabled:false,public:{nbdaydelete: 0}},reviews:{enabled:false}},
             settingsOrig : {danger:{enabled:false},reviews:{enabled:false}},
             canEdit: false,
+            // Number of the last loading of the settings (reloaded after a revert or an import)
+            settingsRequest: 0,
             findingCustomFieldLabels: [] // Labels of findings custom fields usable in the sidebar template
         }
     },
@@ -79,7 +81,7 @@ export default {
         }
     },
 
-    destroyed: function() {
+    unmounted: function() {
         document.removeEventListener('keydown', this._listener, false)
     },
 
@@ -92,8 +94,12 @@ export default {
         },
 
         getSettings: function() {
+            // A revert then an import confirmed quickly: the answer of the older loading must not replace the last one
+            var request = ++this.settingsRequest
             SettingsService.getSettings()
             .then((data) => {
+                if (request !== this.settingsRequest)
+                    return
                 this.settings = this.$_.merge(
                     {
                       danger: { enabled: false, public:{nbdaydelete: 0}},
@@ -106,13 +112,20 @@ export default {
                 this.loading = false
             })
             .catch((err) => {
+                if (request !== this.settingsRequest)
+                    return
                 Notify.create({
-                    message: err.response.data.datas,
+                    message: this.errorMessage(err),
                     color: 'negative',
                     textColor:'white',
                     position: 'top-right'
                 })
             })
+        },
+
+        // Message of the server (the message of axios only says the status code), or of the network error
+        errorMessage: function(err) {
+            return (err.response && err.response.data && err.response.data.datas) || err.message
         },
 
         getFindingCustomFieldLabels: function() {
@@ -135,14 +148,19 @@ export default {
         },
 
         updateSettings: function() {
+            // Ctrl+S before the end of the loading would send the empty initial settings
+            if (this.loading)
+                return;
             var min = 1;
             var max = 99;
             if(this.settings.reviews.public.minReviewers < min || this.settings.reviews.public.minReviewers > max) {
                 this.settings.reviews.public.minReviewers = this.settings.reviews.public.minReviewers < min ? min: max;
             }
-            SettingsService.updateSettings(this.settings)
+            // Snapshot of the settings sent: the changes made while the request is pending stay unsaved
+            var sent = this.$_.cloneDeep(this.settings);
+            SettingsService.updateSettings(sent)
             .then((data) => {
-                this.settingsOrig = this.$_.cloneDeep(this.settings);
+                this.settingsOrig = sent;
                 this.$settings.refresh();
                 Notify.create({
                     message: $t('msg.settingsUpdatedOk'),
@@ -153,7 +171,7 @@ export default {
             })
             .catch((err) => {
                 Notify.create({
-                    message: err.message || err.response.data.datas,
+                    message: this.errorMessage(err),
                     color: 'negative',
                     textColor:'white',
                     position: 'top-right'
@@ -169,7 +187,18 @@ export default {
                 cancel: {label: $t('btn.cancel'), color: 'white'}
             })
             .onOk(async () => {
-                await SettingsService.revertDefaults();
+                try {
+                    await SettingsService.revertDefaults();
+                }
+                catch (err) {
+                    Notify.create({
+                        message: this.errorMessage(err),
+                        color: 'negative',
+                        textColor:'white',
+                        position: 'top-right'
+                    })
+                    return;
+                }
                 this.$settings.refresh();
                 this.getSettings();
                 Notify.create({
@@ -186,7 +215,8 @@ export default {
             fileReader.onloadend = async (e) => {
                 try {
                     var settings = JSON.parse(fileReader.result);
-                    if (typeof settings === 'object') {
+                    // typeof gives 'object' for null and the arrays too
+                    if (settings && typeof settings === 'object' && !Array.isArray(settings)) {
                         Dialog.create({
                             title: $t('msg.importingSettings'),
                             message: $t('msg.importingSettingsConfirm'),
@@ -194,7 +224,18 @@ export default {
                             cancel: {label: $t('btn.cancel'), color: 'white'}
                         })
                         .onOk(async () => {
-                            await SettingsService.updateSettings(settings);
+                            try {
+                                await SettingsService.updateSettings(settings);
+                            }
+                            catch (err) {
+                                Notify.create({
+                                    message: this.errorMessage(err),
+                                    color: 'negative',
+                                    textColor: 'white',
+                                    position: 'top-right'
+                                })
+                                return;
+                            }
                             this.getSettings();
                             Notify.create({
                                 message: $t('msg.settingsImportedOk'),

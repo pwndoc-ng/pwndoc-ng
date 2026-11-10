@@ -10,11 +10,18 @@ import { $t } from 'boot/i18n'
 export default {
     data: () => {
         return {
+            // Form locked until the profile is loaded: the answer replaces the whole user
+            loading: true,
             user: {},
             totpEnabled: false,
+            // Number of the last QR code request: the answers of the older ones (or of a toggle switched off since) are ignored
+            totpQrcodeRequest: 0,
             totpQrcode: "",
             totpSecret: "",
             totpToken: "",
+            // Requests in progress (double click protection)
+            updating: false,
+            totpUpdating: false,
             autoCorrectionEnabled: false,
             errors: {username: "", firstname:"", lastname: "", currentPassword: "", newPassword: ""}
         }
@@ -31,14 +38,26 @@ export default {
             .then((data) => {
                 this.user = data.data.datas;
                 this.totpEnabled = this.user.totpEnabled;
+                this.loading = false;
                 // If 2FA is already enabled, retrieve the QR code
                 if(this.user.totpEnabled) {
                     this.showExistingTotpQrCode();
                 }
             })
             .catch((err) => {
-                console.log(err)
+                // The form stays locked (nothing to update without the profile): the user is told why
+                Notify.create({
+                    message: this.errorMessage(err),
+                    color: 'negative',
+                    textColor: 'white',
+                    position: 'top-right'
+                })
             })
+        },
+
+        // Message of the server, or of the network error (no answer)
+        errorMessage: function(err) {
+            return (err.response && err.response.data && err.response.data.datas) || err.message
         },
 
         loadAutoCorrectionSetting: function() {
@@ -75,11 +94,15 @@ export default {
                 currentQrCode: this.totpQrcode ? 'Present' : 'Not present'
             });
 
+            var request = ++this.totpQrcodeRequest;
             // If the toggle is enabled, we ALWAYS retrieve the QR code
             if (this.totpEnabled) {
                 console.log('Toggle is ON - fetching QR code...');
                 UserService.getTotpQrCode()
                 .then((data) => {
+                    // Toggle switched off or QR code requested again meanwhile: the secret would not be the one shown
+                    if (request !== this.totpQrcodeRequest)
+                        return;
                     let res = data.data.datas;
                     console.log('QR code received successfully:', {
                         hasQrCode: !!res.totpQrCode,
@@ -102,6 +125,8 @@ export default {
                     }
                 })
                 .catch((err) => {
+                    if (request !== this.totpQrcodeRequest)
+                        return;
                     console.error('Error getting QR code:', err);
                     Notify.create({
                         message: 'Failed to get TOTP QR code: ' + (err.response?.data?.datas || err.message || 'Unknown error'),
@@ -129,8 +154,12 @@ export default {
 
         // Method to display existing QR code
         showExistingTotpQrCode: function() {
+            var request = ++this.totpQrcodeRequest;
             UserService.getTotpQrCode()
             .then((data)=>{
+                // Hidden or toggle switched off meanwhile
+                if (request !== this.totpQrcodeRequest)
+                    return;
                 let res = data.data.datas;
                 this.totpQrcode = res.totpQrCode;
                 this.totpSecret = res.totpSecret;
@@ -142,17 +171,17 @@ export default {
 
         // Method to hide the QR code
         hideTotpQrCode: function() {
+            this.totpQrcodeRequest++;
             this.totpQrcode = "";
             this.totpSecret = "";
         },
 
+        // The secret and the token are never logged (nor the axios answers and errors, which contain the request): they
+        // would give the second factor to anyone reading the console
         setupTotp: function() {
-            console.log('setupTotp called with:', {
-                totpToken: this.totpToken,
-                totpSecret: this.totpSecret,
-                currentQrCode: this.totpQrcode
-            });
-
+            // Double click or Enter pressed twice: the second request would be refused after the success
+            if (this.totpUpdating)
+                return;
             if (!this.totpSecret) {
                 console.error('No TOTP secret available!');
                 Notify.create({
@@ -164,10 +193,12 @@ export default {
                 return;
             }
 
+            this.totpUpdating = true;
             UserService.setupTotp(this.totpToken, this.totpSecret)
+            .finally(() => {
+                this.totpUpdating = false;
+            })
             .then((data)=>{
-                console.log('TOTP setup response:', data);
-                
                 // Check if the backend returned an error
                 if (data.data && data.data.status === 'error') {
                     console.error('Backend returned error:', data.data.datas);
@@ -192,7 +223,6 @@ export default {
                 })
             })
             .catch((err)=>{
-                console.error('TOTP setup HTTP error:', err);
                 let errorMessage = 'TOTP verification failed';
                 
                 // Essayer d'extraire le message d'erreur du backend
@@ -212,10 +242,15 @@ export default {
         },
 
         cancelTotp: function() {
+            // Double click or Enter pressed twice: the second request would be refused after the success
+            if (this.totpUpdating)
+                return;
+            this.totpUpdating = true;
             UserService.cancelTotp(this.totpToken)
+            .finally(() => {
+                this.totpUpdating = false;
+            })
             .then((data)=>{
-                console.log('TOTP cancel response:', data);
-                
                 // Check if the backend returned an error
                 if (data.data && data.data.status === 'error') {
                     console.error('Backend returned error:', data.data.datas);
@@ -240,7 +275,6 @@ export default {
                 })
             })
             .catch((err)=>{
-                console.error('TOTP cancel HTTP error:', err);
                 let errorMessage = 'TOTP verification failed';
                 
                 // Essayer d'extraire le message d'erreur du backend
@@ -260,6 +294,9 @@ export default {
         },
 
         updateProfile: function() {
+            // Double click or Enter pressed twice: after a password change, the second request would be refused
+            if (this.updating)
+                return;
             this.cleanErrors();
             if (!this.user.username)
                 this.errors.username = $t('msg.usernameRequired');
@@ -279,8 +316,17 @@ export default {
             if (this.errors.username || this.errors.firstname || this.errors.lastname || this.errors.currentPassword || this.errors.newPassword)
                 return;
 
-            UserService.updateProfile(this.user)
+            this.updating = true;
+            // Copy: the passwords of the form are cleared at the answer
+            UserService.updateProfile({...this.user})
+            .finally(() => {
+                this.updating = false;
+            })
             .then((data) => {
+                // Passwords not kept in the form: after a change, the old one would be sent (and refused) at the next update
+                this.user.currentPassword = '';
+                this.user.newPassword = '';
+                this.user.confirmPassword = '';
                 UserService.refreshToken()
                 Notify.create({
                     message: $t('msg.profileUpdateOk'),
@@ -291,7 +337,7 @@ export default {
             })
             .catch((err) => {
                 Notify.create({
-                    message: err.response.data.datas,
+                    message: this.errorMessage(err),
                     color: 'negative',
                     textColor: 'white',
                     position: 'top-right'

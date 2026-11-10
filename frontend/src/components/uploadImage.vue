@@ -3,7 +3,7 @@
     <figure class="editor-image" :style="{ width: displayWidth }">
       <!-- Width choice, shown when the image is selected (single click) -->
       <div
-        v-if="selected && editor.isEditable"
+        v-if="selected && editable"
         class="editor-image__width"
         contenteditable="false"
         @mousedown.stop.prevent
@@ -63,7 +63,7 @@
           v-model="alt"
           placeholder="Caption"
         />
-        <q-popup-edit v-model="alt" auto-save>
+        <q-popup-edit v-model="alt" auto-save :disable="!editable">
           <q-input
             input-class="text-center"
             autofocus
@@ -97,8 +97,21 @@ export default defineComponent({
 
   data() {
     return {
-      imageError: false
+      imageError: false,
+      // Not reactive in the editor: updated by the update event (editor made editable or read-only)
+      editable: this.editor.isEditable,
     }
+  },
+
+  mounted() {
+    this.onEditorUpdate = () => {
+      this.editable = this.editor.isEditable;
+    };
+    this.editor.on("update", this.onEditorUpdate);
+  },
+
+  beforeUnmount() {
+    this.editor.off("update", this.onEditorUpdate);
   },
 
   computed: {

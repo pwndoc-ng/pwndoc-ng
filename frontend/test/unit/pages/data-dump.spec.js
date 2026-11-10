@@ -16,8 +16,10 @@ import ClientService from '@/services/client'
 import UserService from '@/services/user'
 import CollabService from '@/services/collaborator'
 import { mockDialog, mockNotify, lastNotification } from '../../helpers/quasar'
+import { trackFileReads } from '../../helpers/data-pages'
 
 let wrapper
+let fileReadsDone
 
 function mountPage(roles = '*') {
   UserService.user = { username: 'admin', roles }
@@ -25,17 +27,17 @@ function mountPage(roles = '*') {
   return wrapper
 }
 
-// Files read by FileReader (asynchronous in jsdom)
+// Files read by FileReader (asynchronous in jsdom): waits for the end of the readings
 async function importFiles(method, files) {
   wrapper.vm[method](files)
-  await new Promise((resolve) => setTimeout(resolve, 30))
-  await flushPromises()
+  await fileReadsDone()
 }
 
 const yamlFile = (content, name = 'vulns.yml') => new File([content], name, { type: 'application/yaml' })
 
 beforeEach(() => {
   vi.spyOn(console, 'log').mockImplementation(() => {})
+  fileReadsDone = trackFileReads()
 })
 afterEach(() => {
   wrapper && wrapper.unmount()
