@@ -337,6 +337,19 @@ module.exports = function () {
     })
 
     describe('Tables', () => {
+      // Table style of the templates (#244): borders and header row customizable, no direct borders overriding the style
+      it('Converted tables use the table style PwndocTable, header row formatting when the first row is a header', () => {
+        var ooxml = html2ooxml(EDITOR_HTML[16])
+        expect(html2ooxml.TABLE_STYLE).toBe('PwndocTable')
+        expect(values(ooxml, 'w:tblStyle', 'w:val')).toEqual(['PwndocTable'])
+        expect(ooxml).not.toContain('<w:tblBorders>')
+        expect(values(ooxml, 'w:tblLook', 'w:firstRow')).toEqual(['true'])
+        ooxml = html2ooxml('<table><tbody><tr><td><p>a</p></td></tr></tbody></table><table><tbody><tr><td><p>b</p></td></tr></tbody></table>')
+        expect(values(ooxml, 'w:tblStyle', 'w:val')).toEqual(['PwndocTable', 'PwndocTable'])
+        expect(values(ooxml, 'w:tblLook', 'w:firstRow')).toEqual(['false', 'false'])
+        expectValidOoxml(ooxml)
+      })
+
       it('Header row repeated on each page, table at full width', () => {
         var ooxml = html2ooxml(EDITOR_HTML[16])
         expectValidOoxml(ooxml)

@@ -504,6 +504,38 @@ module.exports = function () {
 
     })
 
+    // Thresholds of the colors of the CVSS subscores (#410): same severity as the subscore scaled to 0-10 by its maximum
+    // (CVSS 3.1 formulas), rated with the qualitative severity scale of the scores
+    describe('CVSS subscores severity', () => {
+      var rating = (score) => score <= 0 ? 'None' : score < 4 ? 'Low' : score < 7 ? 'Medium' : score < 9 ? 'High' : 'Critical'
+
+      it('Thresholds of the subscores match their scaled severity, for every subscore of one decimal', () => {
+        var maximums = {impact: 6.1, modifiedImpact: 6.2, exploitability: 3.9}
+        Object.entries(maximums).forEach(([name, max]) => {
+          for (var tenths = 0; tenths <= max * 10; tenths++) {
+            var value = tenths / 10
+            expect([name, value, reportGenerator.subscoreSeverity(value, reportGenerator.SUBSCORE_THRESHOLDS[name])])
+              .toEqual([name, value, rating(value * 10 / max)])
+          }
+        })
+      })
+
+      it('Maximums of the subscores: CVSS 3.1 formulas', () => {
+        var CVSS31 = require('../src/lib/cvsscalc31.js')
+        var worst = CVSS31.calculateCVSSFromVector('CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H/CR:H/IR:H/AR:H/MS:C')
+        expect(CVSS31.roundUp1(worst.baseImpact)).toBe(6.1)
+        expect(CVSS31.roundUp1(worst.environmentalModifiedImpact)).toBe(6.2)
+        expect(CVSS31.roundUp1(worst.baseExploitability)).toBe(3.9)
+        expect(CVSS31.roundUp1(worst.environmentalModifiedExploitability)).toBe(3.9)
+      })
+
+      it('Subscores without value or not positive: None', () => {
+        expect(reportGenerator.subscoreSeverity('', reportGenerator.SUBSCORE_THRESHOLDS.impact)).toBe('None')
+        expect(reportGenerator.subscoreSeverity(-0.2, reportGenerator.SUBSCORE_THRESHOLDS.impact)).toBe('None')
+        expect(reportGenerator.subscoreSeverity(0, reportGenerator.SUBSCORE_THRESHOLDS.exploitability)).toBe('None')
+      })
+    })
+
     describe('Report expressions', () => {
       var expressions = require('angular-expressions')
       var evaluate = (tag, scope) => reportGenerator.parser(tag).get(scope, {scopeList: [scope], num: 0})

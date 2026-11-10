@@ -67,6 +67,9 @@ const DEFAULT_COLUMN_WIDTH = 250;
 // Width of the table grid in twips (text width of an A4 page with 2 cm margins): the table is at full width (100 %), the
 // grid gives the proportions of the columns
 const TABLE_GRID_WIDTH = 9600;
+// Table style of the converted tables (borders, header row): defined in the templates to customize them, added to the
+// report by the report generator when the template does not define it (report-generator.js declareTableStyle)
+const TABLE_STYLE = "PwndocTable";
 
 // Table from the rows of cells of the HTML table. Cells spanning several rows are omitted from the next rows in HTML:
 // their columns are skipped when placing the cells of these rows (docx adds the merged cells). The widths of the
@@ -93,7 +96,11 @@ function buildTable(rows) {
   let widths = Array.from({ length: columnCount }, (_, column) => columnWidths[column] || DEFAULT_COLUMN_WIDTH);
   let total = widths.reduce((sum, width) => sum + width, 0);
 
+  // Conditional formatting of the header row of the table style when the first row is a header row (th)
+  let header = placed.length > 0 && placed[0].length > 0 && placed[0][placed[0].length - 1].header;
   return new docx.Table({
+    style: TABLE_STYLE, // No direct borders: they would override the borders of the style
+    tableLook: { firstRow: header, lastRow: false, firstColumn: false, lastColumn: false, noHBand: false, noVBand: true },
     rows: placed.map(row => new docx.TableRow({
       children: row.map(cell => new docx.TableCell({
         width: { size: Math.round(100 * widths.slice(cell.column, cell.column + cell.colspan).reduce((sum, width) => sum + width, 0) / total), type: "pct" },
@@ -480,3 +487,4 @@ let filteredXml = prepXml["w:body"].filter((e) => {
 }
 
 module.exports = html2ooxml;
+module.exports.TABLE_STYLE = TABLE_STYLE;

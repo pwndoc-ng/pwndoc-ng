@@ -196,6 +196,7 @@ async function _generateDoc(audit) {
         throw templateError(error)
     }
     declareListNumbering(zip, generatedListIds);
+    declareTableStyle(zip);
 
     // Include refs in document
     const relsPath = "word/_rels/document.xml.rels";
@@ -694,6 +695,26 @@ function declareListNumbering(zip, listIds) {
     zip.file('word/numbering.xml', numbering)
 }
 
+// Table style of the tables converted by convertHTML (#244): templates define it to customize the tables of the editors
+// (borders, header row). Added to the report when the template does not define it: Word ignores a style missing from
+// styles.xml, the tables would have no borders. Simple grid, header row (first row of th cells) bold and shaded
+var DEFAULT_TABLE_STYLE = `<w:style w:type="table" w:customStyle="1" w:styleId="${html2ooxml.TABLE_STYLE}"><w:name w:val="Pwndoc Table"/>` +
+    '<w:uiPriority w:val="59"/><w:tblPr><w:tblBorders>' +
+    ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(side => `<w:${side} w:val="single" w:sz="4" w:space="0" w:color="auto"/>`).join('') +
+    '</w:tblBorders><w:tblCellMar><w:left w:w="108" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr>' +
+    '<w:tblStylePr w:type="firstRow"><w:rPr><w:b/><w:bCs/></w:rPr><w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="D9D9D9"/></w:tcPr></w:tblStylePr>' +
+    '</w:style>'
+exports.DEFAULT_TABLE_STYLE = DEFAULT_TABLE_STYLE
+
+function declareTableStyle(zip) {
+    var file = zip.file('word/styles.xml')
+    if (!file)
+        return
+    var styles = file.asText()
+    if (!styles.includes(`w:styleId="${html2ooxml.TABLE_STYLE}"`))
+        zip.file('word/styles.xml', styles.replace('</w:styles>', `${DEFAULT_TABLE_STYLE}</w:styles>`))
+}
+
 // Error of the template (syntax error found when it is compiled, error when it is rendered): message naming the faulty
 // tags, answered to the user. Only the explanations are logged: the error properties contain the data of the report
 function templateError(error) {
@@ -1119,6 +1140,27 @@ function cvssStrToObject(cvss) {
     }
     return res
 }
+// Severity of the CVSS 3.1 subscores (impact, exploitability) for their colors in the report (#410). CVSS defines no
+// severity for the subscores: each one is scaled to the range of the scores (0-10) by its maximum and rated with the
+// qualitative severity scale of the scores (CVSS 3.1 specification, section 5: None 0, Low 0.1-3.9, Medium 4.0-6.9,
+// High 7.0-8.9, Critical 9.0-10.0). Maximums of the CVSS 3.1 formulas, rounded up like the subscores of the report: base
+// impact 6.1 (6.05, scope changed), environmental modified impact 6.2 (6.13, high security requirements), exploitability
+// 3.9 (3.89). Thresholds below: first subscore (one decimal) of Medium, High and Critical, e.g. a base impact of 4.3 is
+// 7.05 on the 0-10 range (High) and 4.2 is 6.89 (Medium)
+var SUBSCORE_THRESHOLDS = {
+    impact: [2.5, 4.3, 5.5],
+    modifiedImpact: [2.5, 4.4, 5.6],
+    exploitability: [1.6, 2.8, 3.6]
+};
+exports.SUBSCORE_THRESHOLDS = SUBSCORE_THRESHOLDS;
+
+function subscoreSeverity(value, thresholds) {
+    if (typeof value !== 'number' || value <= 0)
+        return 'None';
+    return value < thresholds[0] ? 'Low' : value < thresholds[1] ? 'Medium' : value < thresholds[2] ? 'High' : 'Critical';
+}
+exports.subscoreSeverity = subscoreSeverity;
+
 function stripParagraphTags(input) {
     return input
         .replace(/<\/?p[^>]*>/gi, '') // remove all <p> or </p> tags
@@ -1137,6 +1179,7 @@ async function prepAuditData(data, settings) {
     var cellMediumColor = '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="'+mediumColor+'"/></w:tcPr>';
     var cellHighColor = '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="'+highColor+'"/></w:tcPr>';
     var cellCriticalColor = '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="'+criticalColor+'"/></w:tcPr>';
+    var cellSeverityColors = {Low: cellLowColor, Medium: cellMediumColor, High: cellHighColor, Critical: cellCriticalColor};
 
     /** Remediation complexity  Colors for table cells */
     
@@ -1320,6 +1363,13 @@ async function prepAuditData(data, settings) {
         else if (tmpCVSS.environmentalSeverity === "High") tmpFinding.cvss.environmentalCellColor = cellHighColor
         else if (tmpCVSS.environmentalSeverity === "Critical") tmpFinding.cvss.environmentalCellColor = cellCriticalColor
         else tmpFinding.cvss.environmentalCellColor = cellNoneColor
+
+        // Colors of the subscores (#410), same colors as the scores
+        var subscoreColor = (value, thresholds) => cellSeverityColors[subscoreSeverity(value, thresholds)] || cellNoneColor
+        tmpFinding.cvss.baseImpactColor = subscoreColor(tmpFinding.cvss.baseImpact, SUBSCORE_THRESHOLDS.impact)
+        tmpFinding.cvss.baseExploitabilityColor = subscoreColor(tmpFinding.cvss.baseExploitability, SUBSCORE_THRESHOLDS.exploitability)
+        tmpFinding.cvss.environmentalModifiedImpactColor = subscoreColor(tmpFinding.cvss.environmentalModifiedImpact, SUBSCORE_THRESHOLDS.modifiedImpact)
+        tmpFinding.cvss.environmentalModifiedExploitabilityColor = subscoreColor(tmpFinding.cvss.environmentalModifiedExploitability, SUBSCORE_THRESHOLDS.exploitability)
 
         tmpFinding.cvssObj = cvssStrToObject(tmpCVSS.vectorString)
 

@@ -42,8 +42,10 @@ module.exports = function(request, app) {
 
   // Template made of the given paragraphs (one template tag or text per paragraph), with the styles, numbering
   // definitions, headers and page setup of the Default Template
-  var templateWith = (paragraphs) => {
+  // stylesOf: change of the styles of the template (word/styles.xml)
+  var templateWith = (paragraphs, stylesOf = null) => {
     var zip = new PizZip(DEFAULT_TEMPLATE)
+    if (stylesOf) zip.file('word/styles.xml', stylesOf(zip.file('word/styles.xml').asText()))
     var xml = zip.file('word/document.xml').asText()
     var sectPr = xml.substring(xml.lastIndexOf('<w:sectPr'), xml.lastIndexOf('</w:body>'))
     var escape = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -75,9 +77,9 @@ module.exports = function(request, app) {
       expect((await request(app).put(`/api/audits/${auditId}/general`).set('Cookie', creatorCookie).send({template: templateId})).status).toBe(200)
 
     // Report generated with a template made of the given paragraphs: {zip, xml (document.xml), paragraphs}
-    var generateWith = async (paragraphs) => {
+    var generateWith = async (paragraphs, stylesOf = null) => {
       var response = await request(app).put(`/api/templates/${miniTemplateId}`).set('Cookie', adminCookie)
-        .send({file: templateWith(paragraphs).toString('base64'), ext: 'docx'})
+        .send({file: templateWith(paragraphs, stylesOf).toString('base64'), ext: 'docx'})
       expect(response.status).toBe(200)
       await setTemplate(miniTemplateId)
       response = await generate()
@@ -419,6 +421,18 @@ module.exports = function(request, app) {
         expect([...used].filter(style => !defined.has(style))).toEqual([])
       })
 
+      // Table style of the converted tables (#244), defined by the Default Template: customizable, kept once in the report
+      it('Tables of the editors: table style of the template', () => {
+        var styles = zip.file('word/styles.xml').asText()
+        var tableStyles = styles.match(/<w:style w:type="table"[^>]*w:styleId="PwndocTable"[^>]*>[\s\S]*?<\/w:style>/g)
+        expect(tableStyles).toHaveLength(1)
+        expect(tableStyles[0]).toContain('<w:tblStylePr w:type="firstRow">')
+        var position = xml.indexOf('>Parameter<')
+        var table = xml.substring(xml.lastIndexOf('<w:tbl>', position), position)
+        expect(helpers.ooxmlValues(table, 'w:tblStyle', 'w:val')).toEqual(['PwndocTable'])
+        expect(helpers.ooxmlValues(table, 'w:tblLook', 'w:firstRow')).toEqual(['true']) // Header row of the editor table
+      })
+
       it('Paragraph and character styles of the template used by the report are defined', () => {
         var styles = zip.file('word/styles.xml').asText()
         var defined = new Set(helpers.ooxmlValues(styles, 'w:style', 'w:styleId'))
@@ -603,6 +617,37 @@ module.exports = function(request, app) {
         finally {
           expect((await update(sectionFields)).status).toBe(200)
         }
+      })
+
+      // Template without the table style (#244): the default style is added to the report, the tables keep their borders
+      it('Template without the table style PwndocTable: default style added to the report', async () => {
+        var reportGenerator = require('../src/lib/report-generator')
+        var withoutTableStyle = (styles) => styles.replace(/<w:style w:type="table"[^>]*w:styleId="PwndocTable"[^>]*>[\s\S]*?<\/w:style>/, '')
+        expect(withoutTableStyle(new PizZip(DEFAULT_TEMPLATE).file('word/styles.xml').asText())).not.toContain('PwndocTable')
+        var {zip, xml} = await generateWith(['{#findings | where: \'cvss.baseSeverity == "Critical"\'}', '{-w:p description}{@text | convertHTML}{/description}', '{/}'], withoutTableStyle)
+        var styles = zip.file('word/styles.xml').asText()
+        expect(helpers.xmlErrors(styles)).toEqual([])
+        expect(styles.split('w:styleId="PwndocTable"')).toHaveLength(2) // Defined once
+        expect(styles).toContain(reportGenerator.DEFAULT_TABLE_STYLE)
+        expect(helpers.ooxmlValues(xml, 'w:tblStyle', 'w:val')).toContain('PwndocTable')
+      })
+
+      // CVSS subscores and their colors (#410): same colors as the scores (default settings), thresholds of the report generator
+      it('CVSS subscores and their colors', async () => {
+        var {paragraphs} = await generateWith(['START',
+          '{#findings | sortArrayByField: \'cvss.baseMetricScore\':-1}',
+          '{cvss.baseImpact}|{cvss.baseExploitability}|{cvss.environmentalModifiedImpact}|{cvss.environmentalModifiedExploitability}|' +
+            '{cvss.baseImpactColor}{cvss.baseExploitabilityColor}{cvss.environmentalModifiedImpactColor}{cvss.environmentalModifiedExploitabilityColor}',
+          '{/}', 'END'])
+        var rows = between(paragraphs, 'START', 'END').map(row => [row.split('|').slice(0, 4).join('|'), [...row.matchAll(/w:fill="([0-9a-fA-F]{6})"/g)].map(m => m[1])])
+        var [none, low, medium, high, critical] = ['4a86e8', '008000', 'f9a009', 'fe0000', '212121']
+        expect(rows).toEqual([
+          ['5.9|3.9|5.9|3.9', [critical, critical, critical, critical]], // Critical vector
+          ['5.2|2.9|5.2|2.9', [high, high, high, high]],
+          ['2.8|2.9|2.8|2.9', [medium, high, medium, high]],
+          ['1.5|2.3|1.5|2.3', [low, medium, low, medium]],
+          ['|||', [none, none, none, none]] // Finding without CVSS vector
+        ])
       })
 
       it('Invalid templates: error, next generations still work', async () => {
