@@ -41,3 +41,4 @@ require('./backup.test')(request, app) // Last: a restore replaces the whole dat
 require('./lib.test')()
 require('./html2ooxml.test')()
 require('./units.test')()
+require('./secrets.test')()

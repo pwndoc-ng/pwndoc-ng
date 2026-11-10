@@ -38,6 +38,11 @@ services:
       - ./backend/package.json:/app/package.json
       - ./backend/package-lock.json:/app/package-lock.json
       - ./backend/swagger.js:/app/swagger.js
+    # JWT secrets (32 characters at least, different): when set, they are not generated nor written in
+    # backend/src/config/config.json (see docs/installation.md)
+    # environment:
+    #   - JWT_SECRET=change-me-with-a-random-value
+    #   - JWT_REFRESH_SECRET=change-me-with-another-random-value
     depends_on:
       - mongodb
     restart: always
