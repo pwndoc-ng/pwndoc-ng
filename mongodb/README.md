@@ -3,6 +3,23 @@
 MongoDB 8 for pwndoc-ng. The data of the installations using MongoDB 4.x (previous `mongo:4` image) is migrated
 automatically at the first start: nothing to do besides the usual update (`docker-compose up -d --build`).
 
+## Data folder
+
+The data is stored on the host, in `mongodb/mongo-data` (mounted at `/data/db`, ignored by git and by the image
+build). Back it up like any folder, with MongoDB stopped (`docker-compose stop mongodb`), or use the backups of the
+application.
+
+Installations made before kept their data in a Docker volume (`<project>_mongo-data`, or `<project>_mongo-data-dev`
+for `docker-compose-dev.yml`). The compose files mount it at `/data/previous-volume`: at startup, when
+`mongodb/mongo-data` is empty, its content is copied into it once (logs: `pwndoc-mongodb`), then the usual startup
+goes on (migration of MongoDB 4.x data included). The copy is done by the image: update with `--build`
+(`docker-compose up -d --build`), otherwise the previous image starts an empty database in `mongodb/mongo-data` (the
+data is still in the volume: stop, empty the folder and start again with `--build`). The volume is left unchanged as
+a backup. Once the data is checked
+in the application, the `/data/previous-volume` line of the compose file and the volume can be removed
+(`docker volume rm <project>_mongo-data`). An interrupted copy is done again at the next start; a failed copy (disk
+space) stops the container instead of starting on an empty database.
+
 ## Migration of MongoDB 4.x data
 
 At startup, `pwndoc-mongodb.sh` looks at the data volume (`/data/db`):

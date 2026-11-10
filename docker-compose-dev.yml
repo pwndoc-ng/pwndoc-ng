@@ -14,7 +14,11 @@ services:
       retries: 6
       start_period: 30m # first start after an update: migration of the data to MongoDB 8
     volumes:
-      - mongo-data-dev:/data/db
+      # Data on the host, in mongodb/mongo-data
+      - ./mongodb/mongo-data:/data/db
+      # Docker volume of the installations made before: copied once into mongodb/mongo-data when it is empty
+      # (see mongodb/README.md), left unchanged. This line can be removed once the copy is checked.
+      - mongo-data-dev:/data/previous-volume
     ports:
       - 127.0.0.1:27017:27017
     restart: always

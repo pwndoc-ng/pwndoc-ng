@@ -13,8 +13,12 @@
 #
 # CPU: MongoDB >= 5.0 needs AVX (x86_64) or ARMv8.2-A (arm64). Without them, a MongoDB 8 build without AVX is used
 # when the image contains one (/opt/mongodb-noavx/bin/mongod), otherwise MongoDB 4.4 keeps serving the 4.x data.
+#
+# Data folder: /data/db is the folder mongodb/mongo-data of the host. Installations made before kept their data in a
+# Docker volume, mounted at /data/previous-volume: copied once into the empty data folder, the volume is left unchanged.
 set -uo pipefail
 
+PREVIOUS_VOLUME=/data/previous-volume
 VOLUME=/data/db
 DBPATH=$VOLUME/mongodb
 READY=$DBPATH/.pwndoc-ready
@@ -151,6 +155,45 @@ serve_mongod8() { # binary, args
     fi
     exec gosu mongodb "$mongod8" --bind_ip_all --dbpath "$DBPATH" "$@"
 }
+
+# Copy of the previous Docker volume, in a folder of the data folder then moved to its root: an interrupted copy
+# (no complete marker) is removed and done again at the next start, an interrupted move is finished.
+COPY=$VOLUME/.pwndoc-volume-copy
+COPY_COMPLETE=$COPY/.pwndoc-copy-complete
+
+finish_volume_copy() {
+    find "$COPY" -mindepth 1 -maxdepth 1 ! -name "$(basename "$COPY_COMPLETE")" -exec mv -t "$VOLUME" {} + \
+        || { log "Copy of the previous Docker volume: move into the data folder failed"; exit 1; }
+    rm -f "$COPY_COMPLETE"
+    rmdir "$COPY"
+    log "Data of the previous Docker volume copied into the data folder (the volume is unchanged, kept as a backup)"
+}
+
+copy_previous_volume() {
+    if [ -d "$COPY" ]; then
+        if [ -f "$COPY_COMPLETE" ]; then
+            finish_volume_copy
+            return
+        fi
+        log "Interrupted copy of the previous Docker volume: done again"
+        rm -rf "$COPY"
+    fi
+    [ -d "$PREVIOUS_VOLUME" ] && [ -n "$(ls -A "$PREVIOUS_VOLUME")" ] || return 0
+    [ -z "$(ls -A "$VOLUME")" ] || return 0 # Data folder already in use: the volume is ignored
+    log "Data folder empty, previous Docker volume with data: copy into the data folder"
+    mkdir "$COPY"
+    if ! cp -a "$PREVIOUS_VOLUME/." "$COPY/"; then
+        rm -rf "$COPY"
+        log "Copy of the previous Docker volume failed (disk space?): nothing started, retried at the next start"
+        exit 1
+    fi
+    touch "$COPY_COMPLETE"
+    finish_volume_copy
+}
+
+copy_previous_volume
+# Folder of the host created by Docker (root): MongoDB 4.4 uses it as dbpath, the migration writes in it
+chown mongodb:mongodb "$VOLUME"
 
 MONGOD8=$(select_mongod8)
 
