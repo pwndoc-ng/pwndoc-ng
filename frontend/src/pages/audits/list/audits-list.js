@@ -72,7 +72,9 @@ export default {
             cloneExistingReport: false,
             // Selected audit to clone
             selectedAuditToClone: null,
-            // Available audits for cloning
+            // All the audits that can be cloned, sorted by name
+            auditsForCloning: [],
+            // Audits for cloning matching the text typed in the select
             availableAuditsForCloning: []
         }
     },
@@ -129,29 +131,26 @@ export default {
             })
         },
 
-        // Get available audits for cloning
+        // Get available audits for cloning, sorted by name
         getAvailableAuditsForCloning: function() {
             AuditService.getAudits()
             .then((data) => {
-                this.availableAuditsForCloning = data.data.datas;
+                this.auditsForCloning = [...data.data.datas].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                this.availableAuditsForCloning = this.auditsForCloning
             })
             .catch((err) => {
                 console.log(err)
             })
         },
 
-        // Filter audits for cloning
+        // Filter audits for cloning: among all of them (not the audits of the table, filtered by the search of a finding)
         filterAuditsForCloning: function(val, update) {
-            if (val === '') {
-                update(() => this.availableAuditsForCloning = this.audits)
-                return
-            }
             update(() => {
                 const needle = val.toLowerCase()
-                this.availableAuditsForCloning = this.audits.filter(v => 
-                    v.name.toLowerCase().indexOf(needle) > -1 ||
-                    (v.company && v.company.name && v.company.name.toLowerCase().indexOf(needle) > -1) ||
-                    v.language.toLowerCase().indexOf(needle) > -1
+                this.availableAuditsForCloning = this.auditsForCloning.filter(v =>
+                    (v.name || '').toLowerCase().includes(needle) ||
+                    (v.company && v.company.name && v.company.name.toLowerCase().includes(needle)) ||
+                    (v.language || '').toLowerCase().includes(needle)
                 )
             })
         },

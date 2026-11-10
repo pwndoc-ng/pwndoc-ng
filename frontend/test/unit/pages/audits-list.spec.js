@@ -147,6 +147,27 @@ describe('audits list filters', () => {
     expect(wrapper.vm.availableAuditsForCloning).toHaveLength(3)
   })
 
+  it('offers all the audits to clone sorted by name, whatever the search of the table', async () => {
+    await mountList({ finding: 'SQL Injection' })
+    expect(names(wrapper.vm.availableAuditsForCloning)).toEqual(['Internal', 'Pentest Été', 'Web audit'])
+    expect(names(wrapper.vm.audits)).toEqual(['Pentest Été', 'Web audit', 'Internal']) // List of the API not reordered
+    wrapper.vm.audits = [AUDITS[0]] // Table filtered by the search of a finding
+    const update = (fn) => fn()
+    wrapper.vm.filterAuditsForCloning('', update)
+    expect(names(wrapper.vm.availableAuditsForCloning)).toEqual(['Internal', 'Pentest Été', 'Web audit'])
+    wrapper.vm.filterAuditsForCloning('TE', update) // Matching audits still sorted by name
+    expect(names(wrapper.vm.availableAuditsForCloning)).toEqual(['Internal', 'Pentest Été'])
+  })
+
+  it('shows the newest audits first by default', async () => {
+    await mountList()
+    expect(wrapper.vm.pagination).toMatchObject({ sortBy: 'date', descending: true })
+    const rows = wrapper.findAll('tbody tr').map((row) => row.text())
+    const positions = ['Web audit', 'Pentest Été', 'Internal'].map((name) => rows.findIndex((text) => text.includes(name)))
+    expect(positions.every((position) => position > -1)).toBe(true)
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions) // 2024-02-20, 2024-01-15, 2023-12-01
+  })
+
   it('searches the audits containing a finding again', async () => {
     await mountList()
     wrapper.vm.search.finding = 'XSS'
