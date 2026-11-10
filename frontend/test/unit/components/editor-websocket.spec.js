@@ -194,7 +194,7 @@ afterEach(async () => {
 })
 
 describe('websocket never connected', () => {
-  it('stays read-only (loading state) without writing over the value of the page', async () => {
+  it('stays read-only without writing over the value of the page, the state shown (server not answering)', async () => {
     const wrapper = await openEditor()
     const changes = trackChanges(wrapper)
     await advance(100500)
@@ -206,8 +206,10 @@ describe('websocket never connected', () => {
     expect(setInitialCollaborativeContent).not.toHaveBeenCalled()
     expect(changes).toHaveLength(0) // No setContent
     expect(provider(wrapper).document.getXmlFragment(FIELD).length).toBe(0) // Nothing to push at a later connection
-    expect(wrapper.find('.editor-loading').exists()).toBe(true)
-    expect(wrapper.find('.editor').attributes('aria-busy')).toBe('true')
+    expect(wrapper.find('.editor-loading').exists()).toBe(false) // Not loading forever
+    expect(wrapper.find('.editor-unavailable').text()).toContain(wrapper.vm.$t('editorCollabUnreachable'))
+    expect(wrapper.find('.editor-preview').text()).toBe('Description de l’API — « injection » 🔒')
+    expect(wrapper.find('.editor').attributes('aria-busy')).toBe('false')
   })
 
   it('gives nothing to the page synchronizing its editors (save, navigation) during the wait', async () => {
@@ -744,6 +746,60 @@ describe('ids of the initial contents (authentication of the copies)', () => {
     await advance(100)
     expect(serverHTML()).toBe('<p>Description de l’API — « injection » 🔒 (hors ligne)</p>')
     expect(server.init(ROOM)).toBe(id)
+  })
+})
+
+describe('collaboration server not answering', () => {
+  it('shows the state after the delay with the value of the page read-only, then loads once synchronized', async () => {
+    const wrapper = await openEditor()
+    await advance(14000)
+    expect(wrapper.find('.editor-loading').exists()).toBe(true)
+    await advance(1100)
+    expect(wrapper.find('.editor-loading').exists()).toBe(false)
+    expect(wrapper.find('.editor-unavailable').text()).toContain(wrapper.vm.$t('editorCollabUnreachable'))
+    expect(wrapper.find('.editor-preview').text()).toBe('Description de l’API — « injection » 🔒')
+    expect(wrapper.vm.editor.isEditable).toBe(false)
+    expect(provider(wrapper).destroy).not.toHaveBeenCalled() // The provider keeps trying
+    expect(fragment().length).toBe(0)
+    provider(wrapper).connect(server)
+    await flushPromises()
+    expect(wrapper.find('.editor-unavailable').exists()).toBe(false)
+    expect(wrapper.find('.editor-preview').exists()).toBe(false)
+    expect(html(wrapper)).toBe(VALUE)
+    expect(serverHTML()).toBe(VALUE)
+    expect(wrapper.vm.editor.isEditable).toBe(true)
+  })
+
+  it('page still loading its value (shared document synchronized): not reported as not answering', async () => {
+    const wrapper = await openEditor({ modelValue: '', loading: true })
+    provider(wrapper).connect(server)
+    await advance(20000)
+    expect(wrapper.find('.editor-unavailable').exists()).toBe(false)
+    expect(wrapper.find('.editor-loading').exists()).toBe(true)
+  })
+
+  it('synchronized before the delay: never reported', async () => {
+    const wrapper = await openEditor()
+    await advance(5000)
+    provider(wrapper).connect(server)
+    await advance(20000)
+    expect(wrapper.find('.editor-unavailable').exists()).toBe(false)
+  })
+})
+
+describe('duplicated custom fields (imported data)', () => {
+  it('two editors of the same field with different values: both loaded, no exception, one content', async () => {
+    const props = { idUnique: 'cf1-custom-f1' }
+    const first = await openEditor({ ...props, modelValue: '<p>Valeur 1</p>' })
+    const second = await openEditor({ ...props, modelValue: '<p>Valeur 2</p>' })
+    provider(first).connect(server)
+    provider(second).connect(server)
+    await advance(100)
+    expect(first.emitted('ready')).toHaveLength(1)
+    expect(second.emitted('ready')).toHaveLength(1)
+    expect(html(first)).toBe('<p>Valeur 1</p>')
+    expect(html(second)).toBe('<p>Valeur 1</p>')
+    expect(serverHTML('a1-f1-cf1-custom-f1')).toBe('<p>Valeur 1</p>')
   })
 })
 

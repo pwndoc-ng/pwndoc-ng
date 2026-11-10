@@ -180,3 +180,45 @@ describe('custom-fields validation', () => {
     expect(() => wrapper.vm.requiredFieldsEmpty()).not.toThrow()
   })
 })
+
+describe('custom-fields without definition (custom field deleted, imported data)', () => {
+  const orphans = () => [
+    { customField: null, text: '<p>Texte d’un champ supprimé</p>' },
+    { customField: '64ab12cd34ef56ab78cd90ef', text: 'non peuplé' },
+    { text: 'sans champ' }
+  ]
+
+  it('shows only the fields with a definition and keeps the others in the value', () => {
+    const value = [field('a', 'input', {}, 'valeur'), ...orphans(), field('t', 'text', {}, '<p>texte</p>')]
+    mountFields(value)
+    expect(wrapper.findAllComponents(QInput)).toHaveLength(1)
+    expect(wrapper.findAllComponents(EditorStub)).toHaveLength(1)
+    expect(wrapper.vm.computedFields.flat().map((f) => f.customField._id)).toEqual(['a', 't'])
+    expect(wrapper.props('modelValue')).toHaveLength(5) // Saved unchanged
+    expect(wrapper.props('modelValue')[1]).toEqual({ customField: null, text: '<p>Texte d’un champ supprimé</p>' })
+  })
+
+  it('checks the required fields without them', () => {
+    mountFields([...orphans(), field('a', 'input', { required: true }, 'rempli')])
+    expect(wrapper.vm.requiredFieldsEmpty()).toBe(false)
+    wrapper.unmount()
+    mountFields([...orphans(), field('a', 'input', { required: true }, '')])
+    expect(wrapper.vm.requiredFieldsEmpty()).toBe(true)
+  })
+
+  it('compares with another version containing fields without definition', () => {
+    const diff = [...orphans(), { customField: { _id: 'a' }, text: 'old' }]
+    mountFields([field('a', 'input', {}, 'new'), field('t', 'text', {}, '<p>new</p>')], { diff })
+    expect(wrapper.vm.isTextInCustomFields(wrapper.props('modelValue')[0])).toBe(true)
+    expect(wrapper.vm.getTextDiffInCustomFields(wrapper.props('modelValue')[1])).toBe('')
+  })
+
+  it('renders nothing for a value made only of fields without definition, or without value', () => {
+    mountFields(orphans())
+    expect(wrapper.vm.computedFields).toEqual([])
+    expect(wrapper.vm.requiredFieldsEmpty()).toBe(false)
+    wrapper.unmount()
+    mountFields(undefined)
+    expect(wrapper.vm.computedFields).toEqual([])
+  })
+})

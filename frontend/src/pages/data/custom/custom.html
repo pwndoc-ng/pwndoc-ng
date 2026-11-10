@@ -1041,10 +1041,12 @@
                                 hide-bottom-space
                               >
                                 <template v-slot:control>
+                                  <!-- Default text of the field: edited alone in this page, no collaborative document -->
                                   <basic-editor
                                     :key="field._id + '-' + cfLocale"
                                     :model-value="getFieldValue(field)"
                                     @update:model-value="setFieldValue(field, $event)"
+                                    :collab="false"
                                   />
                                 </template>
                                 <template v-slot:label>

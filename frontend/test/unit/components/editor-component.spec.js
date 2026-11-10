@@ -57,7 +57,7 @@ beforeEach(() => {
 })
 afterEach(async () => {
   // Collaborative editors initialized before being unmounted (their content checked by some tests after the test)
-  if (wrapper && providers.length && !wrapper.vm.initialeDataUpdated) {
+  if (wrapper && providers.length && !wrapper.vm.initialeDataUpdated && !wrapper.vm.collabError) {
     providers.forEach((provider) => provider.connectAndSync())
     await vi.waitFor(() => expect(wrapper.vm.initialeDataUpdated).toBe(true), { timeout: 2000 })
   }
@@ -249,10 +249,118 @@ describe('loading of the content (loading prop, collaboration)', () => {
     expect(wrapper.find('.ProseMirror').text()).toBe('Texte sélectionné')
   })
 
+  // E.g. default text of a custom field in the custom data page: the server refuses an empty document name
+  it('collaborative editor without document name (no audit, no idUnique): not shared, loaded at once', async () => {
+    wrapper = await mountEditor({ modelValue: '<p>Texte par défaut</p>', collab: true })
+    expect(wrapper.vm.shared).toBe(false)
+    expect(providers).toHaveLength(0)
+    expect(editor().isEditable).toBe(true)
+    expect(emitted('ready')).toHaveLength(1)
+    expect(wrapper.find('.editor-loading').exists()).toBe(false)
+    expect(wrapper.find('.editor-unavailable').exists()).toBe(false)
+    expect(wrapper.find('.editor-disconnected').exists()).toBe(false)
+    editor().commands.insertContentAt(editor().state.doc.content.size - 1, ' modifié')
+    editor().commands.undo() // History of the editor (not of a collaboration)
+    expect(html()).toBe('<p>Texte par défaut</p>')
+  })
+
+  it('shared as soon as it has a document name: audit of the page, or idUnique outside the audits', async () => {
+    wrapper = await mountEditor({ modelValue: '', collab: true }, { route: { params: { auditId: 'a1', sectionId: 's1' } } })
+    expect(wrapper.vm.documentName).toBe('a1')
+    expect(providers).toHaveLength(1)
+    wrapper.unmount()
+    wrapper = await mountEditor({ modelValue: '', collab: true, idUnique: '64ab12-description' })
+    expect(wrapper.vm.documentName).toBe('64ab12/description')
+    expect(wrapper.vm.shared).toBe(true)
+  })
+
   it('field of the shared document named with the section of the page', async () => {
     wrapper = await mountEditor({ modelValue: '', idUnique: 'basiceditor_section', collab: true }, { route: { params: { auditId: 'a1', sectionId: 's1' } } })
     expect(wrapper.vm.fullId).toBe('a1-s1-basiceditor_section')
     expect(providers[0].options.name).toBe('a1')
+  })
+})
+
+describe('collaboration refused or values of unusual types', () => {
+  const ROUTE = { params: { auditId: 'a1', findingId: 'f1' } }
+  const mountCollab = (props = {}) => mountEditor({ modelValue: '<p>Valeur <strong>enregistrée</strong></p>', idUnique: 'basiceditor_description', collab: true, ...props }, { route: ROUTE })
+  const bold = () => wrapper.findAllComponents(QBtn).find((button) => button.findAllComponents(QIcon).some((icon) => icon.props('name') === 'format_bold'))
+
+  it.each(['permission-denied', 'Forbidden'])('authentication refused (%s) before the synchronization: no retries, read-only, value of the page shown, no ready', async (reason) => {
+    wrapper = await mountCollab()
+    const refused = providers[0]
+    refused.emit('authenticationFailed', { reason })
+    await flushPromises()
+    expect(refused.destroy).toHaveBeenCalledTimes(1) // Provider stopped: no endless retries
+    expect(wrapper.find('.editor-loading').exists()).toBe(false)
+    expect(wrapper.find('.editor').attributes('aria-busy')).toBe('false')
+    expect(wrapper.find('.editor-unavailable').text()).toContain(wrapper.vm.$t('editorCollabUnavailable', [reason]))
+    expect(wrapper.find('.editor-preview .ProseMirror').html()).toContain('Valeur <strong>enregistrée</strong>')
+    expect(editor().isEditable).toBe(false)
+    expect(bold().props('disable')).toBe(true)
+    expect(emitted('ready')).toHaveLength(0)
+    expect(emitted('update:modelValue')).toHaveLength(0) // Value of the page kept
+    refused.connectAndSync() // Late events of the stopped provider ignored
+    await flushPromises()
+    expect(wrapper.vm.initialeDataUpdated).toBe(false)
+  })
+
+  it('retries the collaboration on demand: new connection, loaded once synchronized', async () => {
+    wrapper = await mountCollab()
+    providers[0].emit('authenticationFailed', { reason: 'permission-denied' })
+    await flushPromises()
+    await wrapper.find('.editor-unavailable button').trigger('click')
+    await flushPromises()
+    expect(providers).toHaveLength(2)
+    expect(wrapper.find('.editor-loading').exists()).toBe(true)
+    expect(wrapper.find('.editor-unavailable').exists()).toBe(false)
+    providers[1].connectAndSync()
+    await flushPromises()
+    expect(html()).toBe('<p>Valeur <strong>enregistrée</strong></p>')
+    expect(editor().isEditable).toBe(true)
+    expect(emitted('ready')).toHaveLength(1)
+  })
+
+  it('authentication refused after the loading (rights removed): read-only, content kept, state shown', async () => {
+    wrapper = await mountCollab()
+    providers[0].connectAndSync()
+    await flushPromises()
+    expect(editor().isEditable).toBe(true)
+    providers[0].emit('authenticationFailed', { reason: 'Forbidden' })
+    await flushPromises()
+    expect(providers[0].destroy).toHaveBeenCalledTimes(1)
+    expect(editor().isEditable).toBe(false)
+    expect(html()).toBe('<p>Valeur <strong>enregistrée</strong></p>')
+    expect(wrapper.find('.editor-preview').exists()).toBe(false) // Shared content shown by the editor
+    expect(wrapper.find('.editor-unavailable').exists()).toBe(true)
+    expect(bold().props('disable')).toBe(true)
+    await wrapper.setProps({ editable: true })
+    expect(editor().isEditable).toBe(false)
+    expect(emitted('ready')).toHaveLength(1)
+  })
+
+  it.each([
+    [123, '<p>123</p>'],
+    [['Low', 'High'], '<p>Low, High</p>'],
+    [{ level: 'High' }, '<p>{"level":"High"}</p>'],
+    [true, '<p>true</p>'],
+    [null, '<p></p>']
+  ])('loads the imported value %j of a rich text field as text, without exception', async (value, expected) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {}) // Prop of type String
+    wrapper = await mountCollab({ modelValue: value })
+    providers[0].connectAndSync()
+    await flushPromises()
+    expect(html()).toBe(expected)
+    expect(wrapper.vm.initialeDataUpdated).toBe(true)
+    expect(emitted('ready')).toHaveLength(1)
+    warn.mockRestore()
+  })
+
+  it('loads the values of unusual types without collaboration too', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    wrapper = await mountEditor({ modelValue: 42, collab: false }, { vModel: false })
+    expect(html()).toBe('<p>42</p>')
+    expect(editor().isEditable).toBe(true)
   })
 })
 

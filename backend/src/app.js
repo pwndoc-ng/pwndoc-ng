@@ -226,8 +226,10 @@ const serverHocus = new HocuspocusServer({
   // Called for each document opened on the websocket, before any document data is exchanged
   async onAuthenticate({ documentName, requestHeaders, connectionConfig, token }) {
     var decodedToken = auth.decodeTokenFromCookieHeader(requestHeaders.get('cookie')) // Web standard Headers (Hocuspocus v4)
-    if (!decodedToken || !acl.isAllowed(decodedToken.role, 'audits:read'))
+    if (!decodedToken || !acl.isAllowed(decodedToken.role, 'audits:read')) {
+      console.warn(`Collaboration refused: document ${documentName}, ${decodedToken ? `role ${decodedToken.role} without audits:read` : 'no valid token'}`)
       throw new Error('Unauthorized')
+    }
 
     // Audit documents are named with the audit ID: same read/write rules as the REST API
     if (mongoose.isObjectIdOrHexString(documentName)) {
@@ -237,8 +239,10 @@ const serverHocus = new HocuspocusServer({
         acl.isAllowed(decodedToken.role, 'audits:read-all'),
         acl.isAllowed(decodedToken.role, 'audits:update-all')
       )
-      if (!access.read)
+      if (!access.read) {
+        console.warn(`Collaboration refused: document ${documentName} not readable by ${decodedToken.username}`)
         throw new Error('Forbidden')
+      }
       // When reviews are enabled, an audit which is not in edition cannot be changed (same rule as the REST API)
       var readOnly = !access.write
       if (!readOnly && (await mongoose.model('Settings').getAll()).reviews.enabled) {

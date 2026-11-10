@@ -286,10 +286,15 @@ export default defineComponent({
   },
 
   computed: {
+      // Fields with their definition. An imported or old value can refer to a custom field deleted since (definition null
+      // or not populated): such entries stay in the value (saved unchanged) but are not shown nor checked
+      definedFields: function() {
+          return (this.modelValue || []).filter(e => e && e.customField && typeof e.customField === 'object')
+      },
        computedFields: function() {
           var result = []
           var tmpArray = []
-          this.modelValue.forEach(e => {
+          this.definedFields.forEach(e => {
               if (e.customField.fieldType === 'space' && e.customField.size === 12) { // full size space creates an empty component as separator
                   result.push(tmpArray)
                   result.push([])
@@ -318,7 +323,7 @@ export default defineComponent({
       isTextInCustomFields: function(field) {
           if (this.diff) {
               return typeof this.diff.find(f => {
-                  return f.customField._id === field.customField._id && this.$_.isEqual(f.text, field.text)
+                  return f.customField && f.customField._id === field.customField._id && this.$_.isEqual(f.text, field.text)
               }) === 'undefined'
           }
           return false
@@ -330,7 +335,7 @@ export default defineComponent({
           var result = ''
           if (this.diff) {
               this.diff.find(f => {
-                  if (f.customField._id === field.customField._id)
+                  if (f.customField && f.customField._id === field.customField._id)
                       result = f.text
               })
           }
@@ -350,7 +355,7 @@ export default defineComponent({
 
       requiredFieldsEmpty: function() {
           this.validate()
-          return this.modelValue.some(e => e.customField.fieldType !== 'space' && e.customField.required && (!e.text || e.text.length === 0));
+          return this.definedFields.some(e => e.customField.fieldType !== 'space' && e.customField.required && (!e.text || e.text.length === 0));
       },
 
       getOptionsGroup: function(options) {

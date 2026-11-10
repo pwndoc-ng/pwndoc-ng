@@ -6,7 +6,7 @@
     class="editor full-width"
     :class="affixRelativeElement"
     :style="editable ? '' : 'border: 1px dashed lightgrey'"
-    :aria-busy="!initialeDataUpdated"
+    :aria-busy="loadingContent"
   >
   <div v-sticky sticky-offset="stickyConfig"  class="bg-white">
       <q-toolbar class="editor-toolbar">
@@ -529,10 +529,20 @@
          fixed wrappers, otherwise Vue inserts them before a moved bubble menu (NotFoundError, page no longer updated) -->
     <div class="editor-state">
       <!-- Content not loaded yet (value of the page, collaboration websocket): read-only until then -->
-      <q-linear-progress v-if="!initialeDataUpdated" class="editor-loading" indeterminate color="secondary" size="2px" />
+      <q-linear-progress v-if="loadingContent" class="editor-loading" indeterminate color="secondary" size="2px" />
+      <!-- Collaborative editing refused by the server or server not answering: read-only, retry possible -->
+      <div v-else-if="collabError" class="editor-unavailable row items-center no-wrap q-px-sm text-caption text-negative">
+        <q-icon name="mdi-cloud-off-outline" class="q-mr-xs" />
+        <span class="col">{{ collabError.kind === 'unavailable' ? $t('editorCollabUnavailable', [collabError.reason]) : $t('editorCollabUnreachable') }}</span>
+        <q-btn flat dense no-caps size="sm" color="negative" :label="$t('editorCollabRetry')" @click="recreateEditor" />
+      </div>
       <!-- Collaboration websocket lost: the changes are kept and shared once connected again -->
-      <div v-else-if="collab && status !== 'connected'" class="editor-disconnected row items-center no-wrap q-px-sm text-caption text-orange-9">
+      <div v-else-if="shared && status !== 'connected'" class="editor-disconnected row items-center no-wrap q-px-sm text-caption text-orange-9">
         <q-icon name="mdi-wifi-off" class="q-mr-xs" />{{ $t('editorDisconnected') }}
+      </div>
+      <!-- Value of the page shown while the shared content cannot be loaded -->
+      <div v-if="previewShown" class="editor__content editor-preview q-pa-sm">
+        <div class="ProseMirror" v-html="previewContent"></div>
       </div>
     </div>
     <!-- Formatting and LanguageTool menus: not shown when the audit is in review, where a selection is made to comment it -->
@@ -593,6 +603,7 @@
     </div>
     <editor-content
       v-if="typeof diff === 'undefined' || !toggleDiff"
+      v-show="!previewShown"
       class="editor__content q-pa-sm"
       :editor="editor"
       @dblclick="zoomImage"
@@ -672,6 +683,9 @@ const match = ref(null)
 const updateHtmlLanguageTool = () => navigator.clipboard.writeText(editor.value.getHTML())
 
 
+// Collaborative editor not synchronized after this delay: server considered as not answering (value of the page shown)
+const UNREACHABLE_DELAY = 15000
+
 export default defineComponent({
   emits: ['editorchange', 'ready', 'update:modelValue'],
   name: "BasicEditor",
@@ -746,6 +760,7 @@ export default defineComponent({
       synced: false, // Shared document synchronized with the server (always true without collaboration)
       fullId:"",
       initialeDataUpdated:false, // Content loaded: editable from then on
+      collabError: null, // Shared content not available: {kind: 'unavailable', reason} (refused) or {kind: 'unreachable'}
       emptyInitialValue: false, // Initialized with an empty value and not modified since (value may arrive later)
       earlyText: '', // Characters typed before the content was loaded
       commentSelection: null, // Selected passage to comment: {quote, top, left}
@@ -767,7 +782,7 @@ export default defineComponent({
     // still empty and not changed by the user: shown (written in the shared document only if it is still empty).
     // Before the initialization, the last value is loaded by initialize().
     modelValue(value) {
-      if (this.initialeDataUpdated && this.emptyInitialValue && value && this.editor.getHTML() === '<p></p>') {
+      if (this.initialeDataUpdated && this.emptyInitialValue && value && this.editor && this.editor.getHTML() === '<p></p>') {
         this.emptyInitialValue = false
         this.setInitialCollaborativeContent(value)
       }
@@ -776,7 +791,7 @@ export default defineComponent({
       if (!value) this.initialize()
     },
     editable(value) {
-      if (this.editor) this.editor.setEditable(this.editable && this.initialeDataUpdated);
+      if (this.editor) this.editor.setEditable(this.canEdit);
     },
     quoteComments: {
       handler() { this.updateCommentHighlights() },
@@ -823,6 +838,7 @@ export default defineComponent({
   // Released at once, connected or not: an editor of a page left never writes in the shared document
   beforeUnmount() {
     this.destroyed = true
+    clearTimeout(this.unreachableTimer)
     window.removeEventListener('scroll', this.hideCommentSelection, true);
     window.removeEventListener('autoCorrectionToggleChanged', this.autoCorrectionToggleListener);
     this.destroyProvider();
@@ -831,9 +847,27 @@ export default defineComponent({
 
   computed: {
 
-    // Toolbar usable: editable editor whose content is loaded (the commands of TipTap ignore the read-only state)
+    // Name of the shared document: the audit of the page, or the editor (idUnique) outside the audits
+    documentName() {
+      return this.$route.params.auditId || this.idUnique.replace('-', '/');
+    },
+    // Collaborative editor: it needs a shared document. An editor without name (no audit, no idUnique) is not shared: the
+    // server refuses the empty name and the editor would wait for a synchronization that never comes
+    shared() {
+      return this.collab && !!this.documentName;
+    },
+    // Toolbar usable: editable editor whose content is loaded and shared (the commands of TipTap ignore the read-only state)
     canEdit() {
-      return this.editable && this.initialeDataUpdated;
+      return this.editable && this.initialeDataUpdated && !this.collabError;
+    },
+    loadingContent() {
+      return !this.initialeDataUpdated && !this.collabError;
+    },
+    previewShown() {
+      return !this.initialeDataUpdated && !!this.collabError;
+    },
+    previewContent() {
+      return this.withImageUrls(Utils.htmlEncode(this.htmlValue(this.modelValue)));
     },
     commentable() {
       return !!(this.commentsStore && this.commentTarget);
@@ -919,9 +953,7 @@ export default defineComponent({
           content += value;
         });
       }
-      content = Utils.htmlEncodeDiff(content);
-      // Images are stored by id: the raw HTML of the diff needs their download URL
-      return content.replace(/(<img\b[^>]*?\ssrc=")([^"]+)(")/g, (match, before, src, after) => before + Utils.normalizeImageUrl(src) + after);
+      return this.withImageUrls(Utils.htmlEncodeDiff(content));
     },
   },
 
@@ -936,7 +968,7 @@ export default defineComponent({
       let extensionEditor = [
           // Content of the editor (schema and HTML): editor-extensions.js
           ...contentExtensions({
-            collab: this.collab,
+            collab: this.shared,
             codeBlock: CodeBlockLowlight
               .extend({
                 addNodeView() {
@@ -954,14 +986,14 @@ export default defineComponent({
             automaticMode: true, // 1 second delay before verification
           }),
         ]
-       if(this.collab){
+       if(this.shared){
          const ydoc = new Y.Doc()
 
          // Events of a provider replaced since (shared document reloaded) are ignored
          const provider = new HocuspocusProvider({
           url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
           //url:"wss://127.0.0.1:8443/collab/",
-          name: this.$route.params.auditId ||  this.idUnique.replace('-', '/'),
+          name: this.documentName,
           document  : ydoc,
           // Authentication message waited by the server before sharing the document (the user is authenticated server
           // side with the httpOnly token cookie): ids of the initial contents of the fields of the copy of this client,
@@ -982,8 +1014,15 @@ export default defineComponent({
           this.initialize()
         })
         provider.on('authenticationFailed', ({ reason }) => {
-          if (!this.destroyed && this.provider === provider && reason === 'stale-document') this.reloadSharedDocument()
+          if (this.destroyed || this.provider !== provider) return
+          if (reason === 'stale-document') this.reloadSharedDocument()
+          else this.stopCollaboration(reason)
         })
+        // Server not answering: the state is shown (the provider keeps trying, the editor is loaded once synchronized)
+        clearTimeout(this.unreachableTimer)
+        this.unreachableTimer = setTimeout(() => {
+          if (!this.destroyed && this.provider === provider && !this.synced && !this.collabError) this.collabError = { kind: 'unreachable' }
+        }, UNREACHABLE_DELAY)
         extensionEditor.push(Collaboration.configure({
             document: ydoc,
             field: this.fullId
@@ -1044,16 +1083,31 @@ export default defineComponent({
     // value of the database (document unloaded, then reopened by another user after a save). The copy and its changes
     // not synchronized are dropped and the shared document is loaded again, instead of being merged (duplicated content).
     async reloadSharedDocument() {
+      await this.recreateEditor();
+      if (!this.destroyed) Notify.create({ message: this.$t('editorDocumentReloaded'), color: 'warning', textColor: 'white', position: 'top-right' });
+    },
+    // New editor, Yjs document and connection (shared document reloaded, collaboration retried by the user)
+    async recreateEditor() {
       if (this.destroyed) return;
+      clearTimeout(this.unreachableTimer);
       this.destroyProvider();
       this.provider = null;
       this.editor.destroy();
       this.editor = null;
-      Object.assign(this, { initialeDataUpdated: false, synced: false, status: 'connecting', emptyInitialValue: false });
+      Object.assign(this, { initialeDataUpdated: false, synced: false, status: 'connecting', emptyInitialValue: false, collabError: null, earlyText: '' });
       await this.$nextTick();
       if (this.destroyed) return;
       this.createEditor();
-      Notify.create({ message: this.$t('editorDocumentReloaded'), color: 'warning', textColor: 'white', position: 'top-right' });
+    },
+    // Authentication refused by the collaboration server (rights, session): no endless retries of the provider, the
+    // editor leaves the loading state, read-only (value of the page shown when the shared content was not loaded)
+    stopCollaboration(reason) {
+      clearTimeout(this.unreachableTimer);
+      this.destroyProvider();
+      this.provider = null;
+      this.synced = false;
+      this.collabError = { kind: 'unavailable', reason: reason || 'permission-denied' };
+      this.editor.setEditable(false);
     },
     // Connection closed after removing the caret of the user (sent to the others before the connection is closed)
     destroyProvider() {
@@ -1062,18 +1116,33 @@ export default defineComponent({
       this.provider.destroy();
     },
     setInitialCollaborativeContent(value) {
-      setInitialCollaborativeContent(this.editor, this.flattenCodeBlocks(value));
+      setInitialCollaborativeContent(this.editor, this.flattenCodeBlocks(this.htmlValue(value)));
+    },
+    // HTML of a value of the page: imported data can give another type to a rich text field (number, list, object),
+    // shown as text
+    htmlValue(value) {
+      if (typeof value === 'string') return value;
+      if (value === null || value === undefined) return '';
+      const paragraph = document.createElement('p');
+      paragraph.textContent = Array.isArray(value) ? value.join(', ') : (typeof value === 'object' ? JSON.stringify(value) : String(value));
+      return paragraph.outerHTML;
+    },
+    // Images are stored by id: raw HTML shown with v-html needs their download URL
+    withImageUrls(html) {
+      return html.replace(/(<img\b[^>]*?\ssrc=")([^"]+)(")/g, (match, before, src, after) => before + Utils.normalizeImageUrl(src) + after);
     },
     // Initialization once the value of the page is loaded (loading prop) and, for the collaborative editors, the shared
     // document synchronized: its content is kept, or the last value of the page is written in the empty field.
     // Editable from then on.
     initialize() {
       if (this.destroyed || !this.editor || this.initialeDataUpdated || this.loading || !this.synced) return;
+      clearTimeout(this.unreachableTimer);
+      this.collabError = null;
       const value = this.modelValue;
       this.setInitialCollaborativeContent(value);
       this.emptyInitialValue = !value && this.editor.getHTML() === '<p></p>';
       this.initialeDataUpdated = true;
-      this.editor.setEditable(this.editable);
+      this.editor.setEditable(this.canEdit);
       this.$emit('ready');
       if (this.earlyText) {
         // At the end of the last paragraph (as text, not HTML), in a new paragraph after a last image or table
@@ -1100,7 +1169,7 @@ export default defineComponent({
       return !(sync && sync.isChangeOrigin && !sync.isUndoRedoOperation);
     },
     keepUndoManagerTracking() {
-      if (this.collab) keepUndoManagerTracking(this.editor);
+      if (this.shared) keepUndoManagerTracking(this.editor);
     },
     acceptSuggestion(sug)  {
       this.editor.commands.insertContent(sug.value)
