@@ -7,6 +7,16 @@ module.exports = function(app) {
     var jwt = require('jsonwebtoken')
     var _ = require('lodash')
     var passwordpolicy = require('../lib/passwordpolicy')
+    var utils = require('../lib/utils')
+
+    // Session cookies, cleared with the same options as when set: the browser keeps a cookie cleared for another path
+    // (the refresh token stayed after the logout)
+    var TOKEN_COOKIE = {secure: true, sameSite: 'strict', httpOnly: true}
+    var REFRESH_COOKIE = {secure: true, sameSite: 'strict', httpOnly: true, path: '/api/users/refreshtoken'}
+    var clearSessionCookies = (res) => {
+        res.clearCookie('token', TOKEN_COOKIE)
+        res.clearCookie('refreshToken', REFRESH_COOKIE)
+    }
 	
     // Check token validity
     app.get("/api/users/checktoken", acl.hasPermission('validtoken'), function(req, res) {
@@ -24,15 +34,13 @@ module.exports = function(app) {
         
         User.updateRefreshToken(token, userAgent)
         .then(msg => {
-            res.cookie('token', `JWT ${msg.token}`, {secure: true, sameSite: 'strict', httpOnly: true})
-            res.cookie('refreshToken', msg.refreshToken, {secure: true, httpOnly: true, sameSite: 'strict', path: '/api/users/refreshtoken'})
+            res.cookie('token', `JWT ${msg.token}`, TOKEN_COOKIE)
+            res.cookie('refreshToken', msg.refreshToken, REFRESH_COOKIE)
             Response.Ok(res, msg)
         })
         .catch(err => {
-            if (err.fn === 'Unauthorized') {
-                res.clearCookie('token')
-                res.clearCookie('refreshToken')
-            }
+            if (err.fn === 'Unauthorized')
+                clearSessionCookies(res)
             Response.Internal(res, err)
         })
     });
@@ -46,8 +54,7 @@ module.exports = function(app) {
             var decoded = jwt.verify(token, jwtRefreshSecret)
         }
         catch (err) {
-            res.clearCookie('token')
-            res.clearCookie('refreshToken')
+            clearSessionCookies(res)
             if (err.name === 'TokenExpiredError')
                 Response.Unauthorized(res, 'Expired refreshToken')
             else
@@ -56,8 +63,7 @@ module.exports = function(app) {
         }
         User.removeSession(decoded.userId, decoded.sessionId)
         .then(msg => {
-            res.clearCookie('token')
-            res.clearCookie('refreshToken')
+            clearSessionCookies(res)
             Response.Ok(res, msg)
         })
         .catch(err => Response.Internal(res, err))
@@ -90,8 +96,8 @@ module.exports = function(app) {
 
         user.getToken(req.headers['user-agent'])
         .then(msg => {
-            res.cookie('token', `JWT ${msg.token}`, {secure: true, sameSite: 'strict', httpOnly: true})
-            res.cookie('refreshToken', msg.refreshToken, {secure: true, sameSite: 'strict', httpOnly: true, path: '/api/users/refreshtoken'})
+            res.cookie('token', `JWT ${msg.token}`, TOKEN_COOKIE)
+            res.cookie('refreshToken', msg.refreshToken, REFRESH_COOKIE)
             Response.Ok(res, msg)
         })
         .catch(err => Response.Internal(res, err))
@@ -200,12 +206,21 @@ module.exports = function(app) {
     app.post("/api/users", acl.hasPermission('users:create'), function(req, res) {
         // #swagger.tags = ['User']
 
+        if (!utils.isListOfObjects(req.body)) {
+            Response.BadParameters(res, 'A list of users is required');
+            return;
+        }
         var users = [];
         for (var i=0; i< req.body.length;i++) {
             var usr = req.body[i]
                 
             if (!usr.username || !usr.password || !usr.firstname || !usr.lastname) {
                 Response.BadParameters(res, 'Missing some required parameters');
+                return;
+            }
+            if ([usr.username, usr.password, usr.firstname, usr.lastname].some(value => typeof value !== 'string') ||
+                ![usr.role, usr.email, usr.phone].every(utils.isOptionalString)) {
+                Response.BadParameters(res, 'Parameters must be of type String');
                 return;
             }
             if (passwordpolicy.strongPassword(usr.password)!==true){
@@ -264,8 +279,8 @@ module.exports = function(app) {
 
                     newUser.getToken(req.headers['user-agent'])
                     .then(msg => {
-                        res.cookie('token', `JWT ${msg.token}`, {secure: true, sameSite: 'strict', httpOnly: true})
-                        res.cookie('refreshToken', msg.refreshToken, {secure: true, sameSite: 'strict', httpOnly: true, path: '/api/users/refreshtoken'})
+                        res.cookie('token', `JWT ${msg.token}`, TOKEN_COOKIE)
+                        res.cookie('refreshToken', msg.refreshToken, REFRESH_COOKIE)
                         Response.Created(res, msg)
                     })
                     .catch(err => Response.Internal(res, err))
@@ -285,6 +300,10 @@ module.exports = function(app) {
             (req.body.newPassword && !req.body.confirmPassword) ||
             (req.body.confirmPassword && !req.body.newPassword)) {
             Response.BadParameters(res, 'Missing some required parameters');
+            return;
+        }
+        if (typeof req.body.currentPassword !== 'string' || !utils.isOptionalString(req.body.newPassword)) {
+            Response.BadParameters(res, 'Parameters must be of type String');
             return;
         }
         if (req.body.newPassword && passwordpolicy.strongPassword(req.body.newPassword)!==true){
@@ -311,7 +330,7 @@ module.exports = function(app) {
 
         User.updateProfile(req.decodedToken.username, user)
         .then(msg => {
-            res.cookie('token', msg.token, {secure: true, sameSite: 'strict', httpOnly: true})
+            res.cookie('token', msg.token, TOKEN_COOKIE)
             Response.Ok(res, msg)
         })
         .catch(err => Response.Internal(res, err))
@@ -321,6 +340,10 @@ module.exports = function(app) {
     app.put("/api/users/:id", acl.hasPermission('users:update'), function(req, res) {
         // #swagger.tags = ['User']
 
+        if (!utils.isOptionalString(req.body.password)) {
+            Response.BadParameters(res, 'Parameters must be of type String');
+            return;
+        }
         if (req.body.password && !passwordpolicy.strongPassword(req.body.password)){
             Response.BadParameters(res, 'New Password does not match the password policy');
             return;
@@ -329,7 +352,8 @@ module.exports = function(app) {
     
         // Optionals params
         if (req.body.username) user.username = req.body.username;
-        if (!_.isNil(req.body.password)) user.password = req.body.password;
+        // Empty password: unchanged (it was saved as is, without hash, and the account could not log in anymore)
+        if (req.body.password) user.password = req.body.password;
         if (req.body.firstname) user.firstname = req.body.firstname;
         if (req.body.lastname) user.lastname = req.body.lastname;
         if (!_.isNil(req.body.email)) user.email = req.body.email;

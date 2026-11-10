@@ -274,23 +274,35 @@ module.exports = function(request, app) {
       })
 
       it('User Enumeration based on response time', async () => {
-        var start = new Date()
+        // Requests for unknown and known users are interleaved (order alternated) and compared by their median duration:
+        // a load change of the machine during the test affects both series alike, instead of only one of two
+        // consecutive series
+        var duration = async (credentials) => {
+          var start = process.hrtime.bigint()
+          await request(app).post('/api/users/token').send(credentials)
+          return Number(process.hrtime.bigint() - start)
+        }
+        var median = (values) => {
+          var sorted = [...values].sort((a, b) => a - b)
+          return sorted[Math.floor(sorted.length / 2)]
+        }
+        var invalidUsers = []
+        var validUsers = []
 
         for (var index = 0; index <= 200; index++) {
-          await request(app).post('/api/users/token').send({username: 'InvalidUser' + index, password: 'InvalidPassword'})
+          var invalidUser = {username: 'InvalidUser' + index, password: 'InvalidPassword'}
+          var validUser = {username: 'admin', password: 'InvalidPassword' + index}
+          if (index % 2 === 0) {
+            invalidUsers.push(await duration(invalidUser))
+            validUsers.push(await duration(validUser))
+          }
+          else {
+            validUsers.push(await duration(validUser))
+            invalidUsers.push(await duration(invalidUser))
+          }
         }
 
-        var endTimeInvalidUsers = new Date() - start
-
-        start = new Date()
-
-        for (var index = 0; index <= 200; index++) {
-          await request(app).post('/api/users/token').send({username: 'admin', password: 'InvalidPassword' + index})
-        }
-
-        var endTimeValidUsers = new Date() - start
-
-        var timeDelta = endTimeInvalidUsers / endTimeValidUsers
+        var timeDelta = median(invalidUsers) / median(validUsers)
 
         expect(timeDelta <= 1.15 && timeDelta >= 0.85).toBeTruthy()
       }, 50000)

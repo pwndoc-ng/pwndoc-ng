@@ -65,10 +65,10 @@ CustomSectionSchema.statics.updateAll = (sections) => {
     return utils.replaceAll(CustomSection, sections).then(() => "Sections updated successfully")
 }
 
-// Delete Section
-CustomSectionSchema.statics.delete = (field, locale) => {
+// Delete Section (sections are not per language anymore: deleted by field)
+CustomSectionSchema.statics.delete = (field) => {
     return new Promise((resolve, reject) => {
-        CustomSection.deleteOne({field: field, locale: locale})
+        CustomSection.deleteOne({field: field})
         .then((res) => {
             if (res.deletedCount === 1)
                 resolve('Custom Section deleted');

@@ -63,9 +63,7 @@ module.exports = function(request, app) {
       expect((await request(app).get('/api/images/download/deadbeefdeadbeefdeadbeef').set('Cookie', userCookie)).status).toBe(404)
     })
 
-    // BUG: src/routes/image.js:11 and :61 images are returned to any authenticated user knowing their identifier,
-    // whatever the audit they belong to (auditId stored but never checked): user2, without access to the audit, reads it.
-    it.skip('Images of an audit are readable by the users with access to the audit only', async () => {
+    it('Images of an audit are readable by the users with access to the audit only', async () => {
       expect((await request(app).get(`/api/audits/${auditId}`).set('Cookie', otherCookie)).status).toBe(404)
       expect((await request(app).get(`/api/images/${imageId}`).set('Cookie', otherCookie)).status).toBe(404)
       expect((await request(app).get(`/api/images/download/${imageId}`).set('Cookie', otherCookie)).status).toBe(404)

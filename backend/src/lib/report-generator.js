@@ -12,6 +12,7 @@ var _ = require('lodash');
 var Image = require('mongoose').model('Image');
 var Settings = require('mongoose').model('Settings');
 var VulnerabilityType = require('mongoose').model('VulnerabilityType');
+var CustomField = require('mongoose').model('CustomField');
 var CVSS31 = require('./cvsscalc31.js');
 var translate = require('../translate')
 var $t
@@ -22,10 +23,8 @@ var numberOfPieChart = 0
 var numberOfBarChart = 0
 var chartRelXml = ''
 var chartContentTypeXml = ''
-var globalAbstractNumId = null // Global variable to share abstractNumId between all sections
-var abstractNumCreated = false // Flag to avoid creating abstractNum multiple times
-var bulletDefinitionCreated = false // Flag to avoid creating bullet definition multiple times
-var globalBulletNumId = null // Global variable to store dynamic bullet ID
+var generatedListIds = [] // Numbering instances of the numbered lists converted by convertHTML (one per list)
+var nextListId = 0
 
 const encodeHTMLEntities = s => s.replace(/[\u00A0-\u9999<>&]/g, i => '&#'+i.charCodeAt(0)+';')
 
@@ -90,10 +89,7 @@ exports.generateDoc = generateDoc;
 async function _generateDoc(audit) {
 
     // Reset global variables for each document generation
-    globalAbstractNumId = null;
-    abstractNumCreated = false;
-    bulletDefinitionCreated = false;
-    globalBulletNumId = null;
+    generatedListIds = [];
     pieChartXML = null;
     barChartXML = null;
     numberOfPieChart = 0;
@@ -106,6 +102,7 @@ async function _generateDoc(audit) {
 
     zip = new PizZip(content);
     var textArea = getTemplateTextArea(zip); // Space between margins, for editor images width
+    nextListId = firstFreeNumId(zip);
 
     translate.setLocale(audit.language)
     $t = translate.translate
@@ -178,40 +175,27 @@ async function _generateDoc(audit) {
     catch(err) {
         console.log(err)
     }
-    var doc = new Docxtemplater(zip, {
-        modules: [imageModule],
-        parser: parser,
-        paragraphLoop: true
-    });
-    
+    try {
+        var doc = new Docxtemplater(zip, {
+            modules: [imageModule],
+            parser: parser,
+            paragraphLoop: true,
+            stripInvalidXMLChars: true // Control characters of the audit data: a document containing them cannot be opened
+        });
+    }
+    catch (error) {
+        throw templateError(error) // Syntax errors of the template
+    }
+
     customGenerator.apply(preppedAudit);
 
     try {
         doc.render(preppedAudit);
     }
     catch (error) {
-        // Only log the explanations: errors properties contain the template data scope (report content)
-        if (error.properties && error.properties.id === 'multi_error') {
-            error.properties.errors.forEach(function(err) {
-                console.log(`Template Error: ${err.properties ? err.properties.explanation : err.message}`);
-            });
-        }
-        else if (error.properties)
-            console.log(`Template Error: ${error.properties.explanation || error.message}`)
-        else
-            console.log(error)
-        if (error.properties && error.properties.errors instanceof Array) {
-            const errorMessages = error.properties.errors.map(function (error) {
-                return `Explanation: ${error.properties.explanation}\nScope: ${JSON.stringify(error.properties.scope).substring(0,142)}...`
-            }).join("\n\n");
-            // errorMessages is a humanly readable message looking like this :
-            // 'The tag beginning with "foobar" is unopened'
-            throw `Template Error:\n${errorMessages}`;
-        }
-        else {
-            throw error
-        }
+        throw templateError(error)
     }
+    declareListNumbering(zip, generatedListIds);
 
     // Include refs in document
     const relsPath = "word/_rels/document.xml.rels";
@@ -540,7 +524,12 @@ expressions.filters.p = function(input, style = null) {
             result += '<w:pPr><w:pStyle w:val="' + style_parsed + '"/></w:pPr>';
         }
     }
-    result += '<w:r><w:t>' + input + '</w:t></w:r></w:p>';
+    // OOXML input (runs, bookmarks or fields of the other filters) goes directly in the paragraph: inside a w:t, which only
+    // contains text, it would be lost or make the document invalid. Text input is put in an escaped run
+    if (/^\s*<w:/.test(input))
+        result += input + '</w:p>';
+    else
+        result += '<w:r><w:t>' + utils.escapeXMLEntities(String(input)) + '</w:t></w:r></w:p>';
     return result;
 }
 
@@ -566,12 +555,14 @@ expressions.filters.sort = function(input, key = null) {
         return input.sort();
     }
     else {
-        // Ascending order (same as without key), elements without value at the end
+        // Ascending order (same as without key), elements without value at the end ("" in the report data, e.g. the CVSS
+        // score of a finding without vector)
+        var noValue = (value) => value === undefined || value === null || value === "";
         return input.sort(function(a, b) {
             var x = _getPropertyValue(a, key), y = _getPropertyValue(b, key);
             if (x === y) return 0;
-            if (x === undefined || x === null) return 1;
-            if (y === undefined || y === null) return -1;
+            if (noValue(x)) return noValue(y) ? 0 : 1;
+            if (noValue(y)) return -1;
             return x < y ? -1 : 1;
         });
     }
@@ -655,169 +646,63 @@ expressions.filters.convertHTML = function(input, style, listIds) {
             }
         }
         
-        // If we don't have provided IDs but have numbered lists, generate them automatically
+        // Without identifiers given by the template: one new numbering instance per list, declared in numbering.xml
+        // after the rendering (declareListNumbering) so that each list starts at 1
         if (olCount > 0 && listIdsArray.length === 0) {
-            // Generate unpredictable IDs between 10000 and 99999
-            listIdsArray = Array.from({length: olCount}, () => Math.floor(Math.random() * 90000) + 10000);
+            listIdsArray = Array.from({length: olCount}, () => nextListId++);
+            generatedListIds.push(...listIdsArray);
         }
 
-        // numbering.xml is not modified: only existing template definitions are used
         var result = html2ooxml(input.replace(/(<p><\/p>)+$/, ''), style, listIdsArray)
     }
     return result;
 }
 
-// Fonction pour modifier le numbering.xml du document DOCX
-function modifyNumberingXml(olCount, ulCount, listIdsArray = []) {
-    try {
-        // Lire le numbering.xml existant
-        const numberingPath = "word/numbering.xml";
-        let numberingXml = zip.files[numberingPath].asText();
-        
-        // Save modified file doesn't exist, create it with complete structure
-        if (!numberingXml) {
-            numberingXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering mc:Ignorable="w14 w15 wp14" xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:w10="urn:schemas-microsoft-com:office:word" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup" xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk" xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">
-</w:numbering>`;
-        }
-        
-        // Use global abstractNumId or create a new one ONLY if we have numbered lists
-        let nextAbstractNumId = null;
-        if (olCount > 0) {
-            if (globalAbstractNumId === null) {
-                // First call: find next available abstractNumId
-                nextAbstractNumId = 1;
-                if (numberingXml.includes('w:abstractNum w:abstractNumId="')) {
-                    const matches = numberingXml.match(/w:abstractNum w:abstractNumId="(\d+)"/g);
-                    if (matches) {
-                        const ids = matches.map(match => parseInt(match.match(/"(\d+)"/)[1]));
-                        nextAbstractNumId = Math.max(...ids) + 1;
-                    }
-                }
-                globalAbstractNumId = nextAbstractNumId;
-                console.log(`🆕 First abstractNumId created for numbered lists: ${globalAbstractNumId}`);
-            } else {
-                // Reuse existing abstractNumId
-                nextAbstractNumId = globalAbstractNumId;
-                console.log(`♻️ Reusing abstractNumId: ${globalAbstractNumId}`);
-            }
-        } else {
-            console.log(`ℹ️ No numbered list (<ol>) detected, no abstractNumId creation`);
-        }
-        
-        // Create abstract definition for numbered lists only if it's the first time AND we have numbered lists
-        if (olCount > 0 && !abstractNumCreated) {
-            // Create multi-level definition (0-8) for numbered lists
-            let decimalAbstract = `<w:abstractNum w:abstractNumId="${nextAbstractNumId}" w15:restartNumberingAfterBreak="0">
-                <w:multiLevelType w:val="hybridMultilevel"/>`;
-            
-            // Generate definitions for each level (0 to 8)
-            for (let i = 0; i <= 8; i++) {
-                const leftIndent = 720 + (i * 720); // Progressive indentation: 720, 1440, 2160, etc.
-                const hanging = 360; // Constant spacing for numbers
-                
-                // Use ONLY decimal to avoid conflicts with table of contents
-                const numFormat = "decimal";
-                const lvlText = `%${i+1}.`; // Each level uses its own counter
-                
-                decimalAbstract += `
-                <w:lvl w:ilvl="${i}" w15:tentative="1">
-                    <w:start w:val="1"/>
-                    <w:numFmt w:val="${numFormat}"/>
-                    <w:lvlText w:val="${lvlText}"/>
-                    <w:lvlJc w:val="start"/>
-                    <w:pPr>
-                        <w:ind w:left="${leftIndent}" w:hanging="${hanging}"/>
-                    </w:pPr>
-                </w:lvl>`;
-            }
-            
-            decimalAbstract += `\n</w:abstractNum>`;
-            
-            numberingXml = numberingXml.replace('</w:numbering>', `${decimalAbstract}\n</w:numbering>`);
-            abstractNumCreated = true;
-            console.log(`📝 Multi-level abstract definition created for abstractNumId: ${nextAbstractNumId}`);
-        } else {
-            console.log(`🚫 Abstract definition ignored (already created) for abstractNumId: ${nextAbstractNumId}`);
-        }
-        
-        // Create unique concrete numberings for each list (only if we have numbered lists and valid abstractNumId)
-        if (olCount > 0 && nextAbstractNumId !== null) {
-            listIdsArray.forEach((listId, index) => {
-                const concreteNumbering = `<w:num w:numId="${listId}"><w:abstractNumId w:val="${nextAbstractNumId}"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num>`;
-                
-                numberingXml = numberingXml.replace('</w:numbering>', `${concreteNumbering}\n</w:numbering>`);
-            });
-        }
-        
-        // Add bullet definition if necessary (only once for entire document)
-        if (ulCount > 0 && !bulletDefinitionCreated) {
-            // Find next available numId by analyzing existing numbering.xml
-            let nextBulletNumId = 1;
-            if (numberingXml.includes('w:numId="')) {
-                const numIdMatches = numberingXml.match(/w:numId="(\d+)"/g);
-                if (numIdMatches) {
-                    const existingIds = numIdMatches.map(match => parseInt(match.match(/"(\d+)"/)[1]));
-                    nextBulletNumId = Math.max(...existingIds) + 1;
-                }
-            }
-            
-            // Trouver le prochain abstractNumId disponible pour les puces
-            let bulletAbstractNumId = 1;
-            if (numberingXml.includes('w:abstractNum w:abstractNumId="')) {
-                const abstractMatches = numberingXml.match(/w:abstractNum w:abstractNumId="(\d+)"/g);
-                if (abstractMatches) {
-                    const existingAbstractIds = abstractMatches.map(match => parseInt(match.match(/"(\d+)"/)[1]));
-                    bulletAbstractNumId = Math.max(...existingAbstractIds) + 1;
-                }
-            }
-            
-            // Create simple abstract definition for bullets
-            let bulletAbstract = `<w:abstractNum w:abstractNumId="${bulletAbstractNumId}" w15:restartNumberingAfterBreak="0">
-                <w:multiLevelType w:val="hybridMultilevel"/>
-                <w:lvl w:ilvl="0" w15:tentative="1">
-                    <w:start w:val="1"/>
-                    <w:numFmt w:val="bullet"/>
-                    <w:lvlText w:val="•"/>
-                    <w:lvlJc w:val="left"/>
-                    <w:pPr>
-                        <w:ind w:left="720" w:hanging="360"/>
-                    </w:pPr>
-                </w:lvl>
-            </w:abstractNum>`;
-            
-            numberingXml = numberingXml.replace('</w:numbering>', `${bulletAbstract}\n</w:numbering>`);
-            
-            const bulletNumbering = `<w:num w:numId="${nextBulletNumId}"><w:abstractNumId w:val="${bulletAbstractNumId}"/></w:num>`;
-            
-            numberingXml = numberingXml.replace('</w:numbering>', `${bulletNumbering}\n</w:numbering>`);
-            
-            bulletDefinitionCreated = true;
-            // Store dynamic ID for reuse
-            globalBulletNumId = nextBulletNumId;
-            console.log(`📝 Simple definition created for bullets (ID: ${nextBulletNumId}, abstractNumId: ${bulletAbstractNumId})`);
-        } else if (ulCount > 0 && bulletDefinitionCreated) {
-            console.log(`♻️ Bullet definition already created, reusing ID: ${globalBulletNumId}`);
-        }
-        
-        
-        zip.file(numberingPath, numberingXml);
-        
-        console.log(`✅ numbering.xml modified with success`);
-        console.log(`✅ numbering.xml modified successfully`);
-        if (olCount > 0 && nextAbstractNumId !== null) {
-            console.log(`   🔢 AbstractNumId used for numbered lists: ${nextAbstractNumId}`);
-            console.log(`   🔢 Numbered list IDs: ${listIdsArray.join(', ')}`);
-        }
-        if (bulletDefinitionCreated) {
-            console.log(`   🔘 Bullet ID: ${globalBulletNumId}`);
-        }
-        if (olCount === 0 && ulCount === 0) {
-            console.log(`   ℹ️ No list detected, numbering.xml not modified`);
-        }
-        
-    } catch (error) {
-        console.log(`❌ Error modifying numbering.xml:`, error);
+// First numbering identifier not used by the template (identifiers of the numbering instances of the generated lists)
+function firstFreeNumId(zip) {
+    var numbering = zip.file('word/numbering.xml')
+    var ids = numbering ? [...numbering.asText().matchAll(/<w:num\b[^>]*\bw:numId="(\d+)"/g)].map(match => parseInt(match[1], 10)) : []
+    return Math.max(0, ...ids) + 1
+}
+
+// Declares the numbering instances of the lists generated by convertHTML. They use the definition of the ordered list of
+// the template (numId 2, see docs/docxtemplate.md), restarted at 1 for each list. Templates without this definition get
+// a decimal definition. Templates without numbering.xml are not supported (bullet lists use its numId 1 too).
+function declareListNumbering(zip, listIds) {
+    var file = zip.file('word/numbering.xml')
+    if (listIds.length === 0 || !file)
+        return
+    var numbering = file.asText()
+
+    var ordered = numbering.match(/<w:num\b[^>]*\bw:numId="2"[^>]*>\s*<w:abstractNumId w:val="(\d+)"\s*\/>/)
+    var abstractNumId = ordered ? ordered[1] : null
+    if (abstractNumId === null) {
+        abstractNumId = Math.max(-1, ...[...numbering.matchAll(/<w:abstractNum\b[^>]*\bw:abstractNumId="(\d+)"/g)].map(match => parseInt(match[1], 10))) + 1
+        var levels = Array.from({length: 9}, (_, level) =>
+            `<w:lvl w:ilvl="${level}"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%${level + 1}."/><w:lvlJc w:val="left"/>` +
+            `<w:pPr><w:ind w:left="${720 * (level + 1)}" w:hanging="360"/></w:pPr></w:lvl>`).join('')
+        var definition = `<w:abstractNum w:abstractNumId="${abstractNumId}"><w:multiLevelType w:val="hybridMultilevel"/>${levels}</w:abstractNum>`
+        // Definitions (w:abstractNum) come before the instances (w:num)
+        var firstNum = numbering.search(/<w:num\b/)
+        numbering = firstNum === -1 ? numbering.replace('</w:numbering>', `${definition}</w:numbering>`) : numbering.slice(0, firstNum) + definition + numbering.slice(firstNum)
     }
+
+    var restart = Array.from({length: 9}, (_, level) => `<w:lvlOverride w:ilvl="${level}"><w:startOverride w:val="1"/></w:lvlOverride>`).join('')
+    var instances = listIds.map(id => `<w:num w:numId="${id}"><w:abstractNumId w:val="${abstractNumId}"/>${restart}</w:num>`).join('')
+    // Instances before w:numIdMacAtCleanup (last element of the schema) if present
+    numbering = numbering.includes('<w:numIdMacAtCleanup') ? numbering.replace('<w:numIdMacAtCleanup', `${instances}<w:numIdMacAtCleanup`) : numbering.replace('</w:numbering>', `${instances}</w:numbering>`)
+    zip.file('word/numbering.xml', numbering)
+}
+
+// Error of the template (syntax error found when it is compiled, error when it is rendered): message naming the faulty
+// tags, answered to the user. Only the explanations are logged: the error properties contain the data of the report
+function templateError(error) {
+    if (!error || !error.properties)
+        return error
+    var errors = error.properties.errors instanceof Array ? error.properties.errors : [error]
+    var explanations = errors.map(err => (err.properties && err.properties.explanation) || err.message)
+    explanations.forEach(explanation => console.log(`Template Error: ${explanation}`))
+    return new Error(`Template Error: ${explanations.join(' / ')}`)
 }
 
 // Count vulnerability by severity
@@ -1283,10 +1168,15 @@ async function prepAuditData(data, settings) {
     result.date = data.date || "undefined"
     result.date_start = data.date_start || "undefined"
     result.date_end = data.date_end || "undefined"
+    var customFields = {} // Existing custom fields by identifier
+    for (const customField of await CustomField.find().select('label fieldType').lean())
+        customFields[String(customField._id)] = customField
     if (data.customFields) {
         for (const field of data.customFields) {
-            var fieldType = field.customField.fieldType
-            var label = field.customField.label
+            var definition = customFieldDefinition(field, customFields)
+            if (!definition) continue
+            var fieldType = definition.fieldType
+            var label = definition.label
 
             if (fieldType === 'text')
                 result[_.deburr(label.toLowerCase()).replace(/\s/g, '')] = await splitHTMLParagraphs(field.text)
@@ -1435,16 +1325,10 @@ async function prepAuditData(data, settings) {
 
         if (finding.customFields) {
             for (const field of finding.customFields) {
-                // For retrocompatibility of findings with old customFields
-                // or if custom field has been deleted, last saved custom fields will be available
-                if (field.customField) {
-                    var fieldType = field.customField.fieldType
-                    var label = field.customField.label
-                }
-                else {
-                    var fieldType = field.fieldType
-                    var label = field.label
-                }
+                var definition = customFieldDefinition(field, customFields)
+                if (!definition) continue
+                var fieldType = definition.fieldType
+                var label = definition.label
                 if (fieldType === 'text')
                     tmpFinding[_.deburr(label.toLowerCase()).replace(/\s/g, '').replace(/[^\w]/g, '_')] = await splitHTMLParagraphs(field.text)
                 else if (fieldType !== 'space')
@@ -1479,8 +1363,10 @@ async function prepAuditData(data, settings) {
         // If only because section has "any" inside its text attribute and then skip the section.customFields
         if (section.customFields) {
             for (const field of section.customFields) {
-                var fieldType = field.customField.fieldType
-                var label = field.customField.label
+                var definition = customFieldDefinition(field, customFields)
+                if (!definition) continue
+                var fieldType = definition.fieldType
+                var label = definition.label
                 if (fieldType === 'text')
                     formatSection[_.deburr(label.toLowerCase()).replace(/\s/g, '').replace(/[^\w]/g, '_')] = await splitHTMLParagraphs(field.text)
                 else if (fieldType !== 'space')
@@ -1491,6 +1377,21 @@ async function prepAuditData(data, settings) {
     }
     replaceSubTemplating(result)
     return result
+}
+
+// Type and label of the custom field of a value: custom field populated (audit, findings), copy stored with the value
+// (sections) or identifier (accepted by the API, not populated). A deleted custom field is populated as null: the label
+// stored with the value (old format of the findings) is used if any, otherwise the value is left out of the report.
+function customFieldDefinition(field, customFields) {
+    var customField = field.customField
+    var definition = null
+    if (customField && typeof customField.label === 'string')
+        definition = customField
+    else if (customField)
+        definition = customFields[String(customField._id || customField)] || null
+    else if (typeof field.label === 'string')
+        definition = {fieldType: field.fieldType, label: field.label}
+    return definition && typeof definition.label === 'string' ? definition : null
 }
 
 async function splitHTMLParagraphs(data) {

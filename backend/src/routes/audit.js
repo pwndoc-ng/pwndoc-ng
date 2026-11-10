@@ -7,6 +7,16 @@ module.exports = function(app, io) {
     var _ = require('lodash');
     var utils = require('../lib/utils');
     var Settings = require('mongoose').model('Settings');
+    var Image = require('mongoose').model('Image');
+
+    // Images of the content written to the audit (copied from another audit the user can read) readable by its users
+    var grantImages = (req) => Image.grantReferenced(req.body, req.params.auditId, req.decodedToken.id, acl.isAllowed(req.decodedToken.role, 'audits:read-all'));
+
+    // Open editing sessions of the audit authenticated again (app.js): access or scope changed
+    var resetCollaborationSessions = (auditId) => {
+        var reset = app.get('resetCollaborationSessions');
+        if (reset) reset(auditId);
+    };
 
     /* ### AUDITS LIST ### */
 
@@ -18,7 +28,8 @@ module.exports = function(app, io) {
             return utils.getSockets(io, room).map(s => s.username)
         }
         var filters = {};
-        if (req.query.findingTitle) 
+        // String only: findingTitle[$ne]=x or findingTitle[]=x (objects and arrays of the query parser) are ignored
+        if (typeof req.query.findingTitle === 'string' && req.query.findingTitle)
             filters['findings.title'] = new RegExp(utils.escapeRegex(req.query.findingTitle), 'i')
             
         Audit.getAudits(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.decodedToken.id, filters)
@@ -67,6 +78,10 @@ module.exports = function(app, io) {
             Response.BadParameters(res, 'Missing some required parameters: name, language, auditType');
             return;
         }
+        if ([req.body.name, req.body.language, req.body.auditType].some(value => typeof value !== 'string')) {
+            Response.BadParameters(res, 'Parameters name, language and auditType must be strings');
+            return;
+        }
 
         if (!utils.validFilename(req.body.language)) {
             Response.BadParameters(res, 'Invalid characters for language');
@@ -88,7 +103,7 @@ module.exports = function(app, io) {
     app.post("/api/audits/:auditId/clone", acl.hasPermission('audits:create'), function(req, res) {
         // #swagger.tags = ['Audit']
 
-        if (!req.body.name) {
+        if (!req.body.name || typeof req.body.name !== 'string') {
             Response.BadParameters(res, 'Missing required parameter: name');
             return;
         }
@@ -103,7 +118,10 @@ module.exports = function(app, io) {
         // #swagger.tags = ['Audit']
 
         Audit.delete(acl.isAllowed(req.decodedToken.role, 'audits:delete-all'), req.params.auditId, req.decodedToken.id)
-        .then(msg => Response.Ok(res, msg))
+        .then(msg => {
+            resetCollaborationSessions(req.params.auditId);
+            Response.Ok(res, msg)
+        })
         .catch(err => Response.Internal(res, err))
     })
 
@@ -146,7 +164,7 @@ module.exports = function(app, io) {
         var conflict = "A user cannot simultaneously be a reviewer and a collaborator/creator";
 
         if (req.body.reviewers) {
-            if (req.body.reviewers.some(element => !element || !element._id)) {
+            if (!Array.isArray(req.body.reviewers) || req.body.reviewers.some(element => !element || !element._id)) {
                 Response.BadParameters(res, "One or more reviewer is missing an _id");
                 return;
             }
@@ -159,7 +177,7 @@ module.exports = function(app, io) {
         }
 
         if (req.body.collaborators) {
-            if (req.body.collaborators.some(element => !element || !element._id)) {
+            if (!Array.isArray(req.body.collaborators) || req.body.collaborators.some(element => !element || !element._id)) {
                 Response.BadParameters(res, "One or more collaborator is missing an _id");
                 return;
             }
@@ -175,6 +193,16 @@ module.exports = function(app, io) {
                 var newApprovals = audit.approvals.filter((approval) => !req.body.collaborators.some((collaborator) => sameUser(approval, collaborator)));
                 update.approvals = newApprovals;
             }
+        }
+
+        if (req.body.customFields !== undefined && !utils.validCustomFields(req.body.customFields)) {
+            Response.BadParameters(res, 'Invalid parameter: customFields');
+            return;
+        }
+        // Name of a new company: used as query, a string only
+        if (utils.isObject(req.body.company) && !req.body.company._id && !utils.isOptionalString(req.body.company.name)) {
+            Response.BadParameters(res, 'Invalid parameter: company');
+            return;
         }
 
         // Optional parameters
@@ -195,21 +223,26 @@ module.exports = function(app, io) {
         if (req.body.collaborators) update.collaborators = req.body.collaborators;
         if (req.body.reviewers) update.reviewers = req.body.reviewers;
         if (req.body.language && utils.validFilename(req.body.language)) update.language = req.body.language;
-        // Scope: names of the page General information, hosts and services kept (page Network)
+        // Scope: names of the page General information (hosts and services of the page Network kept by updateGeneral)
+        var scopeNames;
         if (Array.isArray(req.body.scope)) {
-            update.scope = req.body.scope.map(item => {
-                var name = (item && typeof item === 'object') ? item.name : item;
-                var current = (audit.scope || []).find(scope => scope.name === name);
-                var hosts = current && (typeof current.toObject === 'function' ? current.toObject() : current).hosts;
-                return hosts ? {name: name, hosts: hosts} : {name: name};
-            });
+            scopeNames = req.body.scope.map(item => utils.isObject(item) ? item.name : item);
+            if (!scopeNames.every(name => typeof name === 'string')) {
+                Response.BadParameters(res, 'Invalid parameter: scope');
+                return;
+            }
         }
         if (req.body.template) update.template = req.body.template;
         if (req.body.customFields) update.customFields = req.body.customFields;
         if (settings.reviews.enabled && settings.reviews.private.removeApprovalsUponUpdate) update.approvals = [];
+        // Collaborators or reviewers changed: removed users must lose their open editing sessions
+        var sameUsers = (users, current) => !users || users.map(idOf).sort().join() === (current || []).map(idOf).sort().join();
+        var usersChanged = !sameUsers(req.body.collaborators, audit.collaborators) || !sameUsers(req.body.reviewers, audit.reviewers);
 
-        Audit.updateGeneral(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, update)
-        .then(msg => {
+        Audit.updateGeneral(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, update, scopeNames)
+        .then(async msg => {
+            await grantImages(req);
+            if (usersChanged) resetCollaborationSessions(req.params.auditId);
             io.to(req.params.auditId).emit('updateAudit');
             Response.Ok(res, msg)
         })
@@ -237,6 +270,11 @@ module.exports = function(app, io) {
             return;
         }
 
+        if (req.body.scope !== undefined && !utils.isListOfObjects(req.body.scope)) {
+            Response.BadParameters(res, 'Invalid parameter: scope');
+            return;
+        }
+
         var update = {};
         // Optional parameters
         if (req.body.scope) update.scope = req.body.scope;
@@ -259,6 +297,10 @@ module.exports = function(app, io) {
         }
         if (!req.body.title) {
             Response.BadParameters(res, 'Missing some required parameters: title');
+            return;
+        }
+        if (req.body.customFields && !utils.validCustomFields(req.body.customFields)) {
+            Response.BadParameters(res, 'Invalid parameter: customFields');
             return;
         }
 
@@ -286,7 +328,8 @@ module.exports = function(app, io) {
         }
 
         Audit.createFinding(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, finding)
-        .then(msg => {
+        .then(async msg => {
+            await grantImages(req);
             io.to(req.params.auditId).emit('updateAudit');
             Response.Ok(res, msg)
         })
@@ -313,6 +356,11 @@ module.exports = function(app, io) {
             return;
         }
         
+        if (req.body.customFields && !utils.validCustomFields(req.body.customFields)) {
+            Response.BadParameters(res, 'Invalid parameter: customFields');
+            return;
+        }
+
         var finding = {};
         // Optional parameters
         if (req.body.title) finding.title = req.body.title;
@@ -335,7 +383,8 @@ module.exports = function(app, io) {
         }
 
         Audit.updateFinding(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, req.params.findingId, finding)
-        .then(msg => {
+        .then(async msg => {
+            await grantImages(req);
             io.to(req.params.auditId).emit('updateAudit');            
             Response.Ok(res, msg)
         })
@@ -383,6 +432,10 @@ module.exports = function(app, io) {
             Response.BadParameters(res, 'Missing some required parameters: customFields');
             return;
         }
+        if (!utils.validCustomFields(req.body.customFields)) {
+            Response.BadParameters(res, 'Invalid parameter: customFields');
+            return;
+        }
         var section = {};
         // Mandatory parameters
         section.customFields = req.body.customFields;
@@ -395,7 +448,8 @@ module.exports = function(app, io) {
         }
 
         Audit.updateSection(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, req.params.sectionId, section)
-        .then(msg => {
+        .then(async msg => {
+            await grantImages(req);
             Response.Ok(res, msg)
         })
         .catch(err => Response.Internal(res, err))
@@ -438,6 +492,11 @@ module.exports = function(app, io) {
             Response.Forbidden(res, "The audit is not in the EDIT state and therefore cannot be edited.");
             return;
         }
+        if (req.body.sortFindings !== undefined && !utils.isListOfObjects(req.body.sortFindings)) {
+            Response.BadParameters(res, 'Invalid parameter: sortFindings');
+            return;
+        }
+
         var update = {};
         // Optional parameters
         if (req.body.sortFindings) update.sortFindings = req.body.sortFindings;
@@ -483,7 +542,9 @@ module.exports = function(app, io) {
         .catch(err => Response.Internal(res, err))
     });
 
-    // Give or remove a reviewer's approval to an audit
+    // Give or remove a reviewer's approval to an audit.
+    // Body {approved: true|false} (optional): approval set to this value (idempotent, a double click keeps it approved);
+    // without it, the approval of the user is toggled
     app.put("/api/audits/:auditId/toggleApproval", acl.hasPermission('audits:review'), async function(req, res) {
         // #swagger.tags = ['Audit']
 
@@ -493,66 +554,46 @@ module.exports = function(app, io) {
             Response.Forbidden(res, "Audit reviews are not enabled.");
             return;
         }
+        if (req.body.approved !== undefined && typeof req.body.approved !== 'boolean') {
+            Response.BadParameters(res, "Invalid parameter: approved");
+            return;
+        }
 
-        var openComments = settings.reviews.public.blockApprovalWithOpenComments ? await Audit.countOpenComments(req.params.auditId) : 0;
+        var notApprovable = (audit) => audit.state !== "REVIEW" && audit.state !== "APPROVED";
+        var audit = await Audit.findById(req.params.auditId).select('state approvals');
+        if (!audit) {
+            Response.NotFound(res, "Audit not found");
+            return;
+        }
+        if (notApprovable(audit)) {
+            Response.Forbidden(res, "The audit is not approvable in the current state.");
+            return;
+        }
 
-        Audit.findById(req.params.auditId)
-        .then(audit => {
-            if (!audit) {
-                Response.NotFound(res, "Audit not found");
-                return;
-            }
-            if (audit.state !== "REVIEW" && audit.state !== "APPROVED") {
+        var approved = (typeof req.body.approved === 'boolean') ? req.body.approved : !audit.approvals.some(approval => String(approval) === req.decodedToken.id);
+        if (approved && settings.reviews.public.blockApprovalWithOpenComments && await Audit.countOpenComments(req.params.auditId) > 0) {
+            Response.Forbidden(res, "Open comments must be resolved before approving the audit.");
+            return;
+        }
+
+        var updated = await Audit.setApproval(acl.isAllowed(req.decodedToken.role, 'audits:review-all'), req.params.auditId, req.decodedToken.id, approved, settings.reviews.public.minReviewers);
+        if (!updated) {
+            // Audit sent back to edition meanwhile, or user not allowed to review it
+            var current = await Audit.findById(req.params.auditId).select('state');
+            if (current && notApprovable(current))
                 Response.Forbidden(res, "The audit is not approvable in the current state.");
-                return;
-            }
-
-            var hasApprovedBefore = false;
-            var newApprovalsArray = [];
-            if (audit.approvals) {
-                audit.approvals.forEach((approval) => {
-                    if (approval._id.toString() === req.decodedToken.id) {
-                        hasApprovedBefore = true;
-                    } else {
-                        newApprovalsArray.push(approval);
-                    }
-                });
-            }
-
-            if (!hasApprovedBefore && openComments > 0) {
-                Response.Forbidden(res, "Open comments must be resolved before approving the audit.");
-                return;
-            }
-
-            if (!hasApprovedBefore) {
-                newApprovalsArray.push({
-                    _id: req.decodedToken.id,
-                    role: req.decodedToken.role,
-                    username: req.decodedToken.username,
-                    firstname: req.decodedToken.firstname,
-                    lastname: req.decodedToken.lastname
-                });
-            }
-
-            var update = { approvals : newApprovalsArray};
-            Audit.updateApprovals(acl.isAllowed(req.decodedToken.role, 'audits:review-all'), req.params.auditId, req.decodedToken.id, update)
-            .then(() => {
-                io.to(req.params.auditId).emit('updateAudit');
-                Response.Ok(res, "Approval updated successfully.")
-            })
-            .catch((err) => {
-                Response.Internal(res, err);
-            })
-        })
-        .catch((err) => {
-            Response.Internal(res, err);
-        })
+            else
+                Response.NotFound(res, "Audit not found or Insufficient Privileges");
+            return;
+        }
+        resetCollaborationSessions(req.params.auditId); // State may have changed (approved): read-only sessions
+        io.to(req.params.auditId).emit('updateAudit');
+        Response.Ok(res, "Approval updated successfully.");
     });
 
     // Sets the audit state to EDIT or REVIEW
     app.put("/api/audits/:auditId/updateReadyForReview", acl.hasPermission('audits:update'), async function(req, res) {
         // #swagger.tags = ['Audit']
-
 
         const settings = await Settings.getAll();
 
@@ -561,34 +602,33 @@ module.exports = function(app, io) {
             return;
         }
 
-        var update = {};
+        var inReviewStates = (audit) => audit.state === "EDIT" || audit.state === "REVIEW";
         var audit = await Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id);
-
-        if (audit.state !== "EDIT" && audit.state !== "REVIEW") {
+        if (!inReviewStates(audit)) {
             Response.Forbidden(res, "The audit is not in the proper state for this action.");
             return;
         }
 
-        if (req.body.state != undefined && (req.body.state === "EDIT" || req.body.state === "REVIEW")) update.state = req.body.state;
-
-        if (update.state === "EDIT") {
-            var newApprovalsArray = [];
-            if (audit.approvals) {
-                audit.approvals.forEach((approval) => {
-                    if (approval._id.toString() !== req.decodedToken.id) {
-                        newApprovalsArray.push(approval);
-                    }
-                });
-                update.approvals = newApprovalsArray;
-            }
+        var isAdmin = acl.isAllowed(req.decodedToken.role, 'audits:update-all');
+        // Other target states are ignored (access to the audit checked only)
+        if (req.body.state !== "EDIT" && req.body.state !== "REVIEW") {
+            Response.Ok(res, await Audit.updateGeneral(isAdmin, req.params.auditId, req.decodedToken.id, {}));
+            return;
         }
 
-        Audit.updateGeneral(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, update)
-        .then(msg => {
-            io.to(req.params.auditId).emit('updateAudit');
-            Response.Ok(res, msg)
-        })
-        .catch(err => Response.Internal(res, err))
+        var updated = await Audit.setReviewState(isAdmin, req.params.auditId, req.decodedToken.id, req.body.state);
+        if (!updated) {
+            // Audit approved meanwhile, or user not allowed to modify it
+            var current = await Audit.findById(req.params.auditId).select('state');
+            if (current && !inReviewStates(current))
+                Response.Forbidden(res, "The audit is not in the proper state for this action.");
+            else
+                Response.NotFound(res, "Audit not found or Insufficient Privileges");
+            return;
+        }
+        resetCollaborationSessions(req.params.auditId); // Read-only sessions in review, read-write back in edition
+        io.to(req.params.auditId).emit('updateAudit');
+        Response.Ok(res, "Audit General updated successfully");
     });
 
     /* ### AUDIT REVIEW COMMENTS ### */

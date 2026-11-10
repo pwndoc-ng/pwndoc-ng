@@ -3,6 +3,11 @@ module.exports = function(app) {
     var Response = require('../lib/httpResponse.js');
     var Client = require('mongoose').model('Client');
     var acl = require('../lib/auth').acl;
+    var utils = require('../lib/utils');
+
+    // Name of the company of a client: a string only, it is used as query (an operator {$ne: null} linked the client to an
+    // existing company chosen by MongoDB)
+    var validCompany = (company) => !utils.isObject(company) || utils.isOptionalString(company.name);
 
     // Get clients list
     app.get("/api/clients", acl.hasPermission('clients:read'), function(req, res) {
@@ -26,12 +31,20 @@ module.exports = function(app) {
     app.post("/api/clients", acl.hasPermission('clients:create'), function(req, res) {
         // #swagger.tags = ['Client']
 
+        if (!utils.isListOfObjects(req.body)) {
+            Response.BadParameters(res, 'A list of clients is required');
+            return;
+        }
         var clients = [];
         for (var i=0; i< req.body.length;i++) {
             var bcli = req.body[i]
 
             if (!bcli.email) {
                 Response.BadParameters(res, 'Required parameters: email');
+                return;
+            }
+            if (!validCompany(bcli.company)) {
+                Response.BadParameters(res, 'Invalid parameter: company');
                 return;
             }
 
@@ -71,6 +84,11 @@ module.exports = function(app) {
     // Update client
     app.put("/api/clients/:id", acl.hasPermission('clients:update'), function(req, res) {
         // #swagger.tags = ['Client']
+
+        if (!validCompany(req.body.company)) {
+            Response.BadParameters(res, 'Invalid parameter: company');
+            return;
+        }
 
         var client = {};
         // Optional parameters

@@ -112,11 +112,7 @@ module.exports = function(request, app) {
         expect((await getAudit()).company.name).toBe('Company 1')
       })
 
-      // BUG: src/models/audit.js:378 updateGeneral creates the company with Company.create(), overridden by the static
-      // of src/models/company.js:49 (insertMany, resolves {created, duplicates} instead of the document): PUT general
-      // {company: {name: 'New company'}} creates the company then answers 500 (CastError) without updating the audit.
-      // (The frontend sends the typed name as a string, turned into company: null: the new company is dropped.)
-      it.skip('Create the company of the audit from its name', async () => {
+      it('Create the company of the audit from its name', async () => {
         expect((await updateGeneral({company: {name: 'Workflow Company'}})).status).toBe(200)
         expect((await getAudit()).company.name).toBe('Workflow Company')
       })

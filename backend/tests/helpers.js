@@ -53,6 +53,52 @@ module.exports = function(request, app) {
   helpers.PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
   helpers.PNG_DATA_URI = `data:image/png;base64,${helpers.PNG_BASE64}`
 
+  // Well-formedness errors of an XML document or fragment (empty array: well-formed). Checks the nesting of the
+  // elements, the attributes (quoted, not repeated, no '<' and no bare '&') and the text (no '<', no bare '&', no
+  // character forbidden in XML 1.0)
+  helpers.xmlErrors = (xml) => {
+    var errors = []
+    var stack = []
+    var badAmp = /&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/
+    var token = /<!\[CDATA\[[\s\S]*?\]\]>|<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<(\/?)([A-Za-z_][\w:.-]*)((?:\s+[A-Za-z_][\w:.-]*\s*=\s*(?:"[^"<]*"|'[^'<]*'))*)\s*(\/?)>|<|&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)|[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g
+    var match
+    while ((match = token.exec(xml)) !== null) {
+      var [text, closing, name, attributes, selfClosing] = match
+      var at = `at ${match.index}: ${JSON.stringify(xml.substring(match.index, match.index + 40))}`
+      if (name) {
+        if (closing) {
+          if (attributes || selfClosing) errors.push(`Invalid closing tag ${at}`)
+          var open = stack.pop()
+          if (open !== name) errors.push(`</${name}> closes <${open}> ${at}`)
+        }
+        else {
+          var names = [...attributes.matchAll(/\s+([A-Za-z_][\w:.-]*)\s*=\s*(?:"[^"]*"|'[^']*')/g)].map(m => m[1])
+          if (new Set(names).size !== names.length) errors.push(`Repeated attribute ${at}`)
+          if (badAmp.test(attributes)) errors.push(`Unescaped & in attribute ${at}`)
+          if (!selfClosing) stack.push(name)
+        }
+      }
+      else if (text === '<') errors.push(`Unescaped < ${at}`)
+      else if (text === '&') errors.push(`Unescaped & ${at}`)
+      else if (!text.startsWith('<')) errors.push(`Character U+${text.charCodeAt(0).toString(16).padStart(4, '0')} forbidden in XML ${at}`)
+    }
+    if (stack.length > 0) errors.push(`Unclosed elements: ${stack.join(', ')}`)
+    return errors
+  }
+
+  // Text of the runs of an OOXML document or fragment (w:t elements), entities decoded
+  helpers.ooxmlText = (xml) => (xml.match(/<w:t(?:\s[^>]*)?>[^<]*<\/w:t>/g) || [])
+    .map(t => t.replace(/<[^>]+>/g, ''))
+    .join('')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&')
+
+  // Paragraphs (w:p) of an OOXML fragment, in the order of the document (paragraphs of the table cells included)
+  helpers.ooxmlParagraphs = (xml) => xml.match(/<w:p(?:\s[^>]*)?\/>|<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) || []
+
+  // Values of an attribute of an element in an OOXML fragment: helpers.ooxmlValues(xml, 'w:numId', 'w:val')
+  helpers.ooxmlValues = (xml, element, attribute) =>
+    [...xml.matchAll(new RegExp(`<${element}\\b[^>]*?\\s${attribute}="([^"]*)"`, 'g'))].map(m => m[1])
+
   helpers.CVSS = {
     critical: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H', // 9.8
     high: 'CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N', // 8.1

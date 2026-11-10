@@ -379,13 +379,13 @@ module.exports = function(request, app) {
         totpCookie = await helpers.login('totpuser', 'Totpuser123')
       })
 
-      it('Gives a new secret and its QR code', async () => {
+      it('Gives a secret to set up and its QR code, the same until the setup', async () => {
         var response = await request(app).get('/api/users/totp').set('Cookie', totpCookie)
         expect(response.status).toBe(200)
         expect(response.body.datas.totpQrCode).toMatch(/^data:image\/png;base64,/)
         expect(response.body.datas.totpSecret).toMatch(/^[A-Z2-7]{16}$/)
         var other = await request(app).get('/api/users/totp').set('Cookie', totpCookie)
-        expect(other.body.datas.totpSecret).not.toBe(response.body.datas.totpSecret)
+        expect(other.body.datas).toEqual(response.body.datas)
         secret = response.body.datas.totpSecret
         // Not enabled until verified
         expect((await login({})).status).toBe(200)

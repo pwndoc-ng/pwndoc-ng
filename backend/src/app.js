@@ -182,15 +182,33 @@ require('./routes/backup')(app);
 const { cronJobs } = require('./lib/cron');
 cronJobs();
 
+require('./lib/migrations').runMigrations();
+
 // Collaborative editing server (Yjs documents)
 // Document names are chosen by the client inside the websocket protocol (not in the URL), so access
 // control is done per document in onAuthenticate. Defining onAuthenticate makes Hocuspocus wait for it
 // before attaching the document (onConnect alone runs concurrently with the first queued messages).
 // The client sends a dummy token to trigger it: authentication relies on the httpOnly token cookie.
 var { Server: HocuspocusServer } = require('@hocuspocus/server')
+var { ResetConnection } = require('@hocuspocus/common')
 
 // Permissions allowing to write non-audit documents (vulnerabilities and custom fields editors)
 var dataWritePermissions = ['vulnerabilities:create', 'vulnerabilities:update', 'custom-fields:create', 'custom-fields:update']
+
+// Initial contents of the copy of the document held by the client: token of the editors {"init": {<field>: <id>}}, id of
+// the deterministic initial content written in each field (map 'pwndoc', keys 'init:<field>'). The legacy token
+// ('cookie') and malformed tokens have no entries
+function tokenInitialContents(token) {
+  try {
+    var init = JSON.parse(token).init
+    if (!init || typeof init !== 'object' || Array.isArray(init))
+      return {}
+    return Object.fromEntries(Object.entries(init).filter(([field, id]) => typeof id === 'number'))
+  }
+  catch (err) {
+    return {}
+  }
+}
 
 const serverHocus = new HocuspocusServer({
   port: process.env.COLLAB_WEBSOCKET_PORT || 8440,
@@ -206,7 +224,7 @@ const serverHocus = new HocuspocusServer({
   },
 
   // Called for each document opened on the websocket, before any document data is exchanged
-  async onAuthenticate({ documentName, requestHeaders, connectionConfig }) {
+  async onAuthenticate({ documentName, requestHeaders, connectionConfig, token }) {
     var decodedToken = auth.decodeTokenFromCookieHeader(requestHeaders.get('cookie')) // Web standard Headers (Hocuspocus v4)
     if (!decodedToken || !acl.isAllowed(decodedToken.role, 'audits:read'))
       throw new Error('Unauthorized')
@@ -221,17 +239,50 @@ const serverHocus = new HocuspocusServer({
       )
       if (!access.read)
         throw new Error('Forbidden')
-      connectionConfig.readOnly = !access.write
+      // When reviews are enabled, an audit which is not in edition cannot be changed (same rule as the REST API)
+      var readOnly = !access.write
+      if (!readOnly && (await mongoose.model('Settings').getAll()).reviews.enabled) {
+        var audit = await Audit.findById(documentName).select('state').lean()
+        readOnly = !audit || audit.state !== 'EDIT'
+      }
+      connectionConfig.readOnly = readOnly
     }
     // Other documents (vulnerabilities, custom fields default text) contain data readable by any
     // authenticated user, but only users allowed to edit this data can push changes
     else {
       connectionConfig.readOnly = !dataWritePermissions.some(permission => acl.isAllowed(decodedToken.role, permission))
     }
+
+    // The client writing the initial content of a field records its id (deterministic, from the field and the value of
+    // the database) in the map 'pwndoc' (key 'init:<field>'). A client coming back with a copy whose field was initialized
+    // from another value of the database than the loaded document is refused instead of merging its copy, which would
+    // duplicate the content: it starts again from the shared document. Same initial content (merge without duplicate),
+    // field not initialized in the loaded document or document not loaded: accepted, the copy of the client and its
+    // offline changes are kept. Accepted limit: a copy initialized from an older value seeds a field not initialized yet
+    // in the loaded document (no duplicate, content based on the older value). Hocuspocus sends error.reason to the client
+    var document = serverHocus.hocuspocus.documents.get(documentName)
+    var shared = document && document.getMap('pwndoc')
+    var stale = shared && Object.entries(tokenInitialContents(token)).some(([field, id]) => {
+      var current = shared.get(`init:${field}`)
+      return current !== undefined && current !== id
+    })
+    if (stale)
+      throw Object.assign(new Error('stale-document'), { reason: 'stale-document' })
   }
 })
 serverHocus.listen()
 app.set('hocuspocus', serverHocus.hocuspocus) // Used to close the editing sessions after a backup restore
+
+// Ends the editing sessions of a document (of all the documents without name) by closing their websockets: the providers
+// of the editors reconnect and are authenticated again, with the current access and scope. Called when the access to an
+// audit changes (collaborators, reviewers, state, deletion). A close message of the document only (closeConnections)
+// leaves the providers detached: they would neither receive nor send changes until the page is reloaded.
+app.set('resetCollaborationSessions', (documentName) => {
+  serverHocus.hocuspocus.documents.forEach((document) => {
+    if (!documentName || document.name === documentName)
+      document.getConnections().forEach(connection => connection.webSocket.close(ResetConnection.code, ResetConnection.reason))
+  })
+})
 
 
 if(config.apidoc) {

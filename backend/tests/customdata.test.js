@@ -259,9 +259,7 @@ module.exports = function(request, app) {
         expect((await get('/api/data/sections')).body.datas).toEqual(current)
       })
 
-      // BUG: src/models/custom-section.js:80 the deletion filters on a 'locale' field that sections don't have
-      // (since sections are not per language): DELETE /api/data/sections/<field>/<locale> always answers 404
-      it.skip('Delete a section', async () => {
+      it('Delete a section', async () => {
         expect((await post('/api/data/sections', {name: 'To delete', field: 'to_delete'})).status).toBe(201)
         expect((await del('/api/data/sections/to_delete/en')).status).toBe(200)
         expect((await get('/api/data/sections')).body.datas.map(s => s.field)).not.toContain('to_delete')

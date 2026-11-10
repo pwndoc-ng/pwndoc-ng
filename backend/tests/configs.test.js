@@ -79,10 +79,7 @@ module.exports = function(request, app) {
         expect(await getSettings()).toEqual(before)
       })
 
-      // BUG (API semantics): src/models/settings.js:103 current.set(input) replaces each nested object given in the input:
-      // PUT /api/settings {reviews: {private: {removeApprovalsUponUpdate: true}}} resets reviews.enabled and
-      // reviews.public.* to their default values (the frontend always sends the whole settings, other clients are affected)
-      it.skip('Partial update keeps the other settings of the same section', async () => {
+      it('Partial update keeps the other settings of the same section', async () => {
         expect((await setReviews({enabled: true, public: {minReviewers: 3}})).status).toBe(200)
         expect((await settings({reviews: {private: {removeApprovalsUponUpdate: true}}})).status).toBe(200)
         var reviews = (await getSettings()).reviews

@@ -5,6 +5,7 @@ var jwt = require('jsonwebtoken');
 
 var auth = require('../lib/auth.js');
 const { generateUUID } = require('../lib/utils.js');
+var utils = require('../lib/utils.js');
 var _ = require('lodash')
 
 var QRCode = require('qrcode');
@@ -20,6 +21,8 @@ var UserSchema = new Schema({
     role:           {type: String, default: 'user'},
     totpEnabled:    {type: Boolean, default: false},
     totpSecret:     {type: String, default: ''},
+    // Secret proposed for the setup of the two-factor authentication: the same QR code on each request until the setup
+    totpPendingSecret: {type: String, default: ''},
     enabled:        {type: Boolean, default: true},
     refreshTokens:  [{_id: false, sessionId: String, userAgent: String, token: String}]
 }, {timestamps: true});
@@ -63,37 +66,31 @@ var checkTotpToken = function(token, secret) {
 */
 
 // Create user
-UserSchema.statics.create = function (users) {
-    return new Promise(async(resolve, reject) => {
-        for (var i=0; i< users.length; i++) {
-            // Only hash password when it's not already hashed.
-            // Usefull to import users with hashed password (yml file).
-            if (users[i].password.length == 60 && users[i].password.startsWith("$2b$10$")) {
-                continue;
-            } else {
-                users[i].password = bcrypt.hashSync(users[i].password, 10);
-            }
-        }
-        
-        User.insertMany(users, {ordered: false})
-        .then((rows) => {
-            resolve({created: rows.length, duplicates: 0});
-        })
-        .catch((err) => {
-            if (err.code === 11000) {
-                // MongoDB driver 6: inserted documents in insertedDocs, message in writeError.err
-                var inserted = err.insertedDocs ? err.insertedDocs.length : ((err.result && err.result.insertedCount) || 0)
-                if (inserted === 0)
-                    reject({fn: 'BadParameters', message: 'Username already exists'});
-                else {
-                    var errorMessages = (err.writeErrors || []).map(e => e.errmsg || (e.err && e.err.errmsg) || 'Duplicate')
-                    resolve({created: inserted, duplicates: errorMessages});
-                }
-            }
-            else
-                reject(err);
-        })
-    })
+// (async function: an error of the hash rejects the request, it was lost in an async Promise executor and the request
+// was never answered)
+UserSchema.statics.create = async function (users) {
+    utils.validateAll(User, users);
+    for (var i=0; i< users.length; i++) {
+        // Only hash password when it's not already hashed.
+        // Usefull to import users with hashed password (yml file).
+        if (!(users[i].password.length == 60 && users[i].password.startsWith("$2b$10$")))
+            users[i].password = bcrypt.hashSync(users[i].password, 10);
+    }
+
+    try {
+        var rows = await User.insertMany(users, {ordered: false})
+        return {created: rows.length, duplicates: 0};
+    }
+    catch (err) {
+        if (err.code !== 11000)
+            throw err;
+        // MongoDB driver 6: inserted documents in insertedDocs, message in writeError.err
+        var inserted = err.insertedDocs ? err.insertedDocs.length : ((err.result && err.result.insertedCount) || 0)
+        if (inserted === 0)
+            throw({fn: 'BadParameters', message: 'Username already exists'});
+        var errorMessages = (err.writeErrors || []).map(e => e.errmsg || (e.err && e.err.errmsg) || 'Duplicate')
+        return {created: inserted, duplicates: errorMessages};
+    }
 }
 
 // Get all users
@@ -193,7 +190,11 @@ UserSchema.statics.updateProfile = function (username, user) {
 // Update user (for admin usage)
 UserSchema.statics.updateUser = function (userId, user) {
     return new Promise((resolve, reject) => {
-        if (user.password) user.password = bcrypt.hashSync(user.password, 10);
+        // Never saved without hash (an empty password was saved as is)
+        if (user.password)
+            user.password = bcrypt.hashSync(user.password, 10);
+        else
+            delete user.password;
         var query = this.findOneAndUpdate({_id: userId}, user);
         query.exec()
         .then(function(row) {
@@ -318,26 +319,21 @@ UserSchema.statics.removeSession = function (userId, sessionId) {
     })
 }
 
-// gen totp QRCode url
-UserSchema.statics.getTotpQrcode = function (username) {
-    return new Promise((resolve, reject) => {
-        let newConfig = totpConfig;
-        newConfig.label = username;
-        const secret = new OTPAuth.Secret({ 
-            size: 10,
-        }).base32;
-        newConfig.secret = secret;
-    
-        let totp = new OTPAuth.TOTP(newConfig);
-        let totpUrl = totp.toString();
-
-        QRCode.toDataURL(totpUrl, function (err, url) {
-            resolve({
-                totpQrCode: url,
-                totpSecret: secret,
-            });
-        });
-    })
+// QR code of the two-factor authentication: of the configured secret when it is enabled (shown again on the profile, a new
+// secret did not match the codes of the authenticator), otherwise of the secret proposed for the setup, the same on each
+// request until the setup (a new secret on each request made the QR code differ from the secret sent by the page)
+UserSchema.statics.getTotpQrcode = async function (username) {
+    var user = await this.findOne({username: username}).select('totpEnabled totpSecret totpPendingSecret');
+    if (!user)
+        throw({fn: 'NotFound', message: 'User not found'});
+    var secret = user.totpEnabled ? user.totpSecret : user.totpPendingSecret;
+    if (!secret) {
+        // Stored only if no other request stored one meanwhile: concurrent requests get the same secret
+        await this.updateOne({_id: user._id, totpPendingSecret: {$in: ['', null]}}, {totpPendingSecret: new OTPAuth.Secret({size: 10}).base32});
+        secret = (await this.findById(user._id).select('totpPendingSecret')).totpPendingSecret;
+    }
+    var totp = new OTPAuth.TOTP({...totpConfig, label: username, secret: secret});
+    return {totpQrCode: await QRCode.toDataURL(totp.toString()), totpSecret: secret};
 }
 
 // verify TOTP and Setup enabled status and secret code
@@ -349,12 +345,13 @@ UserSchema.statics.setupTotp = function (token, secret, username){
         query.exec()
         .then(function(row) {
             if (!row)
-                throw({errmsg: 'User not found'});
+                throw({fn: 'NotFound', message: 'User not found'});
             else if (row.totpEnabled === true)
-                throw({errmsg: 'TOTP already enabled by this user'});
+                throw({fn: 'BadParameters', message: 'TOTP already enabled by this user'});
             else {
                 row.totpEnabled = true;
                 row.totpSecret = secret;
+                row.totpPendingSecret = '';
                 return row.save();
             }
         })
@@ -374,9 +371,9 @@ UserSchema.statics.cancelTotp = function (token, username){
         query.exec()
         .then(function(row) {
             if (!row)
-                throw({errmsg: 'User not found'});
+                throw({fn: 'NotFound', message: 'User not found'});
             else if (row.totpEnabled !== true)
-                throw({errmsg: 'TOTP is not enabled yet'});
+                throw({fn: 'BadParameters', message: 'TOTP is not enabled yet'});
             else {
                 checkTotpToken(token, row.totpSecret);
                 row.totpEnabled = false;

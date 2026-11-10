@@ -24,6 +24,7 @@ var fs = require('fs');
 var path = require('path');
 var crypto = require('crypto');
 var mongoose = require('mongoose');
+var migrations = require('./migrations');
 var PizZip = require('pizzip');
 var { EJSON } = mongoose.mongo.BSON;
 
@@ -387,6 +388,17 @@ async function restoreBackup(buffer, { password, mode = 'replace', categories } 
         for (var name of models) {
             if (mode === 'replace') await replaceCollection(name, backup.data[name]);
             else await mergeCollection(name, backup.data[name]);
+        }
+        // Backup made before the access control of the images (date unknown included): the accesses of its references are
+        // granted, as done for the database by the migration of the upgrade. Never for a later backup: a reference written
+        // after the upgrade only grants the images its writer could read
+        var imageAccessAt = await migrations.doneAt(migrations.IMAGE_ACCESS);
+        var createdAt = Date.parse(backup.manifest.createdAt);
+        if (imageAccessAt && !(createdAt >= imageAccessAt.getTime())) {
+            var restoredData = (model) => models.includes(model) ? backup.data[model] : [];
+            await mongoose.model('Image').grantExistingReferences({
+                audits: restoredData('Audit'), vulnerabilities: restoredData('Vulnerability'), proposals: restoredData('VulnerabilityUpdate')
+            });
         }
         if (restoreTemplates) {
             // Replace: files of the previous templates are replaced by the files of the backup

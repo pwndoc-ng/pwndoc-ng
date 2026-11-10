@@ -67,10 +67,38 @@ exports.Forbidden = Forbidden;
 *** Codes 5xx ***
 */
 
+// Errors not converted by the routes (mongoose, MongoDB driver, body parser) answered with a 4xx status:
+// [status, message] or null for an internal error
+function clientError(res, error) {
+    if (error.name === 'CastError') {
+        // Identifier of the URL that is not an ObjectId: the document cannot exist. Value of the request: invalid
+        var params = Object.values((res.req && res.req.params) || {});
+        if (params.includes(String(error.value)))
+            return [404, `${(error.model && error.model.modelName) || 'Document'} not found`];
+        return [422, error.message];
+    }
+    if (['ValidationError', 'ObjectParameterError', 'StrictModeError', 'MongooseBulkWriteError'].includes(error.name))
+        return [422, error.message];
+    // Duplicate value of a unique index not converted by the model ('already exists' answers)
+    if (error.code === 11000)
+        return [422, 'Already exists'];
+    // MongoDB documents (an audit with its findings) are limited to 16 MB: refused by the server (10334, 17419: document
+    // after update too large) or by the driver serializing the request (Buffer offset out of range)
+    if ([10334, 17419].includes(error.code) || (error.code === 'ERR_OUT_OF_RANGE' && /"offset"/.test(error.message)))
+        return [413, 'Data too large: a document (audit, vulnerability...) is limited to 16 MB'];
+    // Body refused by body-parser (http-errors): 400 invalid JSON or content, 413 too large, 415 charset or encoding not supported
+    if ((typeof error.type === 'string' || error.expose === true) && error.status >= 400 && error.status < 500)
+        return [error.status, error.message];
+    return null;
+}
+
 function Internal(res, error){
     if (error.fn) var fn = exports[error.fn];
+    var mapped = typeof(fn) === 'function' ? null : clientError(res, error);
     if (typeof(fn) === 'function')
         fn(res, error.message);
+    else if (mapped)
+        Custom(res, 'error', mapped[0], mapped[1]);
     else if (error.errmsg) {
         res.status(500).json({"status": "error", "datas": error.errmsg});
     }

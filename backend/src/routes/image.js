@@ -4,13 +4,22 @@ module.exports = function(app) {
     var Image = require('mongoose').model('Image')
     var acl = require('../lib/auth').acl
 
+    // Size of the data URI of an image: MongoDB document limit (16 MB) minus a margin for the other fields
+    var MAX_IMAGE_LENGTH = 16 * 1024 * 1024 - 64 * 1024
+
+    // Image of an audit: readable by the users who can read the audit only (same answer as an unknown image)
+    var getReadable = async (req) => {
+        var image = await Image.getOne(req.params.imageId)
+        if (!await Image.isReadable(req.params.imageId, req.decodedToken.id, acl.isAllowed(req.decodedToken.role, 'audits:read-all')))
+            throw({fn: 'NotFound', message: 'Image not found'})
+        return image
+    }
+
     // Get image
-    app.get("/api/images/:imageId", acl.hasPermission('images:read'), function(req, res) {
+    app.get("/api/images/:imageId", acl.hasPermission('images:read'), async function(req, res) {
         // #swagger.tags = ['Image']
 
-        Image.getOne(req.params.imageId)
-        .then(msg => Response.Ok(res, msg))
-        .catch(err => Response.Internal(res, err))
+        Response.Ok(res, await getReadable(req))
     })
 
     // Create image
@@ -27,6 +36,11 @@ module.exports = function(app) {
             Response.BadParameters(res, 'value parameter must be a String')
             return
         }
+        // An image is stored in one MongoDB document, limited to 16 MB (the driver failed with a raw error, 500)
+        if (req.body.value.length > MAX_IMAGE_LENGTH) {
+            Response.Custom(res, 'error', 413, 'Image too large: 16 MB maximum')
+            return
+        }
 
         var image = {}
         // Required parameters
@@ -36,7 +50,7 @@ module.exports = function(app) {
         if (req.body.name) image.name = req.body.name
         if (req.body.auditId) image.auditId = req.body.auditId
 
-        Image.create(image)
+        Image.create(image, req.decodedToken.id, acl.isAllowed(req.decodedToken.role, 'audits:read-all'))
         .then(data => Response.Created(res, data))
         .catch(err => Response.Internal(res, err))
     })
@@ -55,17 +69,12 @@ module.exports = function(app) {
     })
 
     // Download image file
-    app.get("/api/images/download/:imageId", acl.hasPermission('images:read'), function(req, res) {
+    app.get("/api/images/download/:imageId", acl.hasPermission('images:read'), async function(req, res) {
         // #swagger.tags = ['Image']
 
-        Image.getOne(req.params.imageId)
-        .then(data => {
-            var imgBase64 = data.value.split(",")[1]
-            var img = Buffer.from(imgBase64, 'base64')
-            Response.SendImage(res, img)
-        })
-        .catch(err =>{
-            Response.Internal(res, err)
-        })
+        var data = await getReadable(req)
+        var imgBase64 = data.value.split(",")[1]
+        var img = Buffer.from(imgBase64, 'base64')
+        Response.SendImage(res, img)
     })
 }

@@ -306,6 +306,9 @@ module.exports = function () {
         expect(ooxml).toEqual(expected)
       })
 
+      // Expected value updated: since 547fa46 ("fix #318"), a <li> outside of a <ul> or <ol> (never produced by the editor)
+      // is not numbered ("No numbering if we're not in a real list" in html2ooxml.js): its paragraphs are kept as normal
+      // paragraphs. The previous expected value put them in the bullet list of the template (numId 1).
       it('Simple Bullets without ul tag', () => {
         var html = 
         `<li>`+
@@ -316,25 +319,11 @@ module.exports = function () {
         `</li>`
         var expected =
         `<w:p>`+
-          `<w:pPr>`+
-            `<w:pStyle w:val="ListParagraph"/>`+
-            `<w:numPr>`+
-              `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="1"/>`+
-            `</w:numPr>`+
-          `</w:pPr>`+
           `<w:r>`+
             `<w:t xml:space="preserve">Bullet1</w:t>`+
           `</w:r>`+
         `</w:p>`+
         `<w:p>`+
-          `<w:pPr>`+
-            `<w:pStyle w:val="ListParagraph"/>`+
-            `<w:numPr>`+
-              `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="1"/>`+
-            `</w:numPr>`+
-          `</w:pPr>`+
           `<w:r>`+
             `<w:t xml:space="preserve">Bullet2</w:t>`+
           `</w:r>`+
@@ -343,6 +332,9 @@ module.exports = function () {
         expect(ooxml).toEqual(expected)
       })
 
+      // Expected value updated: since bac18e8 ("fix bullet level"), a nested bullet list is at the next level of the
+      // bullet numbering of the template (w:ilvl 1, indented in Word). The previous expected value put the nested item at
+      // the level of its parent list (w:ilvl 0), the nesting was lost in the report.
       it('Nested Bullets', () => {
         var html =
         `<ul>`+
@@ -358,47 +350,44 @@ module.exports = function () {
             `<p>Bullet2</p>`+
           `</li>`+
         `</ul>`
-        var expected = 
+        var item = (level, content) =>
         `<w:p>`+
           `<w:pPr>`+
             `<w:pStyle w:val="ListParagraph"/>`+
             `<w:numPr>`+
-              `<w:ilvl w:val="0"/>`+
+              `<w:ilvl w:val="${level}"/>`+
               `<w:numId w:val="1"/>`+
             `</w:numPr>`+
           `</w:pPr>`+
           `<w:r>`+
-            `<w:t xml:space="preserve">Bullet1</w:t>`+
-          `</w:r>`+
-        `</w:p>`+
-        `<w:p>`+
-          `<w:pPr>`+
-            `<w:pStyle w:val="ListParagraph"/>`+
-            `<w:numPr>`+
-              `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="1"/>`+
-            `</w:numPr>`+
-          `</w:pPr>`+
-          `<w:r>`+
-            `<w:t xml:space="preserve">BulletNested</w:t>`+
-          `</w:r>`+
-        `</w:p>`+
-        `<w:p>`+
-          `<w:pPr>`+
-            `<w:pStyle w:val="ListParagraph"/>`+
-            `<w:numPr>`+
-              `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="1"/>`+
-            `</w:numPr>`+
-          `</w:pPr>`+
-          `<w:r>`+
-            `<w:t xml:space="preserve">Bullet2</w:t>`+
+            `<w:t xml:space="preserve">${content}</w:t>`+
           `</w:r>`+
         `</w:p>`
+        var expected = item(0, 'Bullet1') + item(1, 'BulletNested') + item(0, 'Bullet2')
         var ooxml = html2ooxml(html)
         expect(ooxml).toEqual(expected)
       })
 
+      // Numbered list item: numbering identifier (numId) and level
+      var numberedItem = (numId, level, content) =>
+        `<w:p>`+
+          `<w:pPr>`+
+            `<w:pStyle w:val="ListParagraph"/>`+
+            `<w:numPr>`+
+              `<w:ilvl w:val="${level}"/>`+
+              `<w:numId w:val="${numId}"/>`+
+            `</w:numPr>`+
+          `</w:pPr>`+
+          `<w:r>`+
+            `<w:t xml:space="preserve">${content}</w:t>`+
+          `</w:r>`+
+        `</w:p>`
+      var numIds = (ooxml) => [...ooxml.matchAll(/<w:numId w:val="(\d+)"\/>/g)].map(m => m[1])
+
+      // Expected value updated: since 547fa46 ("fix #318", numbering continued from one list to the next), each numbered
+      // list has its own numbering identifier so that it restarts at 1: identifiers given by the convertHTML filter
+      // (listIds), generated (5 digits) when not given. The previous expected value used the numbered list of the template
+      // (numId 2) for every list. The definitions of these identifiers in numbering.xml are checked by report-content.test.js.
       it('Simple Numbering', () => {
         var html =
         `<ol>`+
@@ -409,35 +398,17 @@ module.exports = function () {
             `<p>Number2</p>`+
           `</li>`+
         `</ol>`
-        var expected =
-        `<w:p>`+
-          `<w:pPr>`+
-            `<w:pStyle w:val="ListParagraph"/>`+
-            `<w:numPr>`+
-              `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="2"/>`+
-            `</w:numPr>`+
-          `</w:pPr>`+
-          `<w:r>`+
-            `<w:t xml:space="preserve">Number1</w:t>`+
-          `</w:r>`+
-        `</w:p>`+
-        `<w:p>`+
-          `<w:pPr>`+
-            `<w:pStyle w:val="ListParagraph"/>`+
-            `<w:numPr>`+
-              `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="2"/>`+
-            `</w:numPr>`+
-          `</w:pPr>`+
-          `<w:r>`+
-            `<w:t xml:space="preserve">Number2</w:t>`+
-          `</w:r>`+
-        `</w:p>`
+        expect(html2ooxml(html, "", [2])).toEqual(numberedItem(2, 0, 'Number1') + numberedItem(2, 0, 'Number2'))
         var ooxml = html2ooxml(html)
-        expect(ooxml).toEqual(expected)
+        var numId = numIds(ooxml)[0]
+        expect(numId).toMatch(/^[1-9]\d{4}$/)
+        expect(ooxml).toEqual(numberedItem(numId, 0, 'Number1') + numberedItem(numId, 0, 'Number2'))
       })
 
+      // Expected value updated (see Simple Numbering): the nested list continues the numbering instance of its parent list at
+      // the next level (w:ilvl 1): Word numbers it under the current item of its parent (2.1 with a multilevel list) and
+      // restarts it after the next item of the parent. The previous expected value put all the items at the level 0 of the
+      // numbered list of the template (numId 2): the nested item continued the numbering of its parent list.
       it('Nested Numbering', () => {
         var html =
         `<ol>`+
@@ -453,45 +424,11 @@ module.exports = function () {
             `<p>Number2</p>`+
           `</li>`+
         `</ol>`
-        var expected =
-        `<w:p>`+
-          `<w:pPr>`+
-            `<w:pStyle w:val="ListParagraph"/>`+
-            `<w:numPr>`+
-              `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="2"/>`+
-            `</w:numPr>`+
-          `</w:pPr>`+
-          `<w:r>`+
-            `<w:t xml:space="preserve">Number1</w:t>`+
-          `</w:r>`+
-        `</w:p>`+
-        `<w:p>`+
-          `<w:pPr>`+
-            `<w:pStyle w:val="ListParagraph"/>`+
-            `<w:numPr>`+
-              `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="2"/>`+
-            `</w:numPr>`+
-          `</w:pPr>`+
-          `<w:r>`+
-            `<w:t xml:space="preserve">NumberNested</w:t>`+
-          `</w:r>`+
-        `</w:p>`+
-        `<w:p>`+
-          `<w:pPr>`+
-            `<w:pStyle w:val="ListParagraph"/>`+
-            `<w:numPr>`+
-              `<w:ilvl w:val="0"/>`+
-              `<w:numId w:val="2"/>`+
-            `</w:numPr>`+
-          `</w:pPr>`+
-          `<w:r>`+
-            `<w:t xml:space="preserve">Number2</w:t>`+
-          `</w:r>`+
-        `</w:p>`
+        expect(html2ooxml(html, "", [2, 3])).toEqual(numberedItem(2, 0, 'Number1') + numberedItem(2, 1, 'NumberNested') + numberedItem(2, 0, 'Number2'))
         var ooxml = html2ooxml(html)
-        expect(ooxml).toEqual(expected)
+        var numId = numIds(ooxml)[0]
+        expect(numId).toMatch(/^[1-9]\d{4}$/)
+        expect(ooxml).toEqual(numberedItem(numId, 0, 'Number1') + numberedItem(numId, 1, 'NumberNested') + numberedItem(numId, 0, 'Number2'))
       })
 
       it('Break', () => {

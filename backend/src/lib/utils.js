@@ -78,3 +78,40 @@ async function replaceAll(Model, documents) {
   }
 }
 exports.replaceAll = replaceAll
+
+// Type checks of the request bodies (values of the wrong type must be refused, not stored nor thrown as 500)
+function isObject(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+exports.isObject = isObject
+
+function isListOfObjects(value) {
+  return Array.isArray(value) && value.every(isObject)
+}
+exports.isListOfObjects = isListOfObjects
+
+// Strings that are optional: undefined or null allowed
+function isOptionalString(value) {
+  return value === undefined || value === null || typeof value === 'string'
+}
+exports.isOptionalString = isOptionalString
+
+// Custom fields of an audit, finding or section: [{customField: <id> or {_id: <id>, label...}, text}].
+// The customField reference is Mixed in the schema: a value that is not an identifier made the audit unreadable
+function validCustomFields(list) {
+  var mongoose = require('mongoose')
+  var isId = (value) => mongoose.isObjectIdOrHexString(isObject(value) ? value._id : value)
+  return Array.isArray(list) && list.every(entry => isObject(entry) && isId(entry.customField))
+}
+exports.validCustomFields = validCustomFields
+
+// Documents of a list checked before inserting any of them: an invalid document refuses the whole list (insertMany with
+// ordered: false inserted the valid ones and dropped or refused the others). A single document is accepted, as by insertMany
+function validateAll(Model, documents) {
+  [].concat(documents).forEach(document => {
+    var error = new Model(document).validateSync()
+    if (error)
+      throw error
+  })
+}
+exports.validateAll = validateAll

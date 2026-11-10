@@ -92,20 +92,25 @@ SettingSchema.statics.getPublic = () => {
     });
 };
 
-// Update Settings
-// The input is applied to the document (paths of the schema only) and not given as an update query:
-// MongoDB operators of the input ($unset, $rename...) are not executed
-SettingSchema.statics.update = (settings) => {
-    return new Promise((resolve, reject) => {
-        Settings.findOne({})
-            .then(current => {
-                current = current || new Settings({});
-                current.set(settings);
-                return current.save();
-            })
-            .then(settings => resolve(settings))
-            .catch(err => reject(err));
+// Values of the input by path of the schema ('reviews.public.minReviewers'): the sections (nested paths) are followed, any
+// other value (number, string, list, object given for a value) is a value. Keys of the prototype and keys of operators
+// ($unset...) are ignored
+function settingValues(input, prefix = '') {
+    return Object.keys(input).filter(key => !['__proto__', 'constructor', 'prototype'].includes(key) && !key.startsWith('$')).flatMap(key => {
+        var path = prefix + key;
+        if (SettingSchema.pathType(path) === 'nested' && Utils.isObject(input[key]))
+            return settingValues(input[key], `${path}.`);
+        return [[path, input[key]]];
     });
+}
+
+// Update Settings: the given values only (a section given partially keeps its other settings: set() of a whole section put
+// back the default values of the others), in one update with the validators (concurrent updates: the last one wins for
+// each value). Values of the input are cast to the type of their path (paths of the schema only): MongoDB operators of the
+// input ($unset, $rename...) are not executed
+SettingSchema.statics.update = async (settings) => {
+    var values = Object.fromEntries(settingValues(settings));
+    return Settings.findOneAndUpdate({}, {$set: values}, {new: true, upsert: true, runValidators: true});
 };
 
 

@@ -1,5 +1,6 @@
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
+var utils = require('../lib/utils');
 
 var CompanySchema = new Schema({
     name: {type: String, required: true, unique: true},
@@ -48,6 +49,7 @@ CompanySchema.statics.export = () => {
 // Create company
 CompanySchema.statics.create = (companies) => {
     return new Promise((resolve, reject) => {
+        utils.validateAll(Company, companies)
         Company.insertMany(companies, {ordered: false})
         .then((rows) => {
             resolve({created: rows.length, duplicates: 0});
