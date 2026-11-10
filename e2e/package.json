@@ -1,0 +1,12 @@
+{
+  "name": "pwndoc-ng-e2e",
+  "version": "1.0.0",
+  "description": "pwndoc-ng end-to-end tests (Playwright), run in Docker with run.sh",
+  "private": true,
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}

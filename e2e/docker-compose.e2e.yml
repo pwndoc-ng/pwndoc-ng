@@ -1,0 +1,99 @@
+# Isolated stack for the end-to-end tests: always started with its own project name (see run.sh)
+#   docker compose -p claude-e2e -f e2e/docker-compose.e2e.yml ...
+# Several stacks can run at the same time with other project names (E2E_PROJECT of run.sh): each one has its own
+# network and volumes, the images are shared.
+# - no container_name: the names of docker-compose.yml / docker-compose-dev.yml (mongo-pwndoc-ng, pwndoc-ng-backend...)
+#   are only network aliases here, so this stack never conflicts with a running pwndoc-ng installation
+# - no port published on the host: the Playwright container joins the network of the project
+# - images built from the sources (no source mounted): the backend writes its generated JWT secrets in the
+#   config.json of its container only
+# - data in the volumes of the project, removed by `down -v`
+name: claude-e2e
+
+services:
+  mongodb:
+    build: ../mongodb
+    image: claude-e2e-mongodb:latest
+    healthcheck:
+      test: ["CMD-SHELL", "HOME=/tmp mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok' | grep -q 1"]
+      interval: 3s
+      timeout: 10s
+      retries: 60
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      default:
+        aliases:
+          - mongo-pwndoc-ng
+
+  backend:
+    build: ../backend
+    image: claude-e2e-backend:latest
+    environment:
+      - NODE_ENV=prod
+      - COLLAB_WEBSOCKET_PORT=8440
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      # /api/users/init answers once the database is connected
+      test: ["CMD", "node", "-e", "require('https').get({host:'127.0.0.1',port:4242,path:'/api/users/init',rejectUnauthorized:false},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 3s
+      timeout: 5s
+      retries: 60
+    volumes:
+      - backups:/app/backup
+    networks:
+      default:
+        aliases:
+          - pwndoc-ng-backend
+
+  # Small stub instead of the real LanguageTool server (spell checking requests of the editors, /v2)
+  languagetool:
+    image: node:26-alpine
+    command: ["node", "/stub/server.js"]
+    volumes:
+      - ./languagetool-stub:/stub:ro
+    networks:
+      default:
+        aliases:
+          - pwndoc-ng-languagetool
+
+  frontend:
+    build: ../frontend
+    image: claude-e2e-frontend:latest
+    depends_on:
+      backend:
+        condition: service_healthy
+      languagetool:
+        condition: service_started
+    networks:
+      default:
+        aliases:
+          - pwndoc-ng-frontend
+
+  playwright:
+    build: .
+    image: claude-e2e-playwright:latest
+    profiles: ["test"]
+    depends_on:
+      frontend:
+        condition: service_started
+    # Identity of the user running run.sh: files of e2e/reports owned by him (root by default)
+    user: "${E2E_UID:-0}:${E2E_GID:-0}"
+    environment:
+      - BASE_URL=https://pwndoc-ng-frontend:8443
+      - CI=1
+      - HOME=/tmp
+      - E2E_RUN_KNOWN_BUGS
+    shm_size: 1gb # Chromium
+    volumes:
+      - ./tests:/e2e/tests:ro
+      - ./fixtures:/e2e/fixtures:ro
+      - ./playwright.config.js:/e2e/playwright.config.js:ro
+      - ../backend/report-templates:/e2e/report-templates:ro
+      - ${E2E_REPORTS_DIR:-./reports}:/e2e/reports
+
+volumes:
+  mongo-data:
+  backups:
