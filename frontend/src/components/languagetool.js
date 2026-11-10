@@ -1,6 +1,7 @@
 import { Extension } from '@tiptap/core'
-import { Decoration, DecorationSet } from 'prosemirror-view'
-import { Plugin, PluginKey } from 'prosemirror-state'
+import { Decoration, DecorationSet } from '@tiptap/pm/view'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Mapping } from '@tiptap/pm/transform'
 import { debounce } from 'lodash'
 import { v4 as uuidv4 } from 'uuid'
 import { Dexie } from 'dexie'
@@ -203,6 +204,25 @@ export const LanguageTool = Extension.create({
     
     // Add editor to active instances registry
     activeEditors.add(storage.editorId);
+
+    // Changes of the document made during the requests (text typed meanwhile): the matches, computed on the text sent, are
+    // mapped to the current document
+    storage.pendingMappings = new Set();
+    storage.trackChanges = () => {
+      const mapping = new Mapping();
+      storage.pendingMappings.add(mapping);
+      return mapping;
+    };
+    // Decorations of the matches in the current document; a match whose text changed meanwhile is dropped
+    storage.mappedDecorations = (requestDoc, matches, mapping) => {
+      const doc = storage.editorView.state.doc;
+      return matches.flatMap(({ from, to, match }) => {
+        const mappedFrom = mapping.map(from, 1);
+        const mappedTo = mapping.map(to, -1);
+        if (mappedTo <= mappedFrom || doc.textBetween(mappedFrom, mappedTo, ' ') !== requestDoc.textBetween(from, to, ' ')) return [];
+        return [gimmeDecoration(mappedFrom, mappedTo, match)];
+      });
+    };
     
     // Optimized dispatch function
     storage.dispatch = (tr) => {
@@ -230,7 +250,8 @@ export const LanguageTool = Extension.create({
       // Clean up old listeners first
       storage.cleanupEventListeners();
       
-      const decos = document.querySelectorAll('span.lt');
+      // Decorations of this editor only (other editors on the page have their own match)
+      const decos = storage.editorView.dom.querySelectorAll('span.lt');
       if (!decos.length) return;
       
       decos.forEach((el) => {
@@ -260,7 +281,7 @@ export const LanguageTool = Extension.create({
     };
     
     // Optimized function to check a text node
-    storage.proofreadNodeAndUpdateItsDecorations = async (node, offset, cur) => {
+    storage.proofreadNodeAndUpdateItsDecorations = async (node, offset) => {
       if (!storage.editorView?.state || !node.textContent) return;
       
       // Check if auto correction is enabled
@@ -274,59 +295,66 @@ export const LanguageTool = Extension.create({
       }
       
       storage.dispatch(storage.editorView.state.tr.setMeta(LanguageToolHelpingWords.LoadingTransactionName, true));
+      const requestDoc = storage.editorView.state.doc;
+      const mapping = storage.trackChanges();
+      try {
       
-      // Check cache first
-      let ltRes = getCachedResponse(node.textContent);
+        // Check cache first
+        let ltRes = getCachedResponse(node.textContent);
       
-      if (!ltRes) {
-        try {
-          const response = await fetch(storage.apiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-              Accept: 'application/json',
-            },
-            body: `text=${encodeURIComponent(node.textContent)}&language=auto&enabledOnly=false`,
-          });
-          
-          ltRes = await response.json();
-          addToCache(node.textContent, ltRes);
-        } catch (error) {
-          console.error('LanguageTool request failed:', error);
-          storage.dispatch(storage.editorView.state.tr.setMeta(LanguageToolHelpingWords.LoadingTransactionName, false));
-          return;
+        if (!ltRes) {
+          try {
+            const response = await fetch(storage.apiUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                Accept: 'application/json',
+              },
+              body: `text=${encodeURIComponent(node.textContent)}&language=auto&enabledOnly=false`,
+            });
+            // Error answer (text too long, server error): no match to show, not cached
+            if (!response.ok) throw new Error(`LanguageTool answered ${response.status}`);
+            ltRes = await response.json();
+            addToCache(node.textContent, ltRes);
+          } catch (error) {
+            console.error('LanguageTool request failed:', error);
+            storage.dispatch(storage.editorView.state.tr.setMeta(LanguageToolHelpingWords.LoadingTransactionName, false));
+            return;
+          }
         }
-      }
       
-      if (!storage.editorView) return; // In case the editor was destroyed in the meantime
+        if (!storage.editorView) return; // In case the editor was destroyed in the meantime
       
-      storage.decorationSet = storage.decorationSet.remove(storage.decorationSet.find(offset, offset + node.nodeSize));
-      const nodeSpecificDecorations = [];
+        const nodeMatches = [];
       
-      for (const match of ltRes.matches) {
-        const from = match.offset + offset;
-        const to = from + match.length;
+        for (const match of ltRes.matches) {
+          const from = match.offset + offset;
+          const to = from + match.length;
         
-        if (storage.extensionDocId) {
-          const content = storage.editorView.state.doc.textBetween(from, to);
-          const result = await storage.db.ignoredWords.get({ 
-            value: content, 
-            documentId: storage.extensionDocId 
-          });
-          if (!result) nodeSpecificDecorations.push(gimmeDecoration(from, to, match));
-        } else {
-          nodeSpecificDecorations.push(gimmeDecoration(from, to, match));
+          if (storage.extensionDocId) {
+            const content = requestDoc.textBetween(from, to);
+            const result = await storage.db.ignoredWords.get({ 
+              value: content, 
+              documentId: storage.extensionDocId 
+            });
+            if (!result) nodeMatches.push({ from, to, match });
+          } else {
+            nodeMatches.push({ from, to, match });
+          }
         }
+      
+        if (!storage.editorView) return; // Check again if the editor still exists
+      
+        storage.decorationSet = storage.decorationSet.remove(storage.decorationSet.find(mapping.map(offset, -1), mapping.map(offset + node.nodeSize, 1)));
+        storage.decorationSet = storage.decorationSet.add(storage.editorView.state.doc, storage.mappedDecorations(requestDoc, nodeMatches, mapping));
+        storage.dispatch(storage.editorView.state.tr.setMeta(LanguageToolHelpingWords.LanguageToolTransactionName, true));
+        storage.dispatch(storage.editorView.state.tr.setMeta(LanguageToolHelpingWords.LoadingTransactionName, false));
+      
+        // Add event listeners to decorations
+        setTimeout(() => storage.addEventListenersToDecorations(), 0);
+      } finally {
+        storage.pendingMappings.delete(mapping);
       }
-      
-      if (!storage.editorView) return; // Check again if the editor still exists
-      
-      storage.decorationSet = storage.decorationSet.add(cur, nodeSpecificDecorations);
-      storage.dispatch(storage.editorView.state.tr.setMeta(LanguageToolHelpingWords.LanguageToolTransactionName, true));
-      storage.dispatch(storage.editorView.state.tr.setMeta(LanguageToolHelpingWords.LoadingTransactionName, false));
-      
-      // Add event listeners to decorations
-      setTimeout(() => storage.addEventListenersToDecorations(), 0);
     };
     
     // Function to clean all LanguageTool decorations
@@ -431,6 +459,7 @@ export const LanguageTool = Extension.create({
       
       // Indicate loading
       storage.dispatch(storage.editorView.state.tr.setMeta(LanguageToolHelpingWords.LoadingTransactionName, true));
+      const mapping = storage.trackChanges();
       
       // Optimized function to check a text chunk
       const getMatchAndSetDecorations = async (doc, text, originalFrom) => {
@@ -449,7 +478,8 @@ export const LanguageTool = Extension.create({
               },
               body: `text=${encodeURIComponent(text)}&language=auto&enabledOnly=false`,
             });
-            
+            // Error answer (text too long, server error): no match to show, not cached
+            if (!response.ok) throw new Error(`LanguageTool answered ${response.status}`);
             ltRes = await response.json();
             addToCache(text, ltRes);
           } catch (error) {
@@ -461,7 +491,7 @@ export const LanguageTool = Extension.create({
         if (!storage.editorView) return; // In case the editor was destroyed in the meantime
         
         const { matches } = ltRes;
-        const decorations = [];
+        const chunkMatches = [];
         
         for (const match of matches) {
           const from = match.offset + originalFrom;
@@ -472,16 +502,16 @@ export const LanguageTool = Extension.create({
             const result = await storage.db.ignoredWords.get({ 
               value: content 
             });
-            if (!result) decorations.push(gimmeDecoration(from, to, match));
+            if (!result) chunkMatches.push({ from, to, match });
           } else {
-            decorations.push(gimmeDecoration(from, to, match));
+            chunkMatches.push({ from, to, match });
           }
         }
         
         if (!storage.editorView) return; // Check again if editor still exists
         
-        storage.decorationSet = storage.decorationSet.remove(storage.decorationSet.find(originalFrom, originalFrom + text.length));
-        storage.decorationSet = storage.decorationSet.add(doc, decorations);
+        storage.decorationSet = storage.decorationSet.remove(storage.decorationSet.find(mapping.map(originalFrom, -1), mapping.map(originalFrom + text.length, 1)));
+        storage.decorationSet = storage.decorationSet.add(storage.editorView.state.doc, storage.mappedDecorations(doc, chunkMatches, mapping));
         
         if (storage.editorView) {
           storage.dispatch(storage.editorView.state.tr.setMeta(LanguageToolHelpingWords.LanguageToolTransactionName, true));
@@ -489,9 +519,13 @@ export const LanguageTool = Extension.create({
       };
       
       // Process all chunks in parallel rather than sequentially to reduce load
-      await Promise.all(chunksOf500Words.map(async ({ text, from }) => {
-        await getMatchAndSetDecorations(doc, text, from);
-      }));
+      try {
+        await Promise.all(chunksOf500Words.map(async ({ text, from }) => {
+          await getMatchAndSetDecorations(doc, text, from);
+        }));
+      } finally {
+        storage.pendingMappings.delete(mapping);
+      }
       
       if (storage.editorView) {
         storage.dispatch(storage.editorView.state.tr.setMeta(LanguageToolHelpingWords.LoadingTransactionName, false));
@@ -504,8 +538,8 @@ export const LanguageTool = Extension.create({
     
     // Create debounced versions of methods
     storage.debouncedProofreadNodeAndUpdateItsDecorations = debounce(
-      (node, offset, cur) => {
-        storage.proofreadNodeAndUpdateItsDecorations(node, offset, cur);
+      (node, offset) => {
+        storage.proofreadNodeAndUpdateItsDecorations(node, offset);
       }, 
       debounceDelay
     );
@@ -535,6 +569,7 @@ export const LanguageTool = Extension.create({
             return storage.decorationSet;
           },
           apply: (tr, oldPluginState, oldEditorState) => {
+            if (tr.docChanged) storage.pendingMappings.forEach((mapping) => mapping.appendMapping(tr.mapping));
             const matchUpdated = tr.getMeta(LanguageToolHelpingWords.MatchUpdatedTransactionName);
             const loading = tr.getMeta(LanguageToolHelpingWords.LoadingTransactionName);
             
@@ -602,4 +637,3 @@ export const LanguageTool = Extension.create({
     ];
   },
 })
-//# sourceMappingURL=languagetool.js.map

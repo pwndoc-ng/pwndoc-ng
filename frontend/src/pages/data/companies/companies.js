@@ -1,5 +1,4 @@
 import { Dialog, Notify } from 'quasar';
-import Vue from 'vue'
 
 import CompanyService from '@/services/company'
 import Utils from '@/services/utils'
@@ -51,7 +50,13 @@ export default {
             },
             // Name for update
             idUpdate: '',
-            loading:false
+            loading:false,
+            // Creation in progress (double click protection)
+            creating: false,
+            // Companies whose deletion was sent (double confirmation protection), removed when the deletion fails
+            deletedIds: [],
+            // Number of the last loading of the list
+            listRequest: 0
         }
     },
 
@@ -59,17 +64,40 @@ export default {
         this.getCompanies()
     },
 
+    unmounted: function() {
+        // The answers of the loadings still pending are ignored once the page is left
+        this.listRequest++
+    },
+
     methods: {
         getCompanies: function() {
             this.loading = true
+            // Several loadings may be pending (page opened, refresh after a change): only the last one is applied
+            var request = ++this.listRequest
             CompanyService.getCompanies()
             .then((data) => {
+                if (request !== this.listRequest)
+                    return
                 this.companies = data.data.datas
                 this.loading = false
             })
             .catch((err) => {
                 console.log(err)
+                if (request !== this.listRequest)
+                    return
+                this.loading = false
+                Notify.create({
+                    message: this.errorMessage(err),
+                    color: 'negative',
+                    textColor: 'white',
+                    position: 'top-right'
+                })
             })
+        },
+
+        // Message of the server (the message of axios only says the status code), or of the network error
+        errorMessage: function(err) {
+            return (err.response && err.response.data && err.response.data.datas) || err.message
         },
         isBase64Image(logo) {
             return typeof logo === 'string' && logo.startsWith('data:image');
@@ -84,6 +112,9 @@ export default {
             return `data:image/png;base64,${logo}`;
           },
         createCompany: function() {
+            // Double click or Enter pressed twice: the second request would be refused (company already exists)
+            if (this.creating)
+                return;
             this.cleanErrors();
             if (!this.currentCompany.name)
                 this.errors.name = $t('msg.nameRequired');
@@ -91,10 +122,17 @@ export default {
             if (this.errors.name)
                 return;
 
+            this.creating = true;
+            var created = this.currentCompany;
             CompanyService.createCompanies([this.currentCompany])
+            .finally(() => {
+                this.creating = false;
+            })
             .then(() => {
                 this.getCompanies();
-                this.$refs.createModal.hide();
+                // Not when the page was left, nor when the dialog was opened again meanwhile (new object)
+                if (this.$refs.createModal && this.currentCompany === created)
+                    this.$refs.createModal.hide();
                 Notify.create({
                     message: $t('msg.companyCreatedOk'),
                     color: 'positive',
@@ -103,9 +141,8 @@ export default {
                 })
             })
             .catch((err) => {
-                console.log(err)
                 Notify.create({
-                    message: (typeof err === "String") ? err : err.message,
+                    message: this.errorMessage(err),
                     color: 'negative',
                     textColor: 'white',
                     position: 'top-right'
@@ -121,10 +158,13 @@ export default {
             if (this.errors.name)
                 return;
 
+            var updated = this.currentCompany;
             CompanyService.updateCompany(this.idUpdate, this.currentCompany)
             .then(() => {
                 this.getCompanies();
-                this.$refs.editModal.hide();
+                // Not when the page was left, nor when another company was opened meanwhile (new object)
+                if (this.$refs.editModal && this.currentCompany === updated)
+                    this.$refs.editModal.hide();
                 Notify.create({
                     message: $t('msg.companyUpdatedOk'),
                     color: 'positive',
@@ -134,7 +174,7 @@ export default {
             })
             .catch((err) => {
                 Notify.create({
-                    message: err.message,
+                    message: this.errorMessage(err),
                     color: 'negative',
                     textColor: 'white',
                     position: 'top-right'
@@ -143,6 +183,10 @@ export default {
         },
 
         deleteCompany: function(companyId) {
+            // A double click on the trash opens two confirmations: the company is deleted once
+            if (this.deletedIds.includes(companyId))
+                return;
+            this.deletedIds.push(companyId);
             CompanyService.deleteCompany(companyId)
             .then(() => {
                 this.getCompanies();
@@ -154,8 +198,9 @@ export default {
                 })
             })
             .catch((err) => {
+                this.deletedIds.splice(this.deletedIds.indexOf(companyId), 1);
                 Notify.create({
-                    message: err.message,
+                    message: this.errorMessage(err),
                     color: 'negative',
                     textColor: 'white',
                     position: 'top-right'
@@ -183,21 +228,26 @@ export default {
             this.errors.name = '';
         },
 
+        // New object for each company opened: a logo still being read is written in the company it was added to
         cleanCurrentCompany: function() {
-            this.currentCompany.name = '';
-            this.currentCompany.shortName = '';
-            this.currentCompany.address = '';
-            this.currentCompany.postalCode = '';
-            this.currentCompany.city = '';
-            this.currentCompany.logo = '';
+            this.currentCompany = {
+                name: '',
+                shortName: '',
+                address: '',
+                postalCode: '',
+                city: '',
+                logo: ''
+            };
         },
 
         handleImage: function(files) {
             var file = files[0];
             var fileReader = new FileReader();
+            // Read asynchronously: the dialog may have been closed and another company opened meanwhile
+            var company = this.currentCompany;
 
             fileReader.onloadend = (e) => {
-                this.currentCompany.logo = fileReader.result;
+                company.logo = fileReader.result;
             }
 
             fileReader.readAsDataURL(file);

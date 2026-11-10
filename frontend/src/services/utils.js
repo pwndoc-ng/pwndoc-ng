@@ -1,82 +1,98 @@
 var _ = require("lodash");
 import { $t } from "boot/i18n";
+import DOMPurify from "dompurify";
+
+// HTML of the editors displayed with v-html (previews, differences between versions): only the tags and
+// attributes produced by the editor are kept, everything else is removed (scripts, event handlers, unknown tags...)
+const EDITOR_TAGS = [
+  'p', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'hr',
+  'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'mark', 'code', 'pre', 'span',
+  'ul', 'ol', 'li', 'a',
+  'table', 'colgroup', 'col', 'thead', 'tbody', 'tr', 'th', 'td',
+  'img', 'figure', 'figcaption', 'legend'
+];
+
+const TAG_ATTRIBUTES = {
+  A: ['href', 'target', 'rel'],
+  IMG: ['src', 'alt', 'title', 'class', 'data-width'],
+  LEGEND: ['label', 'alt'], // Captions
+  MARK: ['data-color', 'style'], // Highlight colors
+  CODE: ['class'],
+  SPAN: ['class'],
+  OL: ['start'],
+  TABLE: ['style'],
+  COL: ['style'],
+  TH: ['colspan', 'rowspan', 'colwidth'],
+  TD: ['colspan', 'rowspan', 'colwidth']
+};
+
+const EDITOR_ATTRIBUTES = [...new Set(Object.values(TAG_ATTRIBUTES).flat())];
+
+// Images: ID of an uploaded image, base64 image (old data) or external image
+const IMAGE_SOURCE = /^(?:[a-f0-9]{24}|data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=\s]+|https?:\/\/[^\s"'<>]+)$/i;
+
+const CLASS_VALUES = {
+  IMG: /^custom-image$/,
+  CODE: /^language-[\w#+-]+$/, // Language of the code blocks
+  SPAN: /^hljs-[\w-]+(?:\s+[\w-]+)*$/ // Syntax highlighting of the code blocks
+};
+
+// Differences between versions (editor.vue): parts added, removed or unchanged
+const DIFF_CLASS = /^diff(?:add|rem|eq)$/;
+
+// Inline styles produced by the editor: highlight colors and table column widths
+const STYLE_VALUE = /^(?:\s*(?:background-color|color|width|min-width)\s*:\s*[#\w%.,()\s-]+;?)*\s*$/i;
+
+function isValidAttribute(tag, name, value, allowDiffClass) {
+  if (!(TAG_ATTRIBUTES[tag] || []).includes(name))
+    return false;
+  if (name === 'src')
+    return IMAGE_SOURCE.test(value);
+  if (name === 'class')
+    return CLASS_VALUES[tag].test(value) || (allowDiffClass && tag === 'SPAN' && DIFF_CLASS.test(value));
+  if (name === 'style')
+    return STYLE_VALUE.test(value) && !/url\s*\(|expression\s*\(|\\/i.test(value);
+  if (name === 'target')
+    return value === '_blank';
+  return true;
+}
+
+// Dedicated DOMPurify instances: their hooks do not affect other uses of DOMPurify
+function createPurifier(allowDiffClass) {
+  const purifier = DOMPurify(window);
+  purifier.addHook('uponSanitizeAttribute', (node, data) => {
+    if (!isValidAttribute(node.nodeName, data.attrName, data.attrValue, allowDiffClass))
+      data.keepAttr = false; // Values kept are then checked by DOMPurify (URLs of the links...)
+  });
+  return purifier;
+}
+
+const PURIFY_CONFIG = { ALLOWED_TAGS: EDITOR_TAGS, ALLOWED_ATTR: EDITOR_ATTRIBUTES, ALLOW_DATA_ATTR: false };
+let editorPurifier = null;
+let diffPurifier = null;
 
 export default {
+  // Sanitizes the HTML of an editor before displaying it with v-html
   htmlEncode(html) {
     if (typeof html !== "string") return "";
-    var result = html
-      .replace(/</g, "ΩΠг")
-      .replace(/>/g, "ΏΠг")
-      .replace(
-        /ΩΠгimg.+?src="(.*?)".+?alt="(.*?)".*?ΏΠг/g,
-        '<img src="$1" alt="$2">'
-      )
-      .replace(
-        /ΩΠгlegend.+?label="(.*?)".+?alt="(.*?)".*?ΏΠг/g,
-        '<legend label="$1" alt="$2">'
-      )
-      .replace(/ΩΠг\/legendΏΠг/g, "</legend>")
-      .replace(/ΩΠгpΏΠг/g, "<p>")
-      .replace(/ΩΠг\/pΏΠг/g, "</p>")
-      .replace(/ΩΠгpreΏΠг/g, "<pre>")
-      .replace(/ΩΠг\/preΏΠг/g, "</pre>")
-      .replace(/ΩΠгbΏΠг/g, "<b>")
-      .replace(/ΩΠг\/bΏΠг/g, "</b>")
-      .replace(/ΩΠгstrongΏΠг/g, "<strong>")
-      .replace(/ΩΠг\/strongΏΠг/g, "</strong>")
-      .replace(/ΩΠгiΏΠг/g, "<i>")
-      .replace(/ΩΠг\/iΏΠг/g, "</i>")
-      .replace(/ΩΠгemΏΠг/g, "<em>")
-      .replace(/ΩΠг\/emΏΠг/g, "</em>")
-      .replace(/ΩΠгuΏΠг/g, "<u>")
-      .replace(/ΩΠг\/uΏΠг/g, "</u>")
-      .replace(/ΩΠгsΏΠг/g, "<s>")
-      .replace(/ΩΠг\/sΏΠг/g, "</s>")
-      .replace(/ΩΠгstrikeΏΠг/g, "<strike>")
-      .replace(/ΩΠг\/strikeΏΠг/g, "</strike>")
-      .replace(/ΩΠгmark(.*?)ΏΠг/g, "<mark$1>")
-      .replace(/ΩΠг\/markΏΠг/g, "</mark>")
-      .replace(/ΩΠгtableΏΠг/g, "<table>")
-      .replace(/ΩΠг\/tableΏΠг/g, "</table>")
-      .replace(/ΩΠгtbodyΏΠг/g, "<tbody>")
-      .replace(/ΩΠг\/tbodyΏΠг/g, "</tbody>")
-      .replace(/ΩΠгtrΏΠг/g, "<tr>")
-      .replace(/ΩΠг\/trΏΠг/g, "</tr>")
-      .replace(
-        /ΩΠгth.+?colspan="(.?)".+?rowspan="(.*?)".*?ΏΠг/g,
-        '<th colspan="$1" rowspan="$2">'
-      )
-      .replace(/ΩΠг\/thΏΠг/g, "</th>")
-      .replace(/ΩΠгbrΏΠг/g, "<br>")
-      .replace(/ΩΠгcodeΏΠг/g, "<code>")
-      .replace(/ΩΠг\/codeΏΠг/g, "</code>")
-      .replace(/ΩΠгbrΏΠг/g, "<br>")
-      .replace(/ΩΠгulΏΠг/g, "<ul>")
-      .replace(/ΩΠг\/ulΏΠг/g, "</ul>")
-      .replace(/ΩΠгolΏΠг/g, "<ol>")
-      .replace(/ΩΠг\/olΏΠг/g, "</ol>")
-      .replace(/ΩΠгliΏΠг/g, "<li>")
-      .replace(/ΩΠг\/liΏΠг/g, "</li>")
-      .replace(/ΩΠгh1ΏΠг/g, "<h1>")
-      .replace(/ΩΠг\/h1ΏΠг/g, "</h1>")
-      .replace(/ΩΠгh2ΏΠг/g, "<h2>")
-      .replace(/ΩΠг\/h2ΏΠг/g, "</h2>")
-      .replace(/ΩΠгh3ΏΠг/g, "<h3>")
-      .replace(/ΩΠг\/h3ΏΠг/g, "</h3>")
-      .replace(/ΩΠгh4ΏΠг/g, "<h4>")
-      .replace(/ΩΠг\/h4ΏΠг/g, "</h4>")
-      .replace(/ΩΠгh5ΏΠг/g, "<h5>")
-      .replace(/ΩΠг\/h5ΏΠг/g, "</h5>")
-      .replace(/ΩΠгh6ΏΠг/g, "<h6>")
-      .replace(/ΩΠг\/h6ΏΠг/g, "</h6>")
-      .replace(/ΩΠгa.+?href="(.*?)".*?rel="(.*?)".*?ΏΠг/g, '<a href="$1" rel="$2">')
-      .replace(/ΩΠгa.+?rel="(.*?)".*?href="(.*?)".*?ΏΠг/g, '<a href="$2" rel="$1">')
-      .replace(/ΩΠг\/aΏΠг/g, '</a>')
-      .replace(/ΩΠг/g, "&lt;")
-      .replace(/ΏΠг/g, "&gt;");
+    editorPurifier = editorPurifier || createPurifier(false);
+    return editorPurifier.sanitize(html, PURIFY_CONFIG);
+  },
 
+  // Sanitizes the differences between two versions of an editor (HTML with the diff markers) before displaying them
+  htmlEncodeDiff(html) {
+    if (typeof html !== "string") return "";
+    diffPurifier = diffPurifier || createPurifier(true);
+    return diffPurifier.sanitize(html, PURIFY_CONFIG);
+  },
 
-    return result;
+  // Message of the server for a failed request (JSON in a Blob for the downloads), else the message of the error
+  async requestErrorMessage(err) {
+    var data = err.response && err.response.data;
+    if (data instanceof Blob) {
+      try { data = JSON.parse(await data.text()) } catch (e) { data = null }
+    }
+    return (data && data.datas) || err.message;
   },
 
   // Update all basic-editor when noSync is necessary for performance (text with images).
@@ -251,6 +267,76 @@ export default {
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
+  },
+
+  // Render a text template with {variable} placeholders (e.g. findings label in the audit sidebar)
+  // - variables: {name: value or function returning the value}, names are case insensitive
+  // - {custom.Label}: value of the custom field with this label (case insensitive), empty if not set
+  // Unknown variables are left as is so that typos stay visible.
+  // The result is plain text: it must be displayed with text interpolation, never with v-html.
+  renderTemplate: function (template, variables, customFields = []) {
+    if (typeof template !== "string") return "";
+    var vars = {};
+    Object.keys(variables).forEach((name) => {
+      vars[name.toLowerCase()] = variables[name];
+    });
+
+    return template.replace(/\{([^{}]+)\}/g, (match, name) => {
+      var key = name.trim().toLowerCase();
+      var value;
+      if (key.startsWith("custom.")) {
+        var label = key.substring("custom.".length).trim();
+        var field = (customFields || []).find(
+          (f) => f && f.customField && typeof f.customField.label === "string" && f.customField.label.trim().toLowerCase() === label
+        );
+        value = field ? this.customFieldToText(field) : "";
+      }
+      else if (Object.prototype.hasOwnProperty.call(vars, key)) {
+        value = typeof vars[key] === "function" ? vars[key]() : vars[key];
+      }
+      else {
+        return match;
+      }
+      return value === null || value === undefined ? "" : String(value);
+    });
+  },
+
+  // Variables available in the findings sidebar template (Settings > General Settings)
+  // context: {index: position of the finding in the audit (gives the report identifier), cvss: function returning {severity, score}}
+  // Values needing computation are functions: they are only evaluated if used in the template
+  findingTemplateVariables: function (finding, context) {
+    var priorities = { 1: $t("low"), 2: $t("medium"), 3: $t("high"), 4: $t("urgent") };
+    var complexities = { 1: $t("easy"), 2: $t("medium"), 3: $t("complex") };
+    var severities = { Critical: $t("critical"), High: $t("high"), Medium: $t("medium"), Low: $t("low") };
+    return {
+      title: finding.title,
+      identifier: () => (context.index >= 0 ? "IDX-" + String(context.index + 1).padStart(3, "0") : ""), // Same as report
+      vulnType: finding.vulnType,
+      category: finding.category,
+      severity: () => severities[context.cvss().severity] || "",
+      cvssScore: () => context.cvss().score,
+      cvssVector: finding.cvssv3,
+      priority: priorities[finding.priority],
+      remediationComplexity: complexities[finding.remediationComplexity],
+      affected: () => this.htmlToText(finding.scope),
+    };
+  },
+
+  // Text value of a custom field: lists are joined, editor (HTML) content is converted to plain text
+  customFieldToText: function (field) {
+    var value = field.text;
+    if (Array.isArray(value)) return value.join(", ");
+    if (field.customField.fieldType === "text") return this.htmlToText(value);
+    return value;
+  },
+
+  // Convert HTML to plain text (DOMParser documents are inert: no script execution nor resource loading)
+  htmlToText: function (html) {
+    if (typeof html !== "string" || !html) return "";
+    // Separate blocks (paragraphs, list items, line breaks...) so that their texts are not glued together
+    html = html.replace(/<\/(p|div|li|h[1-6]|pre|blockquote|td|th|tr)>|<br\s*\/?>/gi, "$& ");
+    var doc = new DOMParser().parseFromString(html, "text/html");
+    return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
   },
 
   AUDIT_VIEW_STATE: {

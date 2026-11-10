@@ -1,10 +1,23 @@
 version: '3'
 services:
   mongodb:
-    image: mongo:4
+    # MongoDB 8, data of MongoDB 4.x installations migrated at the first start (see mongodb/README.md)
+    build: ./mongodb
+    image: pwndoc-ng/pwndoc-ng:mongodb
     container_name: mongo-pwndoc-ng
+    healthcheck:
+      # mongosh history out of the data volume
+      test: ["CMD-SHELL", "HOME=/tmp mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok' | grep -q 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 6
+      start_period: 30m # first start after an update: migration of the data to MongoDB 8
     volumes:
-      - mongo-data:/data/db
+      # Data on the host, in mongodb/mongo-data
+      - ./mongodb/mongo-data:/data/db
+      # Docker volume of the installations made before: copied once into mongodb/mongo-data when it is empty
+      # (see mongodb/README.md), left unchanged. This line can be removed once the copy is checked.
+      - mongo-data:/data/previous-volume
     restart: always
     ports:
       - 127.0.0.1:27017:27017
@@ -19,11 +32,16 @@ services:
     container_name: pwndoc-ng-backend
     volumes:
       - ./backend/report-templates:/app/report-templates
+      - ./backend/backup:/app/backup
       - ./backend/src/config:/app/src/config
     depends_on:
       - mongodb
     environment:
       - COLLAB_WEBSOCKET_PORT=8440
+      # JWT secrets (32 characters at least, different): when set, they are not generated nor written in
+      # backend/src/config/config.json. Random values, e.g. `openssl rand -hex 32`
+      # - JWT_SECRET=change-me-with-a-random-value
+      # - JWT_REFRESH_SECRET=change-me-with-another-random-value
     restart: always
     ports:
       - 4242:4242

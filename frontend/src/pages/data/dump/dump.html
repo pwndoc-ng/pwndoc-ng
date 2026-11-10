@@ -3,9 +3,10 @@
         <q-tab name="vulnerabilities" default :label="$t('nav.vulnerabilities')" />
         <q-tab name="companies" :label="$t('companies')" />
         <q-tab name="collaborators" :label="$t('collaborators')" />
+        <q-tab v-if="canBackup" name="backup" icon="mdi-backup-restore" :label="$t('backup.title')" />
     </q-tabs>
     <div class="row">
-        <q-tab-panels v-model="selectedTab" class="bg-transparent col-md-10 col-12 offset-md-1 q-mt-md" @before-transition="Utils.syncEditors($refs)">
+        <q-tab-panels v-model="selectedTab" class="bg-transparent col-md-10 col-12 offset-md-1 q-mt-md">
             <q-tab-panel name="vulnerabilities">
                 <q-card>
                     <q-card-section>
@@ -235,6 +236,10 @@
                         </div>
                     </q-card-section>-->
                 </q-card>
+            </q-tab-panel>
+            <!-- Backups stored on the server: all the data or a part of it, restore (replace or merge), migration to another instance -->
+            <q-tab-panel v-if="canBackup" name="backup">
+                <backups-manager />
             </q-tab-panel>
         </q-tab-panels>
     </div>

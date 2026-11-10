@@ -13,7 +13,8 @@ services:
       - ./public:/app/public
       - ./.postcssrc.js:/app/.postcssrc.js
       - ./babel.config.js:/app/babel.config.js
-      - ./quasar.conf.js:/app/quasar.conf.js
+      - ./quasar.config.cjs:/app/quasar.config.cjs
+      - ./index.html:/app/index.html
       - ./package.json:/app/package.json
       - ./package-lock.json:/app/package-lock.json
     restart: always

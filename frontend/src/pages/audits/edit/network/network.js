@@ -1,8 +1,9 @@
 import { Notify, Dialog } from 'quasar';
 
 import Breadcrumb from 'components/breadcrumb';
+import CommentButton from 'components/comment-button';
 
-import AuditService from '@/services/audit';
+import AuditService, { errorMessage } from '@/services/audit';
 import Utils from '@/services/utils';
 import DataService from '@/services/data';
 import { $t } from '@/boot/i18n'
@@ -16,9 +17,6 @@ export default {
     data: () => {
         return {
             auditId: null,
-            audit: {
-                // scope: []
-            },
             audit: {
                 creator: {},
                 name: "",
@@ -37,6 +35,14 @@ export default {
                 approvals: []
             },
             auditOrig: {},
+            // Network data loaded: the scopes are shown and can be saved only from then on (until then, the scopes of
+            // the general data are names only)
+            loaded: false,
+            // Saves numbered in the order of the requests: copy of the audit sent by the last one, number of the last one
+            // answered (an older save answered after a newer one is not the saved version)
+            auditSaving: null,
+            saveCount: 0,
+            savedCount: 0,
             // List of available targets for select options
             targetsOptions: [],
             // List of selected targets
@@ -61,7 +67,8 @@ export default {
     },
 
     components: {
-        Breadcrumb
+        Breadcrumb,
+        CommentButton
     },
 
     mounted: function() {
@@ -74,17 +81,16 @@ export default {
         this.$socket.emit('menu', {menu: 'network', room: this.auditId});
 
         // save on ctrl+s
-        var lastSave = 0;
         document.addEventListener('keydown', this._listener, false)
 
     },
 
-    destroyed: function() {
+    unmounted: function() {
         document.removeEventListener('keydown', this._listener, false)
     },
 
     beforeRouteLeave (to, from , next) {
-        if (this.$_.isEqual(this.audit, this.auditOrig))
+        if (!this.unsavedChanges())
             next();
         else {
             Dialog.create({
@@ -98,6 +104,10 @@ export default {
     },
 
     computed: {
+        editable: function() {
+            return this.frontEndAuditState === this.AUDIT_VIEW_STATE.EDIT
+        },
+
         selectHostsLabel: function() {
             if (this.targetsOptions && this.targetsOptions.length > 0)
                 return $t('msg.selectHost')
@@ -121,10 +131,11 @@ export default {
         getAuditNetwork: function() {
 	    return AuditService.getAuditNetwork(this.auditId)
             .then((data) => {
-                this.audit = data.data.datas;
-                // Merge network audit data with existing audit data, preserving general data like scopes
-		Object.assign(this.audit, data.data.datas);
+                // Network data (scopes with their hosts) merged into the general data loaded before (name and type of
+                // the audit shown in the title)
+                this.audit = {...this.audit, ...data.data.datas};
                 this.auditOrig = this.$_.cloneDeep(this.audit);
+                this.loaded = true
             })
             .catch((err) => {
                 console.log(err)
@@ -140,11 +151,26 @@ export default {
                 console.log(err.response)
             })
         },
+        // Changes not saved, nor being saved
+        unsavedChanges: function() {
+            if (!this.loaded || this.$_.isEqual(this.audit, this.auditOrig))
+                return false
+            return !(this.auditSaving && this.$_.isEqual(this.audit, this.auditSaving))
+        },
+
         // Save Audit
         updateAuditNetwork: function() {
-            AuditService.updateAuditNetwork(this.auditId, this.audit)
+            if (!this.loaded) return
+            // Saved version: the data sent, not the data changed while the request is pending
+            var sent = this.$_.cloneDeep(this.audit)
+            var save = ++this.saveCount
+            this.auditSaving = sent
+            AuditService.updateAuditNetwork(this.auditId, sent)
             .then(() => {
-                this.auditOrig = this.$_.cloneDeep(this.audit);
+                if (save > this.savedCount) {
+                    this.savedCount = save
+                    this.auditOrig = sent;
+                }
                 Notify.create({
                     message: $t('msg.auditUpdateOk'),
                     color: 'positive',
@@ -154,11 +180,15 @@ export default {
             })
             .catch((err) => {
                 Notify.create({
-                    message: err.response.data.datas,
+                    message: errorMessage(err),
                     color: 'negative',
                     textColor:'white',
                     position: 'top-right'
                 })
+            })
+            .finally(() => {
+                if (save === this.saveCount) // Not a later save
+                    this.auditSaving = null
             })
         },
 
@@ -178,13 +208,21 @@ export default {
         },
 
         updateScopeHosts: function(scope) {
+            // Before the network data, the scopes are the names of the general data (without hosts)
+            if (!this.loaded)
+                return;
             if (!this.selectedTargets[scope.name]) {
                 console.error(`Scope "${scope.name}" not found in selectedTargets.`);
                 return;
             }
-            for (var i=0; i<this.selectedTargets[scope.name].length; i++) {
-                scope.hosts.push(this.selectedTargets[scope.name][i].host);
-            }
+            // A host already in the scope is replaced (imported again, or add button clicked twice), not added twice
+            this.selectedTargets[scope.name].forEach(target => {
+                var index = scope.hosts.findIndex(host => (host.ip || host) === target.host.ip)
+                if (index > -1)
+                    scope.hosts.splice(index, 1, target.host)
+                else
+                    scope.hosts.push(target.host)
+            })
         },
 
         // Method to handle host click
@@ -345,8 +383,9 @@ export default {
                     var version = reports[j].getAttribute('svc_version');
         
                     if (port !== "0") {
+                    // Items of the same service merged (same port in TCP and UDP: two services, e.g. DNS 53)
                     var prev = host["services"].filter(function(service){
-                        return (service.port == port);
+                        return (service.port == port && service.protocol == protocol);
                     });
         
                     var service = prev.length == 0 ? {} : prev[0];

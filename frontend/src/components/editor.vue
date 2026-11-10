@@ -6,6 +6,7 @@
     class="editor full-width"
     :class="affixRelativeElement"
     :style="editable ? '' : 'border: 1px dashed lightgrey'"
+    :aria-busy="loadingContent"
   >
   <div v-sticky sticky-offset="stickyConfig"  class="bg-white">
       <q-toolbar class="editor-toolbar">
@@ -21,6 +22,9 @@
             :label="formatLabel"
             style="width: 42px"
             class="text-bold"
+            auto-close
+            no-refocus
+            :disable="!canEdit"
           >
             <q-list dense>
               <q-item
@@ -115,6 +119,9 @@
             :icon="highlightIcon"
             style="width: 42px"
             class="text-bold"
+            auto-close
+            no-refocus
+            :disable="!canEdit"
           >
             <q-tooltip :delay="500" content-class="text-bold"
               >Highlight</q-tooltip
@@ -178,6 +185,7 @@
 
           <!-- Bold button -->
           <q-btn
+            :disable="!canEdit"
             flat
             size="sm"
             dense
@@ -190,6 +198,7 @@
           <!-- Bold button end -->
           <!-- Italic button -->
           <q-btn
+            :disable="!canEdit"
             flat
             size="sm"
             dense
@@ -202,6 +211,7 @@
           <!-- Italic button end -->
           <!-- Underline button -->
           <q-btn
+            :disable="!canEdit"
             flat
             size="sm"
             dense
@@ -216,6 +226,7 @@
           <!-- Underline button end -->
           <!-- Strike button -->
           <q-btn
+            :disable="!canEdit"
             flat
             size="sm"
             dense
@@ -227,6 +238,7 @@
             <q-icon name="format_strikethrough" />
           </q-btn>
           <q-btn
+            :disable="!canEdit"
             flat
             size="sm"
             dense
@@ -241,7 +253,7 @@
             size="sm"
             dense
             @click="editor.chain().focus().unsetLink().run()"
-            :disabled="!editor.isActive('link') "
+            :disable="!canEdit || !editor.isActive('link')"
           >
             <q-tooltip :delay="500" content-class="text-bold">unset a link</q-tooltip>
             <q-icon name="mdi-link-off" />
@@ -259,6 +271,7 @@
         <div v-if="toolbar.indexOf('list') !== -1">
           <!-- Bullet list -->
           <q-btn
+            :disable="!canEdit"
             flat
             size="sm"
             dense
@@ -273,6 +286,7 @@
           <!-- Bullet list end-->
           <!-- Number list -->
           <q-btn
+            :disable="!canEdit"
             flat
             size="sm"
             dense
@@ -293,7 +307,7 @@
         />
 
         <div v-if="toolbar.indexOf('code') !== -1">
-          <q-btn flat size="sm" dense
+          <q-btn flat size="sm" dense :disable="!canEdit"
                  :class="{ 'is-active': editor.isActive('code') }"
                  @click="editor.chain().focus().toggleCode().run()"
           >
@@ -301,7 +315,7 @@
             <q-icon name="code" />
           </q-btn>
 
-          <q-btn flat size="sm" dense
+          <q-btn flat size="sm" dense :disable="!canEdit"
                  :class="{ 'is-active': editor.isActive('codeBlock') }"
                  @click="editor.chain().focus().toggleCodeBlock().run()"
           >
@@ -319,6 +333,7 @@
         <div v-if="toolbar.indexOf('table') !== -1">
           <!-- Add Table -->
           <q-btn
+            :disable="!canEdit"
             flat
             size="sm"
             dense
@@ -332,6 +347,7 @@
             <q-icon name="mdi-table" />
           </q-btn>
           <q-btn
+              :disable="!canEdit"
               flat
               size="sm"
               dense
@@ -345,6 +361,7 @@
             <q-icon name="mdi-table-column-plus-after" />
           </q-btn>
           <q-btn
+              :disable="!canEdit"
               flat
               size="sm"
               dense
@@ -358,6 +375,7 @@
             <q-icon name="mdi-table-row-plus-after" />
           </q-btn>
           <q-btn
+              :disable="!canEdit"
               flat
               size="sm"
               dense
@@ -375,7 +393,7 @@
               flat
               size="sm"
               dense
-              @click="editor.chain().focus().deleteRow().run()" :disabled="!editor.can().deleteRow()"
+              @click="editor.chain().focus().deleteRow().run()" :disable="!canEdit || !editor.can().deleteRow()"
           >
             <q-tooltip :delay="500" content-class="text-bold"
             >Delete Table Row</q-tooltip
@@ -387,7 +405,7 @@
               flat
               size="sm"
               dense
-              @click="editor.chain().focus().deleteColumn().run()" :disabled="!editor.can().deleteColumn()"
+              @click="editor.chain().focus().deleteColumn().run()" :disable="!canEdit || !editor.can().deleteColumn()"
           >
             <q-tooltip :delay="500" content-class="text-bold"
             >Delete Table Column</q-tooltip>
@@ -399,7 +417,7 @@
             size="sm"
             dense
             @click="editor.chain().focus().deleteTable().run()"
-            :disabled="!editor.can().deleteTable()"
+            :disable="!canEdit || !editor.can().deleteTable()"
           >
             <q-icon name="delete" />
             <q-tooltip :delay="500" content-class="text-bold"
@@ -418,14 +436,14 @@
           <q-tooltip :delay="500" content-class="text-bold">
             Insert Image
           </q-tooltip>
-          <q-btn flat size="sm" dense>
+          <q-btn flat size="sm" dense :disable="!canEdit">
             <label class="cursor-pointer">
               <input
                 type="file"
                 accept="image/*"
                 class="hidden"
                 @change="importImage($event.target.files)"
-                :disabled="!editable"
+                :disabled="!canEdit"
               />
               <q-icon name="image" />
             </label>
@@ -441,7 +459,7 @@
           <q-tooltip :delay="500" content-class="text-bold">
             Insert Caption</q-tooltip
           >
-          <q-btn-dropdown flat size="sm" dense icon="subtitles">
+          <q-btn-dropdown flat size="sm" dense icon="subtitles" no-refocus :disable="!canEdit">
             <q-list dense>
               <q-item
                 v-for="caption of $settings.report.public.captions"
@@ -468,6 +486,7 @@
         />
 
         <q-btn
+          :disable="!canEdit"
           flat
           size="sm"
           dense
@@ -478,6 +497,7 @@
         </q-btn>
 
         <q-btn
+          :disable="!canEdit"
           flat
           size="sm"
           dense
@@ -505,11 +525,33 @@
       </q-toolbar>
     </div>
     <q-separator />
+    <!-- TipTap moves the element of the bubble menus next to the selection: the conditional nodes of the card are kept in
+         fixed wrappers, otherwise Vue inserts them before a moved bubble menu (NotFoundError, page no longer updated) -->
+    <div class="editor-state">
+      <!-- Content not loaded yet (value of the page, collaboration websocket): read-only until then -->
+      <q-linear-progress v-if="loadingContent" class="editor-loading" indeterminate color="secondary" size="2px" />
+      <!-- Collaborative editing refused by the server or server not answering: read-only, retry possible -->
+      <div v-else-if="collabError" class="editor-unavailable row items-center no-wrap q-px-sm text-caption text-negative">
+        <q-icon name="mdi-cloud-off-outline" class="q-mr-xs" />
+        <span class="col">{{ collabError.kind === 'unavailable' ? $t('editorCollabUnavailable', [collabError.reason]) : $t('editorCollabUnreachable') }}</span>
+        <q-btn flat dense no-caps size="sm" color="negative" :label="$t('editorCollabRetry')" @click="recreateEditor" />
+      </div>
+      <!-- Collaboration websocket lost: the changes are kept and shared once connected again -->
+      <div v-else-if="shared && status !== 'connected'" class="editor-disconnected row items-center no-wrap q-px-sm text-caption text-orange-9">
+        <q-icon name="mdi-wifi-off" class="q-mr-xs" />{{ $t('editorDisconnected') }}
+      </div>
+      <!-- Value of the page shown while the shared content cannot be loaded -->
+      <div v-if="previewShown" class="editor__content editor-preview q-pa-sm">
+        <div class="ProseMirror" v-html="previewContent"></div>
+      </div>
+    </div>
+    <!-- Formatting and LanguageTool menus: not shown when the audit is in review, where a selection is made to comment it -->
+    <div class="editor-menu-wrapper">
      <bubble-menu
       class="editor-bubble-menu"
       :editor="editor"
-      :tippy-options="{ duration: 100 }"
-      v-if="editor"
+      :options="{ placement: 'top', offset: 6 }"
+      v-if="editor && !commentMode"
     >
       <button @click="editor.chain().focus().toggleBold().run()" :class="{ 'is-active': editor.isActive('bold') }">
         <q-icon name="format_bold" />
@@ -526,14 +568,21 @@
       <button   @click="editor.isActive('link') ? editor.chain().focus().unsetLink().run() : setLink()" >
         <q-icon :name="editor.isActive('link') ? 'mdi-link-off' : 'mdi-link' " />
       </button>
+      <!-- Comment the selected passage (audit not in review: the comment action is part of this menu) -->
+      <button v-if="commentable" class="editor-bubble-menu__comment" @mousedown.prevent @click="commentSelectedText">
+        <q-icon name="mdi-comment-plus-outline" />
+        <q-tooltip :delay="500">{{ $t('comments.commentSelection') }}</q-tooltip>
+      </button>
 
 
     </bubble-menu>
+    </div>
+    <div class="editor-menu-wrapper">
     <bubble-menu
   class="bubble-menu"
-  v-if="editor"
+  v-if="editor && !commentMode"
   :editor="editor"
-  :tippy-options="{ placement: 'bottom', animation: 'fade' }"
+  :options="{ placement: 'bottom', offset: 6 }"
 >
   <section class="bubble-menu-section-container">
     <section class="message-section">
@@ -551,77 +600,81 @@
     </section>
   </section>
 </bubble-menu>
+    </div>
     <editor-content
       v-if="typeof diff === 'undefined' || !toggleDiff"
+      v-show="!previewShown"
       class="editor__content q-pa-sm"
       :editor="editor"
+      @dblclick="zoomImage"
+      @mouseup="checkCommentSelection"
+      @keyup="checkCommentSelection"
+      @click="onContentClick"
     />
-    <div v-else class="editor__content q-pa-sm">
+    <div v-else class="editor__content q-pa-sm" @dblclick="zoomImage">
       <div class="ProseMirror" v-html="diffContent"></div>
     </div>
+    <!-- Comment the selected passage -->
+    <q-btn
+      v-if="commentSelection && !commentInFormatMenu"
+      class="comment-selection-btn"
+      :style="{ top: (commentSelection.top - 40) + 'px', left: commentSelection.left + 'px' }"
+      color="orange-8"
+      unelevated
+      dense
+      no-caps
+      icon="mdi-comment-plus-outline"
+      :label="$t('comments.commentSelection')"
+      @mousedown.prevent
+      @click="commentOnSelection"
+    />
+
+    <!-- Image zoom (double click on an image): fit to screen, click on the image to toggle actual size -->
+    <q-dialog v-model="zoom.show" maximized transition-show="fade" transition-hide="fade">
+      <div
+        class="editor-image-zoom"
+        :class="{ 'editor-image-zoom--full': zoom.fullSize }"
+        @click.self="zoom.show = false"
+      >
+        <q-btn class="editor-image-zoom__close" round flat dense icon="close" color="white" @click="zoom.show = false" />
+        <img :src="zoom.src" :alt="zoom.alt" @click="zoom.fullSize = !zoom.fullSize" />
+        <div v-if="zoom.alt" class="editor-image-zoom__caption">{{ zoom.alt }}</div>
+      </div>
+    </q-dialog>
   </q-card>
 </template>
 
 <script>
 import { defineComponent,ref } from 'vue';
+import { Notify } from 'quasar';
 
-import { Editor, EditorContent, BubbleMenu, VueNodeViewRenderer  } from "@tiptap/vue-3";
+import { Editor, EditorContent, VueNodeViewRenderer } from "@tiptap/vue-3";
+import { BubbleMenu } from "@tiptap/vue-3/menus";
 //  Import extensions
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 
 
 import { LanguageTool } from './languagetool'
-import Highlight from "@tiptap/extension-highlight";
-import Underline from "@tiptap/extension-underline";
-import StarterKit from "@tiptap/starter-kit";
-import Table from "@tiptap/extension-table";
-import TableCell from "@tiptap/extension-table-cell";
-import TableRow from "@tiptap/extension-table-row";
-import TableHeader from "@tiptap/extension-table-header";
-import Link from "@tiptap/extension-link";
-import CustomImage from "./editor-image";
-//import Caption from "./editor-caption";
-import { Figure } from "./figure";
+import { contentExtensions, lowlight } from './editor-extensions'
+import { CommentHighlight, commentHighlightKey, quoteFromRange } from "./comment-highlight";
 import { TriggerMenuExtension } from './internal-link';
 import {v4 as uuidv4} from 'uuid';
 import UserService from '@/services/user';
 import Collaboration from '@tiptap/extension-collaboration'
-import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
+import { fixPluginRegistration, keepUndoManagerTracking, setInitialCollaborativeContent, initialContentIds } from './editor-collaboration'
+import { uploadImageFile } from './editor-image'
+import CollaborationCaret from '@tiptap/extension-collaboration-caret'
+import { ySyncPluginKey } from '@tiptap/y-tiptap'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
 
 
 
-import css from 'highlight.js/lib/languages/css'
-import js from 'highlight.js/lib/languages/javascript'
-import http from 'highlight.js/lib/languages/http'
-import ts from 'highlight.js/lib/languages/typescript'
-import html from 'highlight.js/lib/languages/xml'
-import bash from 'highlight.js/lib/languages/bash';
-import sql from 'highlight.js/lib/languages/sql';
-import json from 'highlight.js/lib/languages/json';
 import CodeBlockComponent from './CodeBlockComponent.vue'
-
-import { all, createLowlight } from 'lowlight'
-
-// create a lowlight instance
-const lowlight = createLowlight(all)
-
-// you can also register languages
-lowlight.register('html', html)
-lowlight.register('css', css)
-lowlight.register('javascripts', js)
-lowlight.register('ts', ts)
-lowlight.register('http', http)
-lowlight.register('bash', bash);
-lowlight.register('sql', sql);
-lowlight.register('json', json);
-
 
 const Diff = require("diff");
 //  Internal libs
 import Utils from "@/services/utils";
-import ImageService from "@/services/image";
 
 
 const match = ref(null)
@@ -629,6 +682,9 @@ const match = ref(null)
 
 const updateHtmlLanguageTool = () => navigator.clipboard.writeText(editor.value.getHTML())
 
+
+// Collaborative editor not synchronized after this delay: server considered as not answering (value of the page shown)
+const UNREACHABLE_DELAY = 15000
 
 export default defineComponent({
   emits: ['editorchange', 'ready', 'update:modelValue'],
@@ -670,7 +726,22 @@ export default defineComponent({
       type: Boolean,
       default: false,
     },
+    // Review comments target of this field ({kind, findingId|sectionId, field}): enables comments on passages
+    commentTarget: {
+      type: Object,
+      default: null,
+    },
+    // Value of the page not loaded yet: the editor waits for it (read-only, nothing written in the shared document)
+    loading: {
+      type: Boolean,
+      default: false,
+    },
 
+  },
+
+  // Review comments store of the audit edit page (null outside an audit)
+  inject: {
+    commentsStore: { from: 'auditComments', default: null },
   },
 
   components: {
@@ -686,11 +757,14 @@ export default defineComponent({
       toggleDiff: true,
       affixRelativeElement: "affix-relative-element",
       status: 'connecting',
-      state:false,
+      synced: false, // Shared document synchronized with the server (always true without collaboration)
       fullId:"",
-      countChange:0,
-      countChangeAfterUpdate:-1,
-      initialeDataUpdated:false,
+      initialeDataUpdated:false, // Content loaded: editable from then on
+      collabError: null, // Shared content not available: {kind: 'unavailable', reason} (refused) or {kind: 'unreachable'}
+      emptyInitialValue: false, // Initialized with an empty value and not modified since (value may arrive later)
+      earlyText: '', // Characters typed before the content was loaded
+      commentSelection: null, // Selected passage to comment: {quote, top, left}
+      zoom: {show: false, src: '', alt: '', fullSize: false}, // Image zoom dialog
       htmlEncode: Utils.htmlEncode,
       stickyConfig: {
         zIndex: 1000,
@@ -704,184 +778,116 @@ export default defineComponent({
   },
 
   watch: {
-    async modelValue(value) {
-      await this.updateInitialeValue(value)
+    // Value received after an initialization with an empty value (e.g. custom fields loaded after the editor), editor
+    // still empty and not changed by the user: shown (written in the shared document only if it is still empty).
+    // Before the initialization, the last value is loaded by initialize().
+    modelValue(value) {
+      if (this.initialeDataUpdated && this.emptyInitialValue && value && this.editor && this.editor.getHTML() === '<p></p>') {
+        this.emptyInitialValue = false
+        this.setInitialCollaborativeContent(value)
+      }
+    },
+    loading(value) {
+      if (!value) this.initialize()
     },
     editable(value) {
-      //this.editor.setOptions({ editable: this.editable });
-      this.editor.setEditable(this.editable && this.initialeDataUpdated);
+      if (this.editor) this.editor.setEditable(this.canEdit);
+    },
+    quoteComments: {
+      handler() { this.updateCommentHighlights() },
+      deep: true,
+    },
+    'commentsStore.activeId'() {
+      this.updateCommentHighlights()
     },
   },
 
   mounted() {
-
-    const updateMatch = this.updateMatch;
-
-
-
-    const proofread = () => this.editor.commands.proofread()
-
-
-
     if (this.modelValue === undefined || this.modelValue === null) {
       this.$emit('update:modelValue', '');
     }
-     const ydoc = new Y.Doc()
      if(this.idUnique == '') {
       this.ClassEditor = uuidv4()
      } else {
       this.ClassEditor = this.idUnique
      }
      this.username = UserService.user.username
-     if (typeof this.$route.params.findingId == 'undefined'){
-        this.fullId=this.ClassEditor
-     } else {
-        this.fullId= this.$route.params.auditId+'-'+this.$route.params.findingId+'-'+this.ClassEditor
-     }
+     // Field of the shared document of the audit: one per finding or section and per editor
+     const { auditId, findingId, sectionId } = this.$route.params
+     const element = findingId || sectionId
+     this.fullId = element ? `${auditId}-${element}-${this.ClassEditor}` : this.ClassEditor
 
-    let extensionEditor = [
-        StarterKit.configure({
-          codeBlock: false, // Disable standard codeBlock to use code block highlight
-        }),
-
-        Highlight.configure({
-          multicolor: true,
-        }),
-        Link.configure({
-          protocols: ['ftp', 'mailto'],
-             linkOnPaste: false,
-              openOnClick: false,
-        }),
-        CodeBlockLowlight
-          .extend({
-            addNodeView() {
-              return VueNodeViewRenderer(CodeBlockComponent)
-            },
-          })
-          .configure({ lowlight }),
-        Underline,
-        Table.configure({
-          resizable: true,
-        }),
-        TableRow,
-        TableHeader,
-        TableCell,
-        TriggerMenuExtension,
-        CustomImage.configure({
-          HTMLAttributes: {
-            class: "custom-image",
-          },
-          allowBase64: true
-        }),
-        Figure,
-        LanguageTool.configure({
-         apiUrl: `https://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/v2/check`, 
-          //apiUrl: `https://127.0.0.1:8443/v2/check`, 
-          language: 'auto',   
-          automaticMode: true, // 1 second delay before verification
-        }),
-      ]
-     if(this.collab){
-
-       this.provider = new HocuspocusProvider({
-        url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
-        //url:"wss://127.0.0.1:8443/collab/",
-        name: this.$route.params.auditId ||  this.idUnique.replace('-', '/'),
-        document  : ydoc
-      })
-
-      this.provider.on('status', event => {
-        this.status = event.status
-        console.log('status',event.status)
-      })
-      this.provider.on('synced', state => {
-        this.state=state.state
-        console.log('ok',state.state)
-      })
-      extensionEditor.push(Collaboration.configure({
-          document: ydoc,
-          field: this.fullId
-      }))
-      extensionEditor.push(CollaborationCursor.configure({
-          provider: this.provider,
-          user: {
-            name:  this.username,
-            color:  this.stringToColour(this.username)
-          }
-      }))
-
-    } else {
-      this.state=true
-      this.status = 'connected'
-
-    }
-
-    this.editor = new Editor({
-      editable: false,
-      extensions: extensionEditor ,
-      onUpdate: ({editor}) => {
-        setTimeout(() => updateMatch(editor))
-        if(this.state && this.initialeDataUpdated && this.countChangeAfterUpdate>0 && this.countChangeAfterUpdate<this.countChange){
-           this.$emit('editorchange') // need save only if sync is done
-        } else {
-          this.countChange++
-        }
-        if (this.noSync) return;
-        this.updateHTML();
-      },
-      onSelectionUpdate({ editor }) {
-        setTimeout(() => updateMatch(editor))
-      },
-      disableInputRules: true,
-      disablePasteRules: true,
-    });
+    this.createEditor()
 
     // Listen to auto correction toggle changes
     this.autoCorrectionToggleListener = (event) => {
-      if (this.editor && this.editor.extensionStorage.languagetool) {
-        this.editor.extensionStorage.languagetool.updateLanguageToolState();
+      if (this.editor && this.editor.storage.languagetool) {
+        this.editor.storage.languagetool.updateLanguageToolState();
       }
     };
     window.addEventListener('autoCorrectionToggleChanged', this.autoCorrectionToggleListener);
 
+    // Review comments: selection button hidden when scrolling
+    this.hideCommentSelection = () => { this.commentSelection = null };
+    window.addEventListener('scroll', this.hideCommentSelection, true);
+
     this.affixRelativeElement += "-" +  this.ClassEditor;
-    //this.editor.setOptions({ editable: this.editable });
-    this.editor.setEditable(this.editable && this.initialeDataUpdated);
-    
-    if (typeof this.modelValue === "undefined") {
-      this.$emit('update:modelValue', "");
-    }
-
-    if (
-      this.modelValue === this.editor.getHTML()
-    ) {
-      return;
-    }
-    this.updateInitialeValue(this.modelValue)
-
+    this.initialize()
   },
 
-  async beforeUnmount() {
-    while(1){
-      if(this.state==1 && this.status=='connected') break;
-      else await this.sleep(100)
-    }
-    if(this.collab){
-      this.provider.destroy()
-    }
-    
-    // Clean up auto correction listener
-    if (this.autoCorrectionToggleListener) {
-      window.removeEventListener('autoCorrectionToggleChanged', this.autoCorrectionToggleListener);
-    }
-    
-    this.editor.destroy();
+  // Released at once, connected or not: an editor of a page left never writes in the shared document
+  beforeUnmount() {
+    this.destroyed = true
+    clearTimeout(this.unreachableTimer)
+    window.removeEventListener('scroll', this.hideCommentSelection, true);
+    window.removeEventListener('autoCorrectionToggleChanged', this.autoCorrectionToggleListener);
+    this.destroyProvider();
+    if (this.editor) this.editor.destroy();
   },
 
   computed: {
 
+    // Name of the shared document: the audit of the page, or the editor (idUnique) outside the audits
+    documentName() {
+      return this.$route.params.auditId || this.idUnique.replace('-', '/');
+    },
+    // Collaborative editor: it needs a shared document. An editor without name (no audit, no idUnique) is not shared: the
+    // server refuses the empty name and the editor would wait for a synchronization that never comes
+    shared() {
+      return this.collab && !!this.documentName;
+    },
+    // Toolbar usable: editable editor whose content is loaded and shared (the commands of TipTap ignore the read-only state)
+    canEdit() {
+      return this.editable && this.initialeDataUpdated && !this.collabError;
+    },
+    loadingContent() {
+      return !this.initialeDataUpdated && !this.collabError;
+    },
+    previewShown() {
+      return !this.initialeDataUpdated && !!this.collabError;
+    },
+    previewContent() {
+      return this.withImageUrls(Utils.htmlEncode(this.htmlValue(this.modelValue)));
+    },
+    commentable() {
+      return !!(this.commentsStore && this.commentTarget);
+    },
+    // Comment mode: audit in review, selecting a passage only proposes to comment it (no formatting menu)
+    commentMode() {
+      return this.commentable && this.commentsStore.inReview();
+    },
+    // Editable editor outside review: the comment action is in the formatting menu of the selection
+    commentInFormatMenu() {
+      return this.commentable && !this.commentMode && this.editable;
+    },
+    // Open comments on passages and images of this field (highlighted)
+    quoteComments() {
+      if (!this.commentable) return [];
+      return this.commentsStore.forTarget(this.commentTarget).filter(comment => (comment.quote || comment.image) && !comment.resolved);
+    },
+
     match() {
-      return this.editor ? this.editor.extensionStorage.languagetool.match.value : null;
+      return this.editor ? this.editor.storage.languagetool.match.value : null;
     },
     matchMessage() {
      // console.log('matchmessage',this.match.message,this.match)
@@ -917,8 +923,11 @@ export default defineComponent({
             /([{}:;,.]|<p>|<\/p>|<pre><code>|<\/code><\/pre>|<[uo]l><li>.*<\/li><\/[uo]l>|\s+)/
           );
         };
-        var value = this.modelValue || "";
-        var diff = HtmlDiff.diff(this.diff, value);
+        // Both versions are sanitized before the diff (broken tags cannot smuggle attributes through the
+        // diff markers), and the result is sanitized again before v-html
+        var value = Utils.htmlEncode(this.modelValue || "");
+        var previous = Utils.htmlEncode(this.diff || "");
+        var diff = HtmlDiff.diff(previous, value);
         diff.forEach((part) => {
           const diffclass = part.added
             ? "diffadd"
@@ -944,48 +953,230 @@ export default defineComponent({
           content += value;
         });
       }
-      return content;
+      return this.withImageUrls(Utils.htmlEncodeDiff(content));
     },
   },
 
   methods: {
+    // TipTap Collaboration restores the undo manager of the collaboration when the plugin views are recreated (the
+    // bubble menus register their plugin when mounted), but loses track of it when the views are destroyed several
+    // times in a row: undone changes could no longer be redone. The undo manager must track its own transactions
+    // (default of Yjs) to fill the redo stack.
+    // Collaborative editors: see editor-collaboration.js
+    // Editor and, for the collaborative editors, Yjs document and connection to the shared document
+    createEditor() {
+      let extensionEditor = [
+          // Content of the editor (schema and HTML): editor-extensions.js
+          ...contentExtensions({
+            collab: this.shared,
+            codeBlock: CodeBlockLowlight
+              .extend({
+                addNodeView() {
+                  return VueNodeViewRenderer(CodeBlockComponent)
+                },
+              })
+              .configure({ lowlight }),
+          }),
+          TriggerMenuExtension,
+          CommentHighlight.configure(), // New instance per editor: its storage (field target) must not be shared
+          LanguageTool.configure({
+           apiUrl: `https://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/v2/check`, 
+            //apiUrl: `https://127.0.0.1:8443/v2/check`, 
+            language: 'auto',   
+            automaticMode: true, // 1 second delay before verification
+          }),
+        ]
+       if(this.shared){
+         const ydoc = new Y.Doc()
+
+         // Events of a provider replaced since (shared document reloaded) are ignored
+         const provider = new HocuspocusProvider({
+          url: `wss://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/collab/`,
+          //url:"wss://127.0.0.1:8443/collab/",
+          name: this.documentName,
+          document  : ydoc,
+          // Authentication message waited by the server before sharing the document (the user is authenticated server
+          // side with the httpOnly token cookie): ids of the initial contents of the fields of the copy of this client,
+          // refused by the server when a field was initialized meanwhile from another value of the database (stale-document)
+          token: () => JSON.stringify({ init: initialContentIds(ydoc) }),
+        })
+        this.provider = provider
+
+        provider.on('status', event => {
+          if (this.destroyed || this.provider !== provider) return
+          this.status = event.status
+          // Content of the shared document unknown until the next synchronization (Hocuspocus emits 'synced' only with true)
+          if (event.status !== 'connected') this.synced = false
+        })
+        provider.on('synced', event => {
+          if (this.destroyed || this.provider !== provider) return
+          this.synced = !!event.state
+          this.initialize()
+        })
+        provider.on('authenticationFailed', ({ reason }) => {
+          if (this.destroyed || this.provider !== provider) return
+          if (reason === 'stale-document') this.reloadSharedDocument()
+          else this.stopCollaboration(reason)
+        })
+        // Server not answering: the state is shown (the provider keeps trying, the editor is loaded once synchronized)
+        clearTimeout(this.unreachableTimer)
+        this.unreachableTimer = setTimeout(() => {
+          if (!this.destroyed && this.provider === provider && !this.synced && !this.collabError) this.collabError = { kind: 'unreachable' }
+        }, UNREACHABLE_DELAY)
+        extensionEditor.push(Collaboration.configure({
+            document: ydoc,
+            field: this.fullId
+        }))
+        extensionEditor.push(CollaborationCaret.configure({
+            provider: provider,
+            user: {
+              name:  this.username,
+              color:  this.stringToColour(this.username)
+            }
+        }))
+
+      } else {
+        this.synced = true
+        this.status = 'connected'
+
+      }
+
+      this.editor = new Editor({
+        editable: false,
+        extensions: extensionEditor ,
+        editorProps: {
+          // Read-only editor (review): kept focusable so that a click selects text. Otherwise the focus goes to the
+          // focusable wrapper of the q-field around the editor, which hands it to another control and cancels the selection
+          attributes: (state) => (this.editor && this.editor.isEditable ? {} : { tabindex: '-1' }),
+          // Keys typed before the content is loaded (read-only editor): kept, typed at the end of the content once loaded
+          handleDOMEvents: {
+            keydown: (view, event) => this.keepEarlyKey(event),
+          },
+        },
+        onTransaction: () => this.keepUndoManagerTracking(),
+        onUpdate: ({editor, transaction}) => {
+          setTimeout(() => this.updateMatch(editor))
+          // Unsaved changes of the page: changes of the user only
+          if (this.initialeDataUpdated && this.isUserChange(transaction)) {
+             this.emptyInitialValue = false
+             this.$emit('editorchange')
+          }
+          if (this.noSync) return;
+          this.updateHTML();
+        },
+        onSelectionUpdate: ({ editor }) => {
+          setTimeout(() => this.updateMatch(editor))
+        },
+        disableInputRules: true,
+        disablePasteRules: true,
+      });
+
+      // Bubble menus register their plugin after the creation: see editor-collaboration.js
+      fixPluginRegistration(this.editor);
+
+      // Review comments: highlighted passages and images
+      this.editor.storage.commentHighlight.target = this.commentTarget;
+      this.editor.storage.commentHighlight.store = this.commentsStore;
+      this.updateCommentHighlights();
+    },
+    // The server refused the copy of this client: a field of the shared document was initialized again since from another
+    // value of the database (document unloaded, then reopened by another user after a save). The copy and its changes
+    // not synchronized are dropped and the shared document is loaded again, instead of being merged (duplicated content).
+    async reloadSharedDocument() {
+      await this.recreateEditor();
+      if (!this.destroyed) Notify.create({ message: this.$t('editorDocumentReloaded'), color: 'warning', textColor: 'white', position: 'top-right' });
+    },
+    // New editor, Yjs document and connection (shared document reloaded, collaboration retried by the user)
+    async recreateEditor() {
+      if (this.destroyed) return;
+      clearTimeout(this.unreachableTimer);
+      this.destroyProvider();
+      this.provider = null;
+      this.editor.destroy();
+      this.editor = null;
+      Object.assign(this, { initialeDataUpdated: false, synced: false, status: 'connecting', emptyInitialValue: false, collabError: null, earlyText: '' });
+      await this.$nextTick();
+      if (this.destroyed) return;
+      this.createEditor();
+    },
+    // Authentication refused by the collaboration server (rights, session): no endless retries of the provider, the
+    // editor leaves the loading state, read-only (value of the page shown when the shared content was not loaded)
+    stopCollaboration(reason) {
+      clearTimeout(this.unreachableTimer);
+      this.destroyProvider();
+      this.provider = null;
+      this.synced = false;
+      this.collabError = { kind: 'unavailable', reason: reason || 'permission-denied' };
+      this.editor.setEditable(false);
+    },
+    // Connection closed after removing the caret of the user (sent to the others before the connection is closed)
+    destroyProvider() {
+      if (!this.provider) return;
+      this.provider.awareness.setLocalState(null);
+      this.provider.destroy();
+    },
+    setInitialCollaborativeContent(value) {
+      setInitialCollaborativeContent(this.editor, this.flattenCodeBlocks(this.htmlValue(value)));
+    },
+    // HTML of a value of the page: imported data can give another type to a rich text field (number, list, object),
+    // shown as text
+    htmlValue(value) {
+      if (typeof value === 'string') return value;
+      if (value === null || value === undefined) return '';
+      const paragraph = document.createElement('p');
+      paragraph.textContent = Array.isArray(value) ? value.join(', ') : (typeof value === 'object' ? JSON.stringify(value) : String(value));
+      return paragraph.outerHTML;
+    },
+    // Images are stored by id: raw HTML shown with v-html needs their download URL
+    withImageUrls(html) {
+      return html.replace(/(<img\b[^>]*?\ssrc=")([^"]+)(")/g, (match, before, src, after) => before + Utils.normalizeImageUrl(src) + after);
+    },
+    // Initialization once the value of the page is loaded (loading prop) and, for the collaborative editors, the shared
+    // document synchronized: its content is kept, or the last value of the page is written in the empty field.
+    // Editable from then on.
+    initialize() {
+      if (this.destroyed || !this.editor || this.initialeDataUpdated || this.loading || !this.synced) return;
+      clearTimeout(this.unreachableTimer);
+      this.collabError = null;
+      const value = this.modelValue;
+      this.setInitialCollaborativeContent(value);
+      this.emptyInitialValue = !value && this.editor.getHTML() === '<p></p>';
+      this.initialeDataUpdated = true;
+      this.editor.setEditable(this.canEdit);
+      this.$emit('ready');
+      if (this.earlyText) {
+        // At the end of the last paragraph (as text, not HTML), in a new paragraph after a last image or table
+        const { doc } = this.editor.state;
+        const text = { type: 'text', text: this.earlyText };
+        if (doc.lastChild.isTextblock) this.editor.commands.insertContentAt(doc.content.size - 1, text);
+        else this.editor.commands.insertContentAt(doc.content.size, { type: 'paragraph', content: [text] });
+        this.earlyText = '';
+      }
+    },
+    keepEarlyKey(event) {
+      if (this.initialeDataUpdated || !this.editable || event.key.length !== 1 || event.ctrlKey || event.metaKey || event.altKey)
+        return false;
+      this.earlyText += event.key;
+      event.preventDefault();
+      return true;
+    },
+    // Change of the document made by the user in this editor: not the initial content, the content received from the
+    // collaboration (other users, synchronization) nor the update event of setEditable (document unchanged).
+    // The undo / redo of the collaboration are changes of the user.
+    isUserChange(transaction) {
+      if (!transaction || !transaction.docChanged) return false;
+      const sync = transaction.getMeta(ySyncPluginKey);
+      return !(sync && sync.isChangeOrigin && !sync.isUndoRedoOperation);
+    },
+    keepUndoManagerTracking() {
+      if (this.shared) keepUndoManagerTracking(this.editor);
+    },
     acceptSuggestion(sug)  {
       this.editor.commands.insertContent(sug.value)
     },
     updateMatch(editor) {
 
 
-    },
-    async updateInitialeValue(value){
-
-              
-    if( typeof this.$route.params.auditId == 'undefined' && (this.idUnique.split('-')[0]=="undefined" || this.idUnique.split('-') == ""  )&& this.initialeDataUpdated==false){
-      // if editor is init not in vuln edit context like cutom field
-      this.editor.commands.setContent(value, false);
-      this.initialeDataUpdated=true
-      this.editor.setEditable(this.editable && this.initialeDataUpdated);
-      this.$emit('ready')
-      this.countChangeAfterUpdate=this.countChange
-    } else {
-
-      if(this.initialeDataUpdated==false){
-          for (let i = 0; i < 200; i++) { // 25 second to connect web socket failed after
-            if(this.status=='connected' && this.state){
-              if(this.editor.getHTML() != value && this.editor.getHTML()=='<p></p>'){
-                this.editor.commands.setContent(value, false);
-              }
-              this.initialeDataUpdated=true
-              this.editor.setEditable(this.editable && this.initialeDataUpdated);
-              this.$emit('ready')
-              this.countChangeAfterUpdate=this.countChange
-              break;
-            } else {
-              await this.sleep(500)
-              console.log('Wait websocket')
-            }
-          }
-        }
-      } 
     },
     setLink(){
       const previousUrl = this.editor.getAttributes('link').href
@@ -1016,35 +1207,11 @@ export default defineComponent({
         .setLink({ href: url })
         .run()
     },
-    sleep(milliseconds) {
-      return new Promise((resolve) => setTimeout(resolve, milliseconds));
-    },
+    // Image chosen in the toolbar: inserted where the cursor was when the file was chosen (not over the text selected
+    // during the upload), failures notified
     importImage(files) {
-      var file = files[0];
-      var fileReader = new FileReader();
-
-      var auditId = null;
-      var path = window.location.pathname.split("/");
-      if (path && path.length > 3 && path[1] === "audits") auditId = path[2];
-      fileReader.onloadend = (e) => {
-        Utils.resizeImg(fileReader.result)
-          .then((data) => {
-            return ImageService.createImage({
-              value: data,
-              name: file.name,
-              auditId: auditId,
-            });
-          })
-          .then((data) => {
-            this.editor.commands.setImage({
-              src: data.data.datas._id,
-              alt: file.name,
-            });
-          })
-          .catch((err) => console.log(err));
-      };
-
-      fileReader.readAsDataURL(file);
+      const file = files[0];
+      if (file) uploadImageFile(this.editor.view, file, file.name);
     },
      stringToColour : function (str) {
       var hash = 0;
@@ -1057,6 +1224,89 @@ export default defineComponent({
         colour += ('00' + value.toString(16)).substr(-2);
       }
       return colour;
+    },
+    // ----- Review comments -----
+
+    updateCommentHighlights() {
+      if (!this.editor || this.editor.isDestroyed) return;
+      const tr = this.editor.state.tr.setMeta(commentHighlightKey, {
+        comments: this.quoteComments,
+        activeId: this.commentsStore ? this.commentsStore.activeId : null,
+      });
+      tr.setMeta('addToHistory', false);
+      this.editor.view.dispatch(tr);
+    },
+
+    // Passage selected with the mouse or keyboard (also in read-only editors: reviewers comment without editing)
+    checkCommentSelection() {
+      this.commentSelection = null;
+      if (!this.commentable || !this.editor) return;
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || selection.rangeCount === 0) return;
+      const range = selection.getRangeAt(0);
+      const dom = this.editor.view.dom;
+      if (!dom.contains(range.startContainer) || !dom.contains(range.endContainer)) return;
+      let from, to;
+      try {
+        from = this.editor.view.posAtDOM(range.startContainer, range.startOffset);
+        to = this.editor.view.posAtDOM(range.endContainer, range.endOffset);
+      }
+      catch (err) {
+        return;
+      }
+      const quote = quoteFromRange(this.editor.state.doc, Math.min(from, to), Math.max(from, to));
+      if (!quote) return;
+      const rect = range.getBoundingClientRect();
+      this.commentSelection = { quote, top: rect.top, left: rect.left + rect.width / 2 };
+    },
+
+    // Comment action of the formatting menu: passage selected in the editor
+    commentSelectedText() {
+      const { from, to } = this.editor.state.selection;
+      const quote = quoteFromRange(this.editor.state.doc, from, to);
+      if (!quote) return;
+      this.commentsStore.startComment(this.commentTarget, quote);
+      this.commentSelection = null;
+    },
+
+    commentOnSelection() {
+      if (!this.commentSelection) return;
+      this.commentsStore.startComment(this.commentTarget, this.commentSelection.quote);
+      this.commentSelection = null;
+      window.getSelection().removeAllRanges();
+    },
+
+    // Click on a highlighted passage: show its comment
+    onContentClick(event) {
+      const highlight = event.target instanceof Element ? event.target.closest('.comment-highlight') : null;
+      if (highlight && this.commentsStore)
+        this.commentsStore.show(highlight.dataset.commentId);
+    },
+
+    // Double click on an image of the editor or of the diff view: show it in a full screen dialog.
+    // Listened on the content container because TipTap node views (uploadImage) stop events for ProseMirror.
+    zoomImage(event) {
+      if (!(event.target instanceof Element)) return;
+      // q-img (uploadImage node view) puts a content layer over its <img>: look for the image in the q-img container
+      const qImg = event.target.closest('.q-img');
+      const candidates = qImg ? Array.from(qImg.querySelectorAll('img')) : [event.target.closest('img')];
+      const img = candidates.find(i => i && i.complete && i.naturalWidth > 0); // Loaded images only
+      if (!img) return;
+      this.zoom = {show: true, src: img.currentSrc || img.src, alt: img.alt || '', fullSize: false};
+    },
+    // Code blocks are saved highlighted (<span class="hljs-..."> are used for colors in the report).
+    // When parsing HTML, TipTap (elementFromString) removes text nodes equal to "\n" or "\n" + 2 spaces,
+    // even inside <pre>: line breaks that lowlight isolates between two tokens were lost on reload
+    // (e.g. between the request line and the first header of HTTP blocks, indentation in JSON/SQL).
+    // Code blocks are flattened to plain text before being loaded in the editor (highlighting is redone).
+    flattenCodeBlocks(html) {
+      if (typeof html !== 'string' || !html.includes('<pre')) return html;
+
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      doc.querySelectorAll('pre code').forEach((codeBlock) => {
+        codeBlock.textContent = codeBlock.textContent; // Replace highlighting spans by a single text node
+      });
+      return doc.body.innerHTML;
     },
     highlightAllCodeBlocks(html) {
       if (!html) return '';
@@ -1109,6 +1359,13 @@ export default defineComponent({
     },
     updateHTML() {
       if (!this.initialeDataUpdated) return;
+      // Editor initialized empty and not modified, value received since (e.g. default text of a custom field):
+      // shown in the editor instead of being overwritten by the empty content of the editor
+      if (this.emptyInitialValue && this.modelValue && this.editor.getHTML() === '<p></p>') {
+        this.emptyInitialValue = false;
+        this.setInitialCollaborativeContent(this.modelValue);
+        return;
+      }
       this.json = this.editor.getJSON();
       this.html = this.editor.getHTML();
       this.html = this.highlightAllCodeBlocks(this.html);
@@ -1204,7 +1461,7 @@ export default defineComponent({
 }
 
 
-.collaboration-cursor__caret {
+.collaboration-carets__caret {
   position: relative;
   margin-left: -1px;
   margin-right: -1px;
@@ -1214,7 +1471,7 @@ export default defineComponent({
   pointer-events: none;
 }
 
-.collaboration-cursor__label {
+.collaboration-carets__label {
  text-shadow: -1px 0 black, 0 1px black, 1px 0 black, 0 -1px black;
  color:white;
   position: absolute;
@@ -1457,6 +1714,17 @@ pre .diffadd {
     border: none;
 }
 
+/* Comment action of the selection menu: separated from the formatting actions */
+.editor-bubble-menu > .editor-bubble-menu__comment {
+  border-left: 1px solid #555555;
+  margin-left: 3px;
+  padding-left: 6px;
+}
+
+.editor-bubble-menu > .editor-bubble-menu__comment > i {
+  color: #ffb74d;
+}
+
 .editor-menubar {
   display: flex;
   gap: 1rem;
@@ -1553,6 +1821,83 @@ pre .diffadd {
       font-size: 1.1em;
       max-width: fit-content;
     }
+  }
+}
+
+// Review comments: highlighted passages and selection button
+.comment-highlight {
+  background: rgba(255, 193, 7, 0.3);
+  border-bottom: 2px solid #ffa000;
+  cursor: pointer;
+}
+
+.comment-highlight--active {
+  background: rgba(255, 152, 0, 0.55);
+}
+
+.comment-image-highlight .editor-image {
+  outline: 3px solid rgba(255, 160, 0, 0.7);
+  outline-offset: 2px;
+}
+
+.comment-image-highlight--active .editor-image {
+  outline-color: #ff6d00;
+}
+
+.comment-selection-btn {
+  position: fixed;
+  z-index: 3000;
+  transform: translateX(-50%);
+}
+
+// Images can be zoomed with a double click
+.editor__content img,
+.editor__content .q-img {
+  cursor: zoom-in;
+}
+
+// Image zoom dialog (teleported to body: not scoped)
+.editor-image-zoom {
+  width: 100vw;
+  height: 100vh;
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  img {
+    max-width: 95vw;
+    max-height: 90vh;
+    object-fit: contain;
+    background: white;
+    cursor: zoom-in;
+  }
+
+  // Actual size: start from top left so that the scrollable area is not cut by centering
+  &--full {
+    align-items: flex-start;
+    justify-content: flex-start;
+
+    img {
+      max-width: none;
+      max-height: none;
+      cursor: zoom-out;
+    }
+  }
+
+  &__close {
+    position: fixed;
+    top: 8px;
+    right: 8px;
+    z-index: 1;
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  &__caption {
+    color: white;
+    padding: 8px;
   }
 }
 

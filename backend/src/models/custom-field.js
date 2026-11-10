@@ -73,38 +73,19 @@ CustomFieldSchema.statics.updateAll = (fields) => {
     })
 }
 
-// Delete Field
-CustomFieldSchema.statics.delete = (fieldId) => {
-    return new Promise((resolve, reject) => {
-        var pullCount = 0
-        var Vulnerability = mongoose.model('Vulnerability')
-        var query = Vulnerability.find()
-        query.exec()
-        .then(rows => {
-            var promises = []
-            promises.push(CustomField.findByIdAndDelete(fieldId).exec())
-            rows.map(row => {
-                row.details.map(detail => {
-                    if (detail.customFields.some(field => `${field.customField}` === fieldId))
-                        pullCount++
-                    
-                    detail.customFields.pull({customField: fieldId})
-                })
-                promises.push(row.save())
-            })
-            return Promise.all(promises)
-        })
-        .then((row) => {
-            if (row && row[0])
-                resolve({msg: `Custom Field deleted successfully`, vulnCount: pullCount})
-            else
-                reject({fn: 'NotFound', message: {msg: 'Custom Field not found', vulnCount: pullCount}})
-        })
-        .catch((err) => {
-            console.log(err)
-            reject(err);
-        })
-    })
+// Delete Field, and remove it from the vulnerabilities in a single update (each vulnerability was saved: one invalid
+// vulnerability made every deletion fail). vulnCount: number of vulnerability details using the field
+CustomFieldSchema.statics.delete = async (fieldId) => {
+    if (!mongoose.isObjectIdOrHexString(fieldId))
+        throw({fn: 'NotFound', message: {msg: 'Custom Field not found', vulnCount: 0}})
+    var Vulnerability = mongoose.model('Vulnerability')
+    var id = new mongoose.Types.ObjectId(fieldId)
+    var counted = await Vulnerability.aggregate([{$unwind: '$details'}, {$match: {'details.customFields.customField': id}}, {$count: 'count'}])
+    var vulnCount = counted.length ? counted[0].count : 0
+    if (!await CustomField.findByIdAndDelete(fieldId))
+        throw({fn: 'NotFound', message: {msg: 'Custom Field not found', vulnCount: vulnCount}})
+    await Vulnerability.updateMany({'details.customFields.customField': id}, {$pull: {'details.$[].customFields': {customField: id}}})
+    return {msg: `Custom Field deleted successfully`, vulnCount: vulnCount}
 }
 
 /*

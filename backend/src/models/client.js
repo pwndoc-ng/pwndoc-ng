@@ -1,5 +1,6 @@
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
+var utils = require('../lib/utils');
 
 var ClientSchema = new Schema({
     email:      {type: String, required: true, unique: true},
@@ -48,39 +49,30 @@ ClientSchema.statics.export = () => {
 }
 
 // Create client
-ClientSchema.statics.create = (clients) => {
-    return new Promise(async(resolve, reject) => {
-        var clients_with_company = []
-        var company;
-        for (var i=0; i< clients.length; i++) {
-            company = clients[i][1]
-            if (company) {
-                var Company = mongoose.model("Company");
-                var query = Company.findOneAndUpdate({name: company}, {}, {upsert: true, new: true});
-                var companyRow = await query.exec()
-                if (companyRow) clients[i][0].company = companyRow._id;
-            }
-            clients_with_company.push(clients[i][0])
-        }
-        
-        Client.insertMany(clients_with_company, {ordered: false})
-        .then((rows) => {
-            resolve({created: rows.length, duplicates: 0});
-        })
-        .catch((err) => {
-            if (err.code === 11000) {
-                if (err.result.nInserted === 0)
-                    reject({fn: 'BadParameters', message: 'Client email already exists'});
-                else {
-                    var errorMessages = [] 
-                    err.writeErrors.forEach(e => errorMessages.push(e.errmsg || "no errmsg"))
-                    resolve({created: err.result.nInserted, duplicates: errorMessages});
-                }
-            }
-            else
-                reject(err);
-        })
-    })
+// Create client (clients: list of [client, name of its company]). The clients are checked before their companies are
+// created: an invalid client refuses the whole list
+ClientSchema.statics.create = async (clients) => {
+    utils.validateAll(Client, clients.map(([client]) => client))
+    var Company = mongoose.model("Company");
+    for (var [client, company] of clients) {
+        if (company)
+            client.company = (await Company.findOneAndUpdate({name: company}, {}, {upsert: true, new: true}))._id;
+    }
+
+    try {
+        var rows = await Client.insertMany(clients.map(([client]) => client), {ordered: false});
+        return {created: rows.length, duplicates: 0};
+    }
+    catch (err) {
+        if (err.code !== 11000)
+            throw err;
+        // MongoDB driver 6: inserted documents in insertedDocs, message in writeError.err
+        var inserted = err.insertedDocs ? err.insertedDocs.length : ((err.result && err.result.insertedCount) || 0)
+        if (inserted === 0)
+            throw({fn: 'BadParameters', message: 'Client email already exists'});
+        var errorMessages = (err.writeErrors || []).map(e => e.errmsg || (e.err && e.err.errmsg) || 'Duplicate')
+        return {created: inserted, duplicates: errorMessages};
+    }
 }
 
 // Update client

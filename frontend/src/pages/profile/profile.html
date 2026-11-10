@@ -18,6 +18,7 @@
                             <q-item-section>
                                 <q-input 
                                 v-model="user.username" 
+                                :disable="loading"
                                 :label="$t('username')" 
                                 stack-label 
                                 :error="!!errors.username"
@@ -30,6 +31,7 @@
                             <q-item-section>
                                 <q-input 
                                 v-model="user.firstname" 
+                                :disable="loading"
                                 :label="$t('firstname')" 
                                 stack-label
                                 :error="!!errors.firstname"
@@ -42,6 +44,7 @@
                             <q-item-section>
                                 <q-input 
                                 v-model="user.lastname" 
+                                :disable="loading"
                                 :label="$t('lastname')" 
                                 stack-label 
                                 :error="!!errors.lastname"
@@ -54,6 +57,7 @@
                             <q-item-section>
                                 <q-input 
                                 v-model="user.email" 
+                                :disable="loading"
                                 label="Email" 
                                 stack-label 
                                 outlined
@@ -64,6 +68,7 @@
                             <q-item-section>
                                 <q-input 
                                 v-model="user.phone" 
+                                :disable="loading"
                                 label="Phone" 
                                 stack-label 
                                 outlined
@@ -77,6 +82,7 @@
                                     ref="pwdUpdateRef"
                                     class="col-md-6 col-6 q-pr-sm" 
                                     v-model="user.newPassword" 
+                                    :disable="loading"
                                     :label="$t('newPassword')" 
                                     stack-label 
                                     type="password"
@@ -86,6 +92,7 @@
                                     <q-input 
                                     class="col-md-6 col-6 q-pl-sm" 
                                     v-model="user.confirmPassword" 
+                                    :disable="loading"
                                     :label="$t('confirmPassword')" 
                                     stack-label 
                                     type="password"
@@ -99,6 +106,7 @@
                             <q-item-section>
                                 <q-input 
                                 v-model="user.currentPassword" 
+                                :disable="loading"
                                 :label="$t('currentPassword')" 
                                 stack-label 
                                 type="password"
@@ -131,7 +139,7 @@
                                 v-model="totpEnabled" 
                                 label="Two-factor authentication"
                                 @update:model-value="getTotpQrcode"
-                                @click="getTotpQrcode" 
+                                :disable="loading"
                                 />
                             </q-item-section>
                         </q-item>

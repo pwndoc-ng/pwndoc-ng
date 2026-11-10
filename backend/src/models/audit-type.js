@@ -1,5 +1,6 @@
 var mongoose = require('mongoose');
-var Schema = mongoose.Schema;
+var Schema = mongoose.Schema
+var utils = require('../lib/utils');
 
 var Template = {
     _id: false,
@@ -67,18 +68,8 @@ AuditTypeSchema.statics.create = (auditType) => {
 
 // Update Audit Types
 AuditTypeSchema.statics.updateAll = (auditTypes) => {
-    return new Promise((resolve, reject) => {
-        AuditType.deleteMany()
-        .then((row) => {
-            AuditType.insertMany(auditTypes)
-        })
-        .then((row) => {
-            resolve("Audit Types updated successfully")
-        })
-        .catch((err) => {
-            reject(err);
-        })
-    })
+    // Previous list kept if the new one cannot be inserted (duplicates...)
+    return utils.replaceAll(AuditType, auditTypes).then(() => "Audit Types updated successfully")
 }
 
 // Delete auditType

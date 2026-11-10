@@ -11,9 +11,27 @@
             color="orange"
             class="q-mr-sm"
             :label="$t('btn.backupFinding')"
+            :loading="proposing"
             no-caps
             @click="backupFinding()"
           />
+          <!-- Review status of the last proposal made from this finding -->
+          <q-chip
+            v-if="findingProposal"
+            clickable
+            dense
+            class="q-mr-sm"
+            :color="proposalStatus.color"
+            text-color="white"
+            :icon="proposalStatus.icon"
+            @click="$refs.proposalReview.open(findingProposal._id)"
+          >
+            {{ proposalStatus.label }}
+            <q-tooltip :delay="300" max-width="400px">
+              {{ $t('proposals.lastProposal') }}<span v-if="findingProposal.reviewComment"> : « {{ findingProposal.reviewComment }} »</span>
+            </q-tooltip>
+          </q-chip>
+          <proposal-review ref="proposalReview" @changed="getFindingProposal" />
           <q-btn
             color="negative"
             class="q-mr-sm"
@@ -24,7 +42,7 @@
           />
           <q-btn
             color="positive"
-            :disable="!readyToSave"
+            :disable="!readyToSave || !loaded"
             :label="$t('btn.save') + ' (ctrl+s)'"
             no-caps
             @click="updateFinding()"
@@ -48,6 +66,7 @@
             <q-separator vertical />
             <q-toggle
               :label="$t('completed')"
+              :disable="!loaded"
               v-model="finding.status"
               :true-value="0"
               :false-value="1"
@@ -76,8 +95,10 @@
                   stack-label
                   v-model="finding.title"
                   outlined
-                  :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                />
+                  :readonly="readonly"
+                >
+                  <template #after><comment-button :target="commentTargets.title" /></template>
+                </q-input>
                 <q-select
                   class="col-md-4 col-12"
                   :label="$t('type')"
@@ -92,39 +113,50 @@
                   map-options
                   options-sanitize
                   outlined
-                  :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                />
+                  :readonly="readonly"
+                >
+                  <template #after><comment-button :target="commentTargets.vulnType" /></template>
+                </q-select>
                 <q-field class="col-md-12 basic-editor" borderless :label="$t('description')" stack-label>
+                  <template #after><comment-button :target="commentTargets.description" /></template>
                   <template #control>
                     <basic-editor
+                      :comment-target="commentTargets.description"
                       ref="basiceditor_description"
                       v-model="finding.description"
                       v-on:editorchange="readyToSave ? needSave = true : null"
                       v-on:ready="readyToSave = true"
                       idUnique="basiceditor_description"
                       noSync
-                      :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      :editable="!readonly"
+                      :loading="!loaded"
                     />
                   </template>
                 </q-field>
                 <q-field class="col-md-12 basic-editor" borderless :label="$t('observation')" stack-label>
+                  <template #after><comment-button :target="commentTargets.observation" /></template>
                   <template #control>
                     <basic-editor
+                      :comment-target="commentTargets.observation"
                       ref="basiceditor_observation"
                       v-model="finding.observation"
                       v-on:editorchange="readyToSave ? needSave = true : null"
                       idUnique="basiceditor_observation"
                       noSync
-                      :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      :editable="!readonly"
+                      :loading="!loaded"
                     />
                   </template>
                 </q-field>
-                <textarea-array
-                  class="col-12"
-                  :label="$t('references')"
-                  v-model="finding.references"
-                  :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                />
+                <div class="col-12 row no-wrap items-start">
+                  <textarea-array
+                    class="col"
+                    :label="$t('references')"
+                    v-model="finding.references"
+                    :readonly="readonly"
+                  />
+                  <comment-button class="q-mt-sm q-ml-xs" :target="commentTargets.references" />
+                </div>
               </q-card-section>
   
               <q-expansion-item
@@ -140,8 +172,11 @@
               v-model="finding.customFields"
               :category="finding.category || ''"
               :idUnique="finding._id"
+              :comment-target="commentTargets.base"
               custom-element="QCardSection"
               :locale="audit?.language || 'en'"
+              :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+              v-on:editorchange="readyToSave ? needSave = true : null"
             />
 
 
@@ -156,13 +191,16 @@
               <div class="col-12">
                 <q-card>
                   <q-card-section>
+                    <div class="row justify-end"><comment-button :target="commentTargets.poc" /></div>
                     <basic-editor
+                      :comment-target="commentTargets.poc"
                       ref="basiceditor_poc"
                       v-model="finding.poc"
                       v-on:editorchange="readyToSave ? needSave = true : null"
                       idUnique="basiceditor_poc"
                       noSync
-                      :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      :editable="!readonly"
+                      :loading="!loaded"
                     />
                   </q-card-section>
                 </q-card>
@@ -173,16 +211,18 @@
           <!-- DETAILS -->
           <q-tab-panel name="details">
             <q-card>
-              <q-card-section>{{ $t('affectedAssets') }}</q-card-section>
+              <q-card-section class="row items-center">{{ $t('affectedAssets') }}<q-space /><comment-button :target="commentTargets.scope" /></q-card-section>
               <q-separator />
               <q-card-section>
                 <q-field borderless>
                   <template #control>
                     <basic-editor
+                      :comment-target="commentTargets.scope"
                       v-model="finding.scope"
                       idUnique="basiceditor_scope"
                       v-on:editorchange="readyToSave ? needSave = true : null"
-                      :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      :editable="!readonly"
+                      :loading="!loaded"
                     />
                   </template>
                 </q-field>
@@ -190,10 +230,11 @@
             </q-card>
   
             <q-card class="q-mt-md bg-grey-1">
+              <div class="row justify-end q-pr-sm"><comment-button :target="commentTargets.cvssv3" /></div>
               <div class="col-12">
                 <cvss-calculator
                   v-model="finding.cvssv3"
-                  :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                  :readonly="readonly"
                 />
               </div>
             </q-card>
@@ -217,8 +258,10 @@
                     emit-value
                     options-sanitize
                     outlined
-                    :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                  />
+                    :readonly="readonly"
+                  >
+                    <template #after><comment-button :target="commentTargets.remediationComplexity" /></template>
+                  </q-select>
                   <q-select
                     :label="$t('priority')"
                     stack-label
@@ -234,18 +277,23 @@
                     emit-value
                     options-sanitize
                     outlined
-                    :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                  />
+                    :readonly="readonly"
+                  >
+                    <template #after><comment-button :target="commentTargets.priority" /></template>
+                  </q-select>
                 </div>
                 <q-field class="col-md-12 basic-editor q-mt-md" borderless :label="$t('remediation')" stack-label>
+                  <template #after><comment-button :target="commentTargets.remediation" /></template>
                   <template #control>
                     <basic-editor
+                      :comment-target="commentTargets.remediation"
                       ref="basiceditor_remediation"
                       v-model="finding.remediation"
                       v-on:editorchange="readyToSave ? needSave = true : null"
                       idUnique="basiceditor_remediation"
                       noSync
-                      :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                      :editable="!readonly"
+                      :loading="!loaded"
                     />
                   </template>
                 </q-field>

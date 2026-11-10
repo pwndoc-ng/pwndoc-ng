@@ -77,6 +77,11 @@ module.exports = function(app) {
     app.put("/api/data/languages", acl.hasPermission('languages:update'), function(req, res) {
         // #swagger.tags = ['Data']
 
+        if (!utils.isListOfObjects(req.body)) {
+            Response.BadParameters(res, 'A list is required')
+            return
+        }
+
         for (var i=0; i<req.body.length; i++) {
             var language = req.body[i]
             if (!language.locale || !language.language) {
@@ -152,6 +157,11 @@ module.exports = function(app) {
     app.put("/api/data/audit-types", acl.hasPermission('audit-types:update'), function(req, res) {
         // #swagger.tags = ['Data']
 
+        if (!utils.isListOfObjects(req.body)) {
+            Response.BadParameters(res, 'A list is required')
+            return
+        }
+
         for (var i=0; i<req.body.length; i++) {
             var auditType = req.body[i]
             if (!auditType.name || !auditType.templates) {
@@ -198,9 +208,15 @@ module.exports = function(app) {
             return
         }
 
+        if (req.body.description !== undefined && typeof req.body.description !== 'string') {
+            Response.BadParameters(res, 'description must be a string')
+            return
+        }
+
         var vulnType = {};
         vulnType.name = req.body.name;
         vulnType.locale = req.body.locale;
+        vulnType.description = req.body.description || '';
         VulnerabilityType.create(vulnType)
         .then(msg => Response.Created(res, msg))
         .catch(err => Response.Internal(res, err))
@@ -210,7 +226,8 @@ module.exports = function(app) {
     app.delete("/api/data/vulnerability-types/:name(*)", acl.hasPermission('vulnerability-types:delete'), function(req, res) {
         // #swagger.tags = ['Data']
 
-        VulnerabilityType.delete(req.params.name)
+        var locale = (typeof req.query.locale === 'string') ? req.query.locale : null
+        VulnerabilityType.delete(req.params.name, locale)
         .then(msg => {
             Response.Ok(res, 'Vulnerability type deleted successfully')
         })
@@ -220,6 +237,11 @@ module.exports = function(app) {
     // Update Vulnerability Types
     app.put("/api/data/vulnerability-types", acl.hasPermission('vulnerability-types:update'), function(req, res) {
         // #swagger.tags = ['Data']
+
+        if (!utils.isListOfObjects(req.body)) {
+            Response.BadParameters(res, 'A list is required')
+            return
+        }
 
         for (var i=0; i<req.body.length; i++) {
             var vulnType = req.body[i]
@@ -231,11 +253,15 @@ module.exports = function(app) {
                 Response.BadParameters(res, 'name and locale value must match /^[\p{Letter}\p{Mark}0-9 \[\]\'()_-]+$/iu')
                 return
             }
+            if (vulnType.description !== undefined && typeof vulnType.description !== 'string') {
+                Response.BadParameters(res, 'description must be a string')
+                return
+            }
         }
 
         var vulnTypes = []
         req.body.forEach(e => {
-            vulnTypes.push({name: e.name, locale: e.locale})
+            vulnTypes.push({name: e.name, locale: e.locale, description: e.description || ''})
         })
 
         VulnerabilityType.updateAll(vulnTypes)
@@ -284,6 +310,11 @@ module.exports = function(app) {
     // Update Vulnerability Category
     app.put("/api/data/vulnerability-categories", acl.hasPermission('vulnerability-categories:update'), function(req, res) {
         // #swagger.tags = ['Data']
+
+        if (!utils.isListOfObjects(req.body)) {
+            Response.BadParameters(res, 'A list is required')
+            return
+        }
 
         for (var i=0; i<req.body.length; i++) {
             var vulnCat = req.body[i]
@@ -367,7 +398,8 @@ module.exports = function(app) {
     app.delete("/api/data/sections/:field/:locale(*)", acl.hasPermission('sections:delete'), function(req, res) {
         // #swagger.tags = ['Data']
 
-        CustomSection.delete(req.params.field, req.params.locale)
+        // Locale of the URL kept for compatibility, sections are not per language anymore
+        CustomSection.delete(req.params.field)
         .then(msg => {
             Response.Ok(res, 'Section deleted successfully')
         })
@@ -377,6 +409,11 @@ module.exports = function(app) {
      // Update sections
      app.put("/api/data/sections", acl.hasPermission('sections:update'), function(req, res) {
          // #swagger.tags = ['Data']
+
+         if (!utils.isListOfObjects(req.body)) {
+             Response.BadParameters(res, 'A list is required')
+             return
+         }
 
          for (var i=0; i<req.body.length; i++) {
             var section = req.body[i]
@@ -445,6 +482,11 @@ module.exports = function(app) {
      // Update custom fields
      app.put("/api/data/custom-fields", acl.hasPermission('custom-fields:update'), function(req, res) {
          // #swagger.tags = ['Data']
+
+         if (!utils.isListOfObjects(req.body)) {
+             Response.BadParameters(res, 'A list is required')
+             return
+         }
 
          for (var i=0; i<req.body.length; i++) {
             var customField = req.body[i]

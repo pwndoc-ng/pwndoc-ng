@@ -52,13 +52,72 @@ const HIGHLIGHT_COLOR_MAP = {
   'hljs-brace': '#D4D4D4', // Gris clair
 };
 
+// Characters forbidden in XML 1.0 (control characters of texts pasted from other applications, e.g. the vertical tab of
+// PowerPoint): a document containing them cannot be opened by Word
+const INVALID_XML_CHARACTERS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g;
 
+// Links are written as HYPERLINK fields. The runs of the field cannot be created with docx: marker runs are written
+// instead and replaced in the XML. The control character U+0001 cannot come from the HTML (removed from the texts).
+const LINK_BEGIN_MARKER = /<w:r><w:t xml:space="preserve">\u0001L(\d+)\u0001<\/w:t><\/w:r>/g;
+const LINK_END_MARKER = /<w:r><w:t xml:space="preserve">\u0001E\u0001<\/w:t><\/w:r>/g;
+const escapeXml = (value) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
+// Default width (px) of a column whose width was not chosen in the editor
+const DEFAULT_COLUMN_WIDTH = 250;
+// Width of the table grid in twips (text width of an A4 page with 2 cm margins): the table is at full width (100 %), the
+// grid gives the proportions of the columns
+const TABLE_GRID_WIDTH = 9600;
+// Table style of the converted tables (borders, header row): defined in the templates to customize them, added to the
+// report by the report generator when the template does not define it (report-generator.js declareTableStyle)
+const TABLE_STYLE = "PwndocTable";
+
+// Table from the rows of cells of the HTML table. Cells spanning several rows are omitted from the next rows in HTML:
+// their columns are skipped when placing the cells of these rows (docx adds the merged cells). The widths of the
+// columns are the widths chosen in the editor (colwidth), in percent of the table width.
+function buildTable(rows) {
+  let occupied = rows.map(() => new Set()); // Columns of each row taken by a cell of a previous row
+  let columnWidths = [];
+  let placed = rows.map((row, rowIndex) => {
+    let column = 0;
+    return row.map(cell => {
+      while (occupied[rowIndex].has(column)) column++;
+      for (let i = 0; i < cell.colspan; i++) {
+        if (columnWidths[column + i] === undefined && cell.widths[i] > 0) columnWidths[column + i] = cell.widths[i];
+        for (let next = rowIndex + 1; next < Math.min(rows.length, rowIndex + cell.rowspan); next++)
+          occupied[next].add(column + i);
+      }
+      let placedCell = { ...cell, column: column };
+      column += cell.colspan;
+      return placedCell;
+    });
+  });
+  let columnCount = Math.max(1, ...placed.map(row => row.reduce((end, cell) => Math.max(end, cell.column + cell.colspan), 0)),
+    ...occupied.map(columns => Math.max(0, ...columns) + 1));
+  let widths = Array.from({ length: columnCount }, (_, column) => columnWidths[column] || DEFAULT_COLUMN_WIDTH);
+  let total = widths.reduce((sum, width) => sum + width, 0);
+
+  // Conditional formatting of the header row of the table style when the first row is a header row (th)
+  let header = placed.length > 0 && placed[0].length > 0 && placed[0][placed[0].length - 1].header;
+  return new docx.Table({
+    style: TABLE_STYLE, // No direct borders: they would override the borders of the style
+    tableLook: { firstRow: header, lastRow: false, firstColumn: false, lastColumn: false, noHBand: false, noVBand: true },
+    rows: placed.map(row => new docx.TableRow({
+      children: row.map(cell => new docx.TableCell({
+        width: { size: Math.round(100 * widths.slice(cell.column, cell.column + cell.colspan).reduce((sum, width) => sum + width, 0) / total), type: "pct" },
+        columnSpan: cell.colspan > 1 ? cell.colspan : undefined,
+        rowSpan: cell.rowspan > 1 ? cell.rowspan : undefined,
+        children: cell.text,
+      })),
+      tableHeader: row.length > 0 && row[row.length - 1].header,
+    })),
+    columnWidths: widths.map(width => Math.round(TABLE_GRID_WIDTH * width / total)),
+    width: { size: 100, type: "pct" },
+  });
+}
 
 function html2ooxml(html, style = "", listIds = []) {;
   if (html === "") return html;
   if (!html.match(/^<.+>/)) html = `<p>${html}</p>`;
-  console.log(html);
   let doc = new docx.Document({ sections: [] });
   let paragraphs = [];
   let cParagraph = null;
@@ -67,8 +126,9 @@ function html2ooxml(html, style = "", listIds = []) {;
   let list_state = [];
   let bullet_state = []; // Separate state for bullets
   let availableListIds = [...listIds]; // Copy of available IDs for numbered lists
-  let currentListId = 0; // ID of the currently active list
-  let listIdsByLevel = {}; // List IDs by nesting level
+  let currentListId = 0; // ID of the current top-level numbered list (its nested numbered lists share it)
+  let links = []; // Targets of the links (HYPERLINK fields)
+  let linkParagraph = null; // Paragraph of the link being written (its field is ended in this paragraph)
   let inCodeBlock = false;
   let inCodeBlockHighlight = false;
   let inTable = false;
@@ -83,7 +143,6 @@ function html2ooxml(html, style = "", listIds = []) {;
   let parser = new htmlparser.Parser(
     {
       onopentag(tag, attribs) {
-        console.log("Current tag is: " + tag);
         switch (tag) {
           case 'h1':
             cParagraph = new docx.Paragraph({ heading: "Heading1" });
@@ -179,29 +238,26 @@ function html2ooxml(html, style = "", listIds = []) {;
             cRunProperties.highlight = color;
             break;
           case 'a':
-            cRunProperties.link = attribs.href;
+            // Beginning of the HYPERLINK field, at the paragraph level: the text of the link (with its marks) is the result
+            if (cParagraph && attribs.href && !linkParagraph) {
+              links.push(attribs.href.replace(INVALID_XML_CHARACTERS, ''));
+              cParagraph.addChildElement(new docx.TextRun(`\u0001L${links.length - 1}\u0001`));
+              linkParagraph = cParagraph;
+            }
             break;
           case 'ul':
             // Stack in the separate bullet system
             bullet_state.push("bullet");
-            console.log(`🔘 Bullet list created, level: ${bullet_state.length - 1}`);
             break;
           case 'ol':
             // Stack the list type to handle nesting
             list_state.push("number");
-            
-            // Calculate current level (after stacking)
-            const currentLevel = list_state.length - 1;
-            
-            // If we don't have an ID for this level yet, create a new one
-            if (!listIdsByLevel[currentLevel]) {
+
+            // Each top-level list has its own numbering instance (it starts at 1). A nested numbered list continues the
+            // instance of its parent list at the next level: Word numbers it under the current item of the parent
+            // (e.g. 2.1) and restarts it after the next item of the parent
+            if (list_state.length === 1)
               currentListId = availableListIds.length > 0 ? availableListIds.shift() : Math.floor(Math.random() * 90000) + 10000;
-              listIdsByLevel[currentLevel] = currentListId;
-              console.log(`🔢 New numbered list created - ID: ${currentListId}, level: ${currentLevel}`);
-            } else {
-              currentListId = listIdsByLevel[currentLevel];
-              console.log(`♻️ Numbered list reused - ID: ${currentListId}, level: ${currentLevel}`);
-            }
             break;
           case 'li':
             // Determine if we're in a bullet or numbered list
@@ -209,17 +265,13 @@ function html2ooxml(html, style = "", listIds = []) {;
               // We're in a bullet list - use existing template definition (numId="1")
               let bulletLevel = Math.min(bullet_state.length - 1, 8);
               const bulletId = 1; // Use existing template definition
-              cParagraphProperties.numbering = { reference: bulletId, level: bulletLevel };
-              console.log(`📝 Bullet list item - ID: ${bulletId} (template), level: ${bulletLevel}`);
+              cParagraphProperties.numbering = { reference: String(bulletId), level: bulletLevel }; // docx 9: string reference (a number is read as a definition)
             } else if (list_state.length > 0) {
               // We're in a numbered list
               let numberLevel = Math.min(list_state.length - 1, 8);
-              const elementListId = listIdsByLevel[numberLevel];
-              cParagraphProperties.numbering = { reference: elementListId, level: numberLevel };
-              console.log(`📝 Numbered list item - ID: ${elementListId}, level: ${numberLevel}`);
+              cParagraphProperties.numbering = { reference: String(currentListId), level: numberLevel };
             } else {
               // No numbering if we're not in a real list - leave as default
-              console.log(`📝 <li> element without parent list - no numbering applied`);
             }
             
             // Create paragraph with list properties
@@ -234,24 +286,23 @@ function html2ooxml(html, style = "", listIds = []) {;
             break;
           case 'legend':
             if (attribs && attribs.alt !== "undefined") {
-              let label = attribs.label || "Figure";
+              let label = (attribs.label || "Figure").replace(INVALID_XML_CHARACTERS, '');
               cParagraph = new docx.Paragraph({
                 style: "Caption",
                 alignment: docx.AlignmentType.CENTER,
               });
               cParagraph.addChildElement(new docx.TextRun(`${label} `));
               cParagraph.addChildElement(new docx.SimpleField(`SEQ ${label}`, "1"));
-              cParagraph.addChildElement(new docx.TextRun(` - ${attribs.alt}`));
+              cParagraph.addChildElement(new docx.TextRun(` - ${attribs.alt}`.replace(INVALID_XML_CHARACTERS, '')));
             }
             break;
         }
       },
       
       ontext(text) {
-        console.log(text);
-        if (cRunProperties.link) {
-          cParagraph.addChildElement(new docx.TextRun({ "text": `{_|link|_{${text}|-|${cRunProperties.link}}_|link|_}`, "style": "PwndocLink" }));
-        } else if (inCodeBlock) {
+        text = text.replace(INVALID_XML_CHARACTERS, '');
+        if (!text || !cParagraph) return;
+        if (inCodeBlock) {
           if (cRunProperties.color) {
             cParagraph.addChildElement(
               new docx.TextRun({
@@ -266,47 +317,29 @@ function html2ooxml(html, style = "", listIds = []) {;
               })
             );
           }
-        } else if (text && cParagraph) {
+        } else {
           if (inTableCell) {
             cellHasText = true;
           }
-          cRunProperties.text = text;
-          cParagraph.addChildElement(new docx.TextRun(cRunProperties));
+          cParagraph.addChildElement(new docx.TextRun(linkParagraph === cParagraph ? { ...cRunProperties, text, style: "PwndocLink" } : { ...cRunProperties, text }));
         }
       },
 
       onclosetag(tag) {
-        console.log(`🔚 Closing tag: ${tag}`);
         
         // Handle lists first
         if (tag === "ul") {
-          const closingBulletLevel = bullet_state.length - 1;
           bullet_state.pop();
-          console.log(`🔄 Closing bullet list ${tag} at level ${closingBulletLevel}, remaining levels: ${bullet_state.length}`);
           
           if (bullet_state.length === 0) {
             cParagraphProperties = {};
-            console.log(`🔄 All bullet lists closed, resetting`);
           }
         } else if (tag === "ol") {
-          const closingLevel = list_state.length - 1;
           list_state.pop();
-          console.log(`🔄 Closing numbered list ${tag} at level ${closingLevel}, remaining levels: ${list_state.length}`);
-          
-          // Clean up IDs from levels deeper than the one we're closing
-          Object.keys(listIdsByLevel).forEach(level => {
-            if (parseInt(level) > closingLevel) {
-              const id = listIdsByLevel[level];
-              delete listIdsByLevel[level];
-              console.log(`🧽 Removing list ID ${id} for level ${level}`);
-            }
-          });
-          
+
           if (list_state.length === 0) {
             cParagraphProperties = {};
             currentListId = 0;
-            listIdsByLevel = {};
-            console.log(`🔄 All numbered lists closed, complete reset`);
           }
         }
         else if (
@@ -330,6 +363,11 @@ function html2ooxml(html, style = "", listIds = []) {;
             "li"
           ].includes(tag)) {
 
+          // A link not closed before the end of its paragraph ends with it
+          if (linkParagraph) {
+            linkParagraph.addChildElement(new docx.TextRun("\u0001E\u0001"));
+            linkParagraph = null;
+          }
           if (inTableCell) {
             tmpCellContent.push(cParagraph)
           } else {
@@ -360,58 +398,21 @@ function html2ooxml(html, style = "", listIds = []) {;
             tableHeader = false;
             tmpTable.push(tmpCells);
             tmpCells = []
-          } else if (tag === "a") {
-            delete cRunProperties.link
           } else if (tag === "td" || tag === "th") {
-const sanitizedContent = (Array.isArray(tmpCellContent) && tmpCellContent.length > 0)
-  ? tmpCellContent.filter(p => p !== null)
-  : [new docx.Paragraph("")];
-
-tmpCells.push({
-  text: sanitizedContent,
-  width: tmpAttribs.colwidth || "250",
-  header: tableHeader,
-});
-
-
+            tmpCells.push({
+              text: tmpCellContent.filter(p => p !== null).length > 0 ? tmpCellContent.filter(p => p !== null) : [new docx.Paragraph("")],
+              // Merged cells: number of columns and rows; colwidth of the editor: width (px) of each column of the cell
+              colspan: Math.max(1, parseInt(tmpAttribs.colspan, 10) || 1),
+              rowspan: Math.max(1, parseInt(tmpAttribs.rowspan, 10) || 1),
+              widths: String(tmpAttribs.colwidth || "").split(",").map(width => parseInt(width, 10)),
+              header: tableHeader,
+            });
             tmpAttribs = {};
             tmpCellContent = [];
             inTableCell = false;
           } else if (tag === "table") {
             inTable = false;
-            let tblRows = [];
-            tmpTable.map((row) => {
-              let tmpCells = [];
-              let isHeader = false
-              let widthTotal = row
-  .map(cell => parseInt(cell.width || "250", 10))
-  .reduce((prev, next) => prev + next, 0) || 1; // avoid division by zero
-
-
-              row.map((cell) => {
-                isHeader = cell.header;
-                tmpCells.push(new docx.TableCell({
-                  width: {
-                    size: Math.round(parseFloat(cell.width / widthTotal)),
-                    type: "pct",
-                  },
-                  children: cell.text,
-                }))
-              });
-
-              tblRows.push(new docx.TableRow({
-                children: tmpCells,
-                tableHeader: isHeader,
-              }))
-            });
-            // build table and push to paragraphs array
-            cParagraph = new docx.Table({
-              rows: tblRows,
-              width: {
-                size: 100,
-                type: "pct"
-              }
-            });
+            cParagraph = buildTable(tmpTable);
             paragraphs.push(cParagraph);
             cParagraph = null;
             cParagraphProperties = {};
@@ -421,14 +422,16 @@ tmpCells.push({
         }
         if (tag === "code") {
           inCodeBlock = false;
-          if(!inCodeBlockHighlight){
-            delete cRunProperties.style;
-          }
+          delete cRunProperties.style; // Code style of the inline code or of the code block: not for the next texts
           delete cRunProperties.color;
         } else if (tag === "a") {
           delete cRunProperties.color;
           delete cRunProperties.style;
-          delete cRunProperties.link;
+          // End of the HYPERLINK field
+          if (linkParagraph) {
+            linkParagraph.addChildElement(new docx.TextRun("\u0001E\u0001"));
+            linkParagraph = null;
+          }
         } else if (tag === "b" || tag === "strong") {
           delete cRunProperties.bold;
         } else if (tag === "i" || tag === "em") {
@@ -460,7 +463,10 @@ tmpCells.push({
   parser.write(html);
   parser.end();
 
-  let prepXml = doc.documentWrapper.document.body.prepForXml({});
+  // docx 9: a numbered paragraph registers its numbering instance in the file. The lists use the numbering
+  // definitions of the report template (numId of the template), not definitions created by docx: nothing to register
+  const xmlContext = { stack: [], file: { Numbering: { createConcreteNumberingInstance: () => {} } } };
+  let prepXml = doc.documentWrapper.document.body.prepForXml(xmlContext);
 
   if (!prepXml || !prepXml["w:body"]) {
     throw new Error("Le document généré est vide ou mal formé");
@@ -471,10 +477,14 @@ let filteredXml = prepXml["w:body"].filter((e) => {
 
   let dataXml = xml(filteredXml);
   dataXml = dataXml.replace(/w:numId w:val="{(\d+)-0}"/g, 'w:numId w:val="$1"'); // Replace numbering to have correct value
-  //a little dirty but until we do better it works
-  dataXml = dataXml.replace(/\{_\|link\|_\{(.*?)\|\-\|(.*?)\}_\|link\|_\}/gm, '<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> HYPERLINK $2 </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:rPr><w:rStyle w:val="PwndocLink"/></w:rPr><w:t> $1 </w:t> </w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>')
-  console.log(dataXml)
+  // HYPERLINK fields: target quoted in the field instruction (\ and " escaped), then escaped for XML
+  dataXml = dataXml.replace(LINK_BEGIN_MARKER, (match, index) =>
+    '<w:r><w:fldChar w:fldCharType="begin"/></w:r>' +
+    `<w:r><w:instrText xml:space="preserve"> HYPERLINK "${escapeXml(links[index].replace(/\\/g, '\\\\').replace(/"/g, '\\"'))}" </w:instrText></w:r>` +
+    '<w:r><w:fldChar w:fldCharType="separate"/></w:r>');
+  dataXml = dataXml.replace(LINK_END_MARKER, '<w:r><w:fldChar w:fldCharType="end"/></w:r>');
   return dataXml;
 }
 
 module.exports = html2ooxml;
+module.exports.TABLE_STYLE = TABLE_STYLE;

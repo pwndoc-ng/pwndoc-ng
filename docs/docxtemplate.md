@@ -55,6 +55,10 @@ To handle images, HTML values with images are converted into an array of text an
                                     Image 1 - {caption}{/images}{/poc}
 ```
 
+The width of these images is chosen in the editor (single click on an image): **Small** (50%), **Medium** (75%) or **Large** (100%) of the text width of the template, computed from the page size and margins of its main (last) section. Images without a chosen width use the default width defined in *Settings > Reports*. Tall images are reduced to fit in the page height with their caption.
+
+Large images are as wide as the space between the page margins: inside a table cell, the cell padding reduces the available width. To reach the margins, put the image paragraph in a cell spanning the whole table width and give it a negative left and right indentation equal to the cell margins (this is what the *Default Template* does in the finding details).
+
 ## Audit Object
 
 Docxtemplater requires an object containing data that will be used in the template document.
@@ -189,6 +193,7 @@ Network Scan:
 List of findings. Array of Objects:
 * **findings[i].title**
 * **findings[i].vulnType**
+* **findings[i].vulnTypeDescription** (plain text, description of the vulnerability type in the audit language, empty if not set). Use `{@vulnTypeDescription | NewLines}` to keep its line breaks
 * **findings[i].description** (HTML with images)
 * **findings[i].observation** (HTML with images)
 * **findings[i].remediation** (HTML with images)
@@ -202,12 +207,24 @@ List of findings. Array of Objects:
 * **findings[i].cvss.temporalSeverity**
 * **findings[i].cvss.environmentalMetricScore**
 * **findings[i].cvss.environmentalSeverity**
+* **findings[i].cvss.cellColor**, **findings[i].cvss.temporalCellColor**, **findings[i].cvss.environmentalCellColor** (color of a table cell for the severity of the score: `{@cvss.cellColor}` first thing in the cell, colors of the settings)
+* **findings[i].cvss.baseImpact**, **findings[i].cvss.baseExploitability** (CVSS 3.1 subscores of the base score, empty without vector)
+* **findings[i].cvss.environmentalModifiedImpact**, **findings[i].cvss.environmentalModifiedExploitability** (subscores of the environmental score)
+* **findings[i].cvss.baseImpactColor**, **findings[i].cvss.baseExploitabilityColor**, **findings[i].cvss.environmentalModifiedImpactColor**, **findings[i].cvss.environmentalModifiedExploitabilityColor** (color of a table cell for the severity of the subscore, same usage and colors as *cvss.cellColor*, see below)
 * **findings[i].cvssObj** (Object of cvss Criterias)
 * **findings[i].poc** (HTML with images)
 * **findings[i].affected** (HTML without images)
 * **findings[i].status** (Number 0:done, 1:redacting)
 * **findings[i].category**
 * **findings[i].identifier**
+
+CVSS defines no severity for the subscores: for their colors, each subscore is scaled to the range of the scores (0-10) by its maximum value (impact 6.1, environmental modified impact 6.2, exploitability 3.9) and rated like the scores (None 0, Low 0.1-3.9, Medium 4.0-6.9, High 7.0-8.9, Critical 9.0-10.0). Thresholds:
+
+| Subscore                          | Low       | Medium    | High      | Critical    |
+|:----------------------------------|:----------|:----------|:----------|:------------|
+| baseImpact                        | 0.1 - 2.4 | 2.5 - 4.2 | 4.3 - 5.4 | 5.5 and more |
+| environmentalModifiedImpact       | 0.1 - 2.4 | 2.5 - 4.3 | 4.4 - 5.5 | 5.6 and more |
+| baseExploitability, environmentalModifiedExploitability | 0.1 - 1.5 | 1.6 - 2.7 | 2.8 - 3.5 | 3.6 and more |
 
 Identifier consists on a sequential id for the reported vulnerability pre-pended with 'IDX-'. Ex: IDX-001.
 You can replace the prefix by using the filter ```changeID```
@@ -267,6 +284,9 @@ But in order to apply styles to the data from HTML editors, they must be defined
 | code (<>)  | CodeChar      |
 | code block | Code          |
 | Hyperlink  | PwndocLink    |
+| table      | PwndocTable (table style) |
+
+Tables of the HTML editors use the table style *PwndocTable* (borders, shading of the header row when the first row of the table is a header row). Modify it in the Docx Template to change the look of these tables (Word: Table Design > Modify Table Style). If the template does not define it, a default *PwndocTable* style is added to the report: simple grid, header row bold and shaded.
 
 For `bullet list` and `ordered list` they must be correctly set in the *numbering.xml* file of the Docx Template.
 

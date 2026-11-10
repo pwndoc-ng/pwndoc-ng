@@ -2,7 +2,8 @@ version: '3'
 services:
 
   mongodb:
-    image: mongo:4.2.15
+    build: ../mongodb
+    image: pwndoc-ng/pwndoc-ng:mongodb
     container_name: mongo-pwndoc-ng-dev
     volumes:
       - ./mongo-data-dev:/data/db
@@ -24,6 +25,7 @@ services:
       - ./src:/app/src
       - ./ssl:/app/ssl
       - ./report-templates:/app/report-templates
+      - ./backup:/app/backup
     depends_on:
       - mongodb
     restart: always

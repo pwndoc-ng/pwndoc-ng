@@ -1,6 +1,6 @@
 <template>
-  <div>
-    <q-drawer side="left" :modelValue="true" :width="400">
+  <div :class="{ 'comments-panel-open': commentsStore.panelOpen }">
+    <q-drawer side="left" v-model="sectionsDrawer" show-if-above :width="400">
       <q-splitter horizontal v-model="splitterRatio" :limits="[50, 80]" style="height: 100%">
         <template v-slot:before>
           <q-list class="home-drawer">
@@ -8,26 +8,32 @@
               <q-item-section class="q-mx-md">{{$t('sections')}}</q-item-section>
               <template v-if="$settings.reviews.enabled">
               <q-item-section side class="topButtonSection" v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT">
-                <q-btn class="q-mx-xs q-px-xs" size="11px" unelevated dense color="secondary" :label="$t('btn.topButtonSection.submitReview')" no-caps @click="toggleAskReview" >
+                <q-btn class="q-mx-xs q-px-xs" size="11px" unelevated dense color="secondary" :label="$t('btn.topButtonSection.submitReview')" no-caps :loading="reviewPending" @click="toggleAskReview" >
                   <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.topButtonSection.submitReview')}}</q-tooltip> 
                 </q-btn>
               </q-item-section>
               <q-item-section side class="topButtonSection" v-if="[AUDIT_VIEW_STATE.REVIEW_EDITOR, AUDIT_VIEW_STATE.REVIEW_ADMIN, AUDIT_VIEW_STATE.REVIEW_ADMIN_APPROVED].includes(frontEndAuditState)">
-                <q-btn class="q-mx-xs q-px-xs" size="11px" unelevated dense color="amber-9" :label="$t('btn.topButtonSection.cancelReview')" no-caps @click="toggleAskReview" >
+                <q-btn class="q-mx-xs q-px-xs" size="11px" unelevated dense color="amber-9" :label="$t('btn.topButtonSection.cancelReview')" no-caps :loading="reviewPending" @click="toggleAskReview" >
                   <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.topButtonSection.cancelReview')}}</q-tooltip> 
                 </q-btn>
               </q-item-section>
               <q-item-section side class="topButtonSection" v-if="[AUDIT_VIEW_STATE.REVIEW, AUDIT_VIEW_STATE.REVIEW_ADMIN].includes(frontEndAuditState)">
-                <q-btn class="q-mx-xs q-px-xs" size="11px" unelevated dense color="green" :label="$t('btn.topButtonSection.approve')" no-caps @click="toggleApproval" >
+                <q-btn class="q-mx-xs q-px-xs" size="11px" unelevated dense color="green" :label="$t('btn.topButtonSection.approve')" no-caps :loading="approvalPending" @click="toggleApproval" >
                   <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.topButtonSection.approve')}}</q-tooltip> 
                 </q-btn>
               </q-item-section>
               <q-item-section side class="topButtonSection" v-if="[AUDIT_VIEW_STATE.REVIEW_APPROVED, AUDIT_VIEW_STATE.REVIEW_ADMIN_APPROVED, AUDIT_VIEW_STATE.APPROVED_APPROVED].includes(frontEndAuditState)">
-                <q-btn class="q-mx-xs q-px-xs" size="11px" unelevated dense color="warning" :label="$t('btn.topButtonSection.removeApproval')" no-caps @click="toggleApproval" >
+                <q-btn class="q-mx-xs q-px-xs" size="11px" unelevated dense color="warning" :label="$t('btn.topButtonSection.removeApproval')" no-caps :loading="approvalPending" @click="toggleApproval" >
                   <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.topButtonSection.removeApproval')}}</q-tooltip> 
                 </q-btn>
               </q-item-section>
               </template>
+              <q-item-section side class="topButtonSection">
+                <q-btn flat dense color="orange-8" icon="mdi-comment-text-multiple-outline" @click="toggleCommentsPanel">
+                  <q-badge v-if="commentsStore.openCount()" color="orange-8" floating rounded>{{ commentsStore.openCount() }}</q-badge>
+                  <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{ $t('comments.title') }}</q-tooltip>
+                </q-btn>
+              </q-item-section>
               <q-item-section side class="topButtonSection">
                 <q-btn flat color="info" @click="generateReport">
                   <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{$t('tooltip.downloadReport')}}</q-tooltip> 
@@ -41,6 +47,9 @@
                 <q-icon name="fa fa-cog"></q-icon>
               </q-item-section>
               <q-item-section>{{$t('generalInformation')}}</q-item-section>
+              <q-item-section side v-if="openCommentsCount('general')">
+                  <q-badge color="orange-8" rounded>{{ openCommentsCount('general') }}</q-badge>
+                </q-item-section>
             </q-item>
             
             <div class="row">
@@ -55,6 +64,9 @@
                 <q-icon name="fa fa-globe"></q-icon>
               </q-item-section>
               <q-item-section>{{$t('networkScan')}}</q-item-section>
+              <q-item-section side v-if="openCommentsCount('network')">
+                  <q-badge color="orange-8" rounded>{{ openCommentsCount('network') }}</q-badge>
+                </q-item-section>
             </q-item>
   
             <div class="row">
@@ -186,8 +198,11 @@
                           </q-chip>
                         </q-item-section>
                         <q-item-section>
-                          <span>{{ finding.title }}</span>
+                          <span>{{ getFindingLabel(finding) }}</span>
                         </q-item-section>
+                        <q-item-section side v-if="openCommentsCount('finding', finding._id)">
+                  <q-badge color="orange-8" rounded>{{ openCommentsCount('finding', finding._id) }}</q-badge>
+                </q-item-section>
                         <q-item-section side v-if="finding.status === 0">
                           <q-icon name="check" color="green" />
                         </q-item-section>
@@ -216,6 +231,9 @@
                 </q-item-section>
                 <q-item-section>
                   <span>{{section.name}}</span>
+                </q-item-section>
+                <q-item-section side v-if="openCommentsCount('section', section._id)">
+                  <q-badge color="orange-8" rounded>{{ openCommentsCount('section', section._id) }}</q-badge>
                 </q-item-section>
               </q-item>
               <div class="row">
@@ -249,6 +267,16 @@
         
       </q-splitter>
     </q-drawer>
+    <!-- Menu hidden on small screens (or zoomed windows): button to show it again -->
+    <q-page-sticky v-if="!sectionsDrawer" class="z-fab" position="bottom-left" :offset="[18, 18]">
+      <q-btn fab-mini color="secondary" icon="menu" @click="sectionsDrawer = true">
+        <q-tooltip :delay="500">{{$t('sections')}}</q-tooltip>
+      </q-btn>
+    </q-page-sticky>
+    <!-- Review comments of the audit -->
+    <q-drawer side="right" v-model="commentsStore.panelOpen" :width="380" bordered>
+      <comments-panel />
+    </q-drawer>
     <router-view :key="$route.fullPath" :frontEndAuditState="frontEndAuditState" :parentState="audit.state" :parentApprovals="audit.approvals"  :audit="audit" />
     </div>
   </template>
@@ -259,16 +287,21 @@ import { defineComponent } from 'vue';
 import { Loading, Notify, QSpinnerGears } from 'quasar';
 import draggable from 'vuedraggable'
 
-import AuditService from '@/services/audit';
+import AuditService, { errorMessage } from '@/services/audit';
 import UserService from '@/services/user';
 import DataService from '@/services/data';
 import Utils from '@/services/utils';
 
 import { $t } from '@/boot/i18n';
+import { connectSocket } from '@/boot/socketio';
+import CommentsPanel from '@/components/comments-panel';
+import { createCommentsStore, targetKey } from '@/services/comments';
 
 export default defineComponent({
   data () {
       return {
+        // Menu of the sections: shown above the breakpoint of the drawer, with a button below
+        sectionsDrawer: false,
         auditId: "",
         findings: [],
         users: [],
@@ -282,12 +315,34 @@ export default defineComponent({
         vulnCategories: [],
         findingList: [],
         frontEndAuditState: Utils.AUDIT_VIEW_STATE.EDIT_READONLY,
-        AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE
+        AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE,
+        // Requests pending (buttons disabled meanwhile: no duplicated request for a double click)
+        reviewPending: false,
+        approvalPending: false,
+        reportPending: false,
+        // Number of the last load of the audit: only its answer is shown (reloads answered in any order)
+        lastAuditLoad: 0,
+        // Page left: the late answers do not join the room of the audit nor register socket listeners
+        left: false,
+        // Next attempt to show the element of a review comment (page and editors loaded asynchronously)
+        commentFocusTimer: null,
+        // Review comments of the audit, provided to the pages, fields and editors
+        commentsStore: createCommentsStore(this.$route.params.auditId, {
+          getAudit: () => this.audit,
+          getCustomFields: () => this.customFields,
+          canEdit: () => !this.loading && this.isUserAnEditor(),
+          navigate: (comment) => this.navigateToComment(comment)
+        })
       }
   },
 
+  provide() {
+    return { auditComments: this.commentsStore }
+  },
+
   components: {
-    draggable
+    draggable,
+    CommentsPanel
   },
 
   created: function() {
@@ -296,13 +351,21 @@ export default defineComponent({
     this.getCustomFields();
     this.getAuditTypes();
     this.getAudit(); // Calls getSections
+    this.commentsStore.load();
     Loading.hide();				
   },
 
   unmounted: function() {
+    this.left = true
+    clearTimeout(this.commentFocusTimer)
     if (!this.loading) {
       this.$socket.emit('leave', {username: UserService.user.username, room: this.auditId});
-      this.$socket.off()
+      // Only remove this page listeners (keep global ones registered in boot/socketio)
+      this.$socket.off('roomUsers');
+      this.$socket.off('updateUsers');
+      this.$socket.off('updateAudit');
+      this.$socket.off('updateComments');
+      this.$socket.off('disconnect', this.onSocketDisconnect);
     }
   },
 
@@ -314,20 +377,16 @@ export default defineComponent({
         .map((value, key) => {
           if (key === 'undefined') key = 'No Category'
           var sortOption = this.audit.sortFindings.find(option => option.category === key) // Get sort option saved in audit
-          
+
           if (!sortOption) { // no option for category in audit
-            sortOption = this.vulnCategories.find(e => e.name === key) // Get sort option from default in vulnerability category
-            if (sortOption) // found sort option from vuln categories
-              sortOption.category = sortOption.name
+            var categoryOption = this.vulnCategories.find(e => e.name === key) // Get sort option from default in vulnerability category
+            if (categoryOption) // found sort option from vuln categories
+              sortOption = {category: key, sortValue: categoryOption.sortValue, sortOrder: categoryOption.sortOrder, sortAuto: categoryOption.sortAuto}
             else // no default option or category don't exist
               sortOption = {category: key, sortValue: 'cvssScore', sortOrder: 'desc', sortAuto: true} // set a default sort option
-            
-            this.audit.sortFindings.push({
-              category: sortOption.category,
-              sortValue: sortOption.sortValue,
-              sortOrder: sortOption.sortOrder,
-              sortAuto: sortOption.sortAuto
-            })
+
+            // Same object in the audit and in the sort menu: its changes are saved
+            this.audit.sortFindings.push(sortOption)
           }
           
           return {category: key, findings: value, sortOption: sortOption}
@@ -383,41 +442,59 @@ export default defineComponent({
       return this.sectionUsers.filter(user => user.section === sectionId)
     },
     getFindingSeverity: function(finding) {
-      let severity = "None"
+      return this.getFindingCvss(finding).severity
+    },
+
+    // CVSS severity and score of a finding: base, temporal or environmental depending on the category sort option
+    getFindingCvss: function(finding) {
+      let result = {severity: "None", score: ""}
       let cvss = CVSS31.calculateCVSSFromVector(finding.cvssv3)
       if (cvss.success) {
-        severity = cvss.baseSeverity
+        result = {severity: cvss.baseSeverity, score: cvss.baseMetricScore}
 
         let category = finding.category || "No Category"
         let sortOption = this.audit.sortFindings.find(e => e.category === category)
 
         if (sortOption) {
           if (sortOption.sortValue === "cvssEnvironmentalScore")
-            severity = cvss.environmentalSeverity
+            result = {severity: cvss.environmentalSeverity, score: cvss.environmentalMetricScore}
           else if (sortOption.sortValue === "cvssTemporalScore")
-            severity = cvss.temporalSeverity
+            result = {severity: cvss.temporalSeverity, score: cvss.temporalMetricScore}
         }
       }
-      return severity
+      return result
     },
 
+    // Label of a finding in the sidebar, built from the template defined in settings (title by default)
+    getFindingLabel: function(finding) {
+      let template = this.$settings.report && this.$settings.report.public.findingSidebarTemplate
+      if (!template)
+        return finding.title
+
+      let variables = Utils.findingTemplateVariables(finding, {
+        index: Array.isArray(this.audit.findings) ? this.audit.findings.indexOf(finding) : -1,
+        cvss: () => this.getFindingCvss(finding)
+      })
+      let label = Utils.renderTemplate(template, variables, finding.customFields).replace(/\s+/g, ' ').trim()
+      return label || finding.title
+    },
+
+    // Page of the audit shown to the other users of the audit
     getMenuSection: function() {
-      if (this.$router.currentRoute.name && this.$router.currentRoute.name === 'general')
-        return {menu: 'general', room: this.auditId}
-      else if (this.$router.currentRoute.name && this.$router.currentRoute.name === 'network')
-        return {menu: 'network', room: this.auditId}
-      else if (this.$router.currentRoute.name && this.$router.currentRoute.name === 'addFindings')
-        return {menu: 'addFindings', room: this.auditId}
-      else if (this.$router.currentRoute.name && this.$router.currentRoute.name === 'editFinding' && this.$router.currentRoute.params.findingId)
-        return {menu: 'editFinding', finding: this.$router.currentRoute.params.findingId, room: this.auditId}
-      else if (this.$router.currentRoute.name && this.$router.currentRoute.name === 'editSection' && this.$router.currentRoute.params.sectionId)
-        return {menu: 'editSection', section: this.$router.currentRoute.params.sectionId, room: this.auditId}
-      
+      const route = this.$router.currentRoute.value
+      if (route.name === 'general' || route.name === 'network' || route.name === 'addFindings')
+        return {menu: route.name, room: this.auditId}
+      else if (route.name === 'editFinding' && route.params.findingId)
+        return {menu: 'editFinding', finding: route.params.findingId, room: this.auditId}
+      else if (route.name === 'editSection' && route.params.sectionId)
+        return {menu: 'editSection', section: route.params.sectionId, room: this.auditId}
+
       return {menu: 'undefined', room: this.auditId}
     },
 
     // Sockets handle
     handleSocket: function() {
+      connectSocket(); // Socket may have been refused before login
       this.$socket.emit('join', {username: UserService.user.username, room: this.auditId});
       this.$socket.on('roomUsers', (users) => {
         var userIndex = 0;
@@ -437,14 +514,18 @@ export default defineComponent({
       this.$socket.on('updateAudit', () => {
           this.getAudit();
       })
-      this.$socket.on('disconnect', () => {
+      this.$socket.on('updateComments', () => {
+          this.commentsStore.load();
+      })
+      this.onSocketDisconnect = () => {
         this.$socket.emit('join', {username: UserService.user.username, room: this.auditId})
         this.$socket.emit('menu', this.getMenuSection())
-      })
+      }
+      this.$socket.on('disconnect', this.onSocketDisconnect)
     },
     // Tells the UI if the user is supposed to be reviewing the audit
     isUserAReviewer: function() {
-      var isAuthor = this.audit.creator._id === UserService.user.id;
+      var isAuthor = this.isUserTheCreator();
       var isCollaborator = this.audit.collaborators.some((element) => element._id === UserService.user.id);
       var isReviewer = this.audit.reviewers.some((element) => element._id === UserService.user.id);
       var hasReviewAll = UserService.isAllowed('audits:review-all');
@@ -452,8 +533,48 @@ export default defineComponent({
     },
 
     // Tells the UI if the user is supposed to be editing the audit
+    // ----- Review comments -----
+
+    openCommentsCount: function(kind, id) {
+      return this.commentsStore.openCount(comment => comment.target.kind === kind &&
+        (!id || comment.target.findingId === id || comment.target.sectionId === id))
+    },
+
+    // Open the page of the commented element, then scroll to it (pages and editors are loaded asynchronously)
+    navigateToComment: function(comment) {
+      var target = comment.target
+      var page = {general: 'general', network: 'network', finding: `findings/${target.findingId}`, section: `sections/${target.sectionId}`}[target.kind]
+      var path = `/audits/${this.auditId}/${page}`
+      this.commentsStore.focus = {...target, key: targetKey(target), commentId: (comment.quote || comment.image) ? comment._id : null, at: Date.now()}
+      if (this.$route.path !== path)
+        this.$router.push(path).catch(() => {})
+      this.showCommentFocus(this.commentsStore.focus)
+    },
+
+    showCommentFocus: function(focus, attempt = 0) {
+      clearTimeout(this.commentFocusTimer)
+      // Audit left, or another comment selected meanwhile
+      if (this.left || this.commentsStore.focus !== focus) return
+      var element = (focus.commentId && document.querySelector(`[data-comment-id="${focus.commentId}"]`)) ||
+        (attempt > 10 || !focus.commentId ? document.querySelector(`[data-comment-field="${focus.key}"]`) : null)
+      if (!element) {
+        // Attempts stopped when the audit is left (unmounted)
+        if (attempt < 30) this.commentFocusTimer = setTimeout(() => this.showCommentFocus(focus, attempt + 1), 200)
+        return
+      }
+      element.scrollIntoView({behavior: 'smooth', block: 'center'})
+      element.classList.remove('comment-focus')
+      void element.offsetWidth // Restart animation
+      element.classList.add('comment-focus')
+    },
+
+    // Creator null when its user was deleted
+    isUserTheCreator: function() {
+      return !!this.audit.creator && this.audit.creator._id === UserService.user.id;
+    },
+
     isUserAnEditor: function() {
-      var isAuthor = this.audit.creator._id === UserService.user.id;
+      var isAuthor = this.isUserTheCreator();
       var isCollaborator = this.audit.collaborators.some((element) => element._id === UserService.user.id);
       var hasUpdateAll = UserService.isAllowed('audits:update-all');
       return (isAuthor || isCollaborator || hasUpdateAll);
@@ -488,12 +609,15 @@ export default defineComponent({
     },
 
     getAudit: function() {
+      var load = ++this.lastAuditLoad
       DataService.getVulnerabilityCategories() // Vuln Categories must exist before getting audit data for handling default sort options
       .then(data => {
         this.vulnCategories = data.data.datas
         return AuditService.getAudit(this.auditId)
       })
       .then((data) => {
+        if (this.left || load !== this.lastAuditLoad)
+          return
         this.audit = data.data.datas;
         this.getUIState();
         this.getSections()
@@ -502,10 +626,20 @@ export default defineComponent({
         this.loading = false
       })
       .catch((err) => {
-        if (err.response.status === 403)
+        if (this.left || load !== this.lastAuditLoad)
+          return
+        var status = err.response && err.response.status
+        if (status === 403)
           this.$router.push({name: '403', params: {error: err.response.data.datas}})
-        else if (err.response.status === 404)
+        else if (status === 404)
           this.$router.push({name: '404', params: {error: err.response.data.datas}})
+        else
+          Notify.create({
+            message: errorMessage(err),
+            color: 'negative',
+            textColor: 'white',
+            position: 'top-right'
+          })
       })
     },
 
@@ -564,7 +698,11 @@ export default defineComponent({
       })
     },
 
-    generateReport: function() {
+    generateReport: function(event) {
+      // One generation at a time, and the second click of a double click ignored (the generation may already be
+      // answered): a double click downloads the report once
+      if (this.reportPending || this.isRepeatedClick(event)) return
+      this.reportPending = true
       const downloadNotif = Notify.create({
         spinner: QSpinnerGears,
         message: 'Generating the Report',
@@ -608,6 +746,9 @@ export default defineComponent({
           classes: "text-pre-wrap"
         })
       })
+      .finally(() => {
+        this.reportPending = false
+      })
     },
 
     updateSortFindings: function() {
@@ -636,22 +777,25 @@ export default defineComponent({
     },
 
     moveFindingPosition: function(event, category) {
-      var index = this.audit.findings.findIndex(e => {
+      // Positions in the audit of the dragged finding and of the finding it takes the place of (the findings of a
+      // category are not always contiguous in the audit)
+      var categoryFindings = this.audit.findings.filter(e => {
         if (category === 'No Category')
           return !e.category
         else
           return e.category === category
       })
-      if (index > -1) {
-        var realOldIndex = event.oldIndex + index
-        var realNewIndex = event.newIndex + index
+      var moved = categoryFindings[event.oldIndex]
+      var target = categoryFindings[event.newIndex]
+      if (moved && target) {
+        var realOldIndex = this.audit.findings.indexOf(moved)
+        var realNewIndex = this.audit.findings.indexOf(target)
 
         AuditService.updateAuditFindingPosition(this.auditId, {oldIndex: realOldIndex, newIndex: realNewIndex})
         .then(msg => this.getAudit())
         .catch(err => {
-          console.log(err.response.data.datas)
           Notify.create({
-            message: err.response.data.datas || err.message,
+            message: errorMessage(err),
             color: 'negative',
             textColor:'white',
             position: 'top-right'
@@ -661,10 +805,26 @@ export default defineComponent({
       }
     },
 
-    toggleAskReview: function() {
-      AuditService.updateReadyForReview(this.auditId, { state: this.audit.state === "EDIT" ? "REVIEW" : "EDIT" })
+    // Second click of a double click (MouseEvent.detail 2): the first request may already be answered, so it would undo
+    // the first click on a button that toggles (the button of the opposite action, cancel review or remove approval, is
+    // at its place) or generate the report again
+    isRepeatedClick: function(event) {
+      return !!event && event.detail > 1
+    },
+
+    toggleCommentsPanel: function(event) {
+      if (this.isRepeatedClick(event)) return
+      this.commentsStore.panelOpen = !this.commentsStore.panelOpen
+    },
+
+    toggleAskReview: function(event) {
+      if (this.isRepeatedClick(event)) return
+      // State asked computed at the click and set at the answer: two quick clicks ask the same state
+      var state = this.audit.state === "EDIT" ? "REVIEW" : "EDIT"
+      this.reviewPending = true
+      AuditService.updateReadyForReview(this.auditId, { state: state })
       .then(() => {
-        this.audit.state = this.audit.state === "EDIT" ? "REVIEW" : "EDIT";
+        this.audit.state = state;
         this.getUIState();
         Notify.create({
           message: $t('msg.auditReviewUpdateOk'),
@@ -673,19 +833,39 @@ export default defineComponent({
           position: 'top-right'
         })
       })
-      .catch((err) => {     
+      .catch((err) => {
         console.log(err)
         Notify.create({
-          message: err.response.data.datas || err.message,
+          message: errorMessage(err),
           color: 'negative',
           textColor:'white',
           position: 'top-right'
         })
+      })
+      .finally(() => {
+        this.reviewPending = false
       });
     },
 
-    toggleApproval: function() {
-      AuditService.toggleApproval(this.auditId)
+    toggleApproval: function(event) {
+      if (this.approvalPending || this.isRepeatedClick(event)) return
+      // Approval needs resolved comments (also checked by the backend)
+      var approving = !this.userHasAlreadyApproved()
+      if (approving && this.$settings.reviews.public.blockApprovalWithOpenComments && this.commentsStore.openCount() > 0) {
+        Notify.create({
+          message: $t('comments.approvalBlocked'),
+          color: 'warning',
+          textColor: 'white',
+          position: 'top-right'
+        })
+        this.commentsStore.status = 'open'
+        this.commentsStore.targetFilter = null
+        this.commentsStore.panelOpen = true
+        return
+      }
+      this.approvalPending = true
+      // Approval set to the value shown by the button, not toggled: a repeated request keeps it
+      AuditService.toggleApproval(this.auditId, {approved: approving})
       .then(() => {
         Notify.create({
           message: $t('msg.auditApprovalUpdateOk'),
@@ -694,14 +874,17 @@ export default defineComponent({
           position: 'top-right'
         })
       })
-      .catch((err) => {          
+      .catch((err) => {
         console.log(err)
         Notify.create({
-          message: err.response.data.datas || err.message,
+          message: errorMessage(err),
           color: 'negative',
           textColor:'white',
           position: 'top-right'
         })
+      })
+      .finally(() => {
+        this.approvalPending = false
       });
     }
   },
@@ -763,5 +946,13 @@ export default defineComponent({
       padding-left: 0px!important;
     padding-right: 0px!important;
   }
-  </style>
+  
+/* Comments panel open: the page content uses the whole width left between the two drawers */
+@media (min-width: 1024px) {
+  .comments-panel-open .col-md-8.offset-md-2 {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+</style>
   

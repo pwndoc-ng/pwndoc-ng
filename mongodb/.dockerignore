@@ -1,0 +1,2 @@
+# Data folder of the MongoDB container (mounted, never part of the image)
+mongo-data*

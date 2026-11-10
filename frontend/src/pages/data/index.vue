@@ -1,6 +1,6 @@
 <template>
 <div>
-    <q-drawer side="left" :modelValue="true">
+    <q-drawer side="left" v-model="menuDrawer" show-if-above>
         <q-list class="home-drawer">
             <q-item-label header>{{$t('handleCustomData')}}</q-item-label>
         
@@ -47,6 +47,12 @@
             </q-item>
         </q-list>
     </q-drawer>
+    <!-- Menu hidden on small screens (or zoomed windows): button to show it again -->
+    <q-page-sticky v-if="!menuDrawer" class="z-fab" position="bottom-left" :offset="[18, 18]">
+      <q-btn fab-mini color="secondary" icon="menu" @click="menuDrawer = true">
+        <q-tooltip :delay="500">{{$t('handleCustomData')}}</q-tooltip>
+      </q-btn>
+    </q-page-sticky>
     <router-view />     
 </div>
 </template>
@@ -60,7 +66,9 @@ import UserService from '@/services/user'
 export default defineComponent({
   data: () => {
       return {
-          UserService: UserService
+          UserService: UserService,
+          // Menu: shown above the breakpoint of the drawer, with a button below
+          menuDrawer: false
       }
   },
 

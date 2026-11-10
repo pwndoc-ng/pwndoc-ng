@@ -1,23 +1,44 @@
-// Dynamic generation of JWT Secret if not exist (different for each environnment)
+// JWT secrets: environment variables JWT_SECRET and JWT_REFRESH_SECRET first (deployments: nothing generated nor written
+// in the sources), otherwise jwtSecret and jwtRefreshSecret of the environment in config.json, generated and written in
+// config.json when missing (different for each environment)
 var fs = require('fs')
+var path = require('path')
 var env = process.env.NODE_ENV || 'dev'
 var config = require('../config/config.json')
 
-if (!config[env].jwtSecret) {
-    config[env].jwtSecret = require('crypto').randomBytes(32).toString('hex')
-    var configString = JSON.stringify(config, null, 4)
-    fs.writeFileSync(`${__basedir}/config/config.json`, configString)
-}
-if (!config[env].jwtRefreshSecret) {
-    config[env].jwtRefreshSecret = require('crypto').randomBytes(32).toString('hex')
-    var configString = JSON.stringify(config, null, 4)
-    fs.writeFileSync(`${__basedir}/config/config.json`, configString)
+var MIN_SECRET_LENGTH = 32
+
+// Secret of an environment variable, null if not set. Invalid values stop the start (the value is never shown)
+function secretFromEnvironment(name) {
+    var value = process.env[name]
+    if (value === undefined)
+        return null
+    if (value.trim().length < MIN_SECRET_LENGTH)
+        throw new Error(`Environment variable ${name}: ${MIN_SECRET_LENGTH} characters at least required (empty or too short)`)
+    return value
 }
 
-var jwtSecret = config[env].jwtSecret
+var secrets = {jwtSecret: secretFromEnvironment('JWT_SECRET'), jwtRefreshSecret: secretFromEnvironment('JWT_REFRESH_SECRET')}
+var generated = false
+Object.keys(secrets).forEach(key => {
+    if (secrets[key])
+        return
+    if (!config[env][key]) {
+        config[env][key] = require('crypto').randomBytes(32).toString('hex')
+        generated = true
+    }
+    secrets[key] = config[env][key]
+})
+if (generated)
+    fs.writeFileSync(path.join(__dirname, '..', 'config', 'config.json'), JSON.stringify(config, null, 4))
+// A refresh token must not be accepted as access token
+if (secrets.jwtSecret === secrets.jwtRefreshSecret)
+    throw new Error('The JWT secret and the JWT refresh secret must be different (JWT_SECRET, JWT_REFRESH_SECRET)')
+
+var jwtSecret = secrets.jwtSecret
 exports.jwtSecret = jwtSecret
 
-var jwtRefreshSecret = config[env].jwtRefreshSecret
+var jwtRefreshSecret = secrets.jwtRefreshSecret
 exports.jwtRefreshSecret = jwtRefreshSecret
 
 /*  ROLES LOGIC
@@ -154,20 +175,6 @@ class ACL {
             })
         }
     }
-    hasPermissionFromReq (permission,token) {
-        var jwt = require('jsonwebtoken')
-        return jwt.verify(token, jwtSecret, (err, decoded) => {
-            if (err) {
-                return false
-            }
-            if ( permission === "validtoken" || this.isAllowed(decoded.role, permission)) {
-                    return decoded
-            }
-            else {
-                return false
-            }
-        })
-    }
 
     buildRoles(role) {
         var currentRole = this.roles[role] || this.roles['user'] // Default to user role in case of inexistant role
@@ -194,3 +201,26 @@ class ACL {
 }
 
 exports.acl = new ACL(roles)
+
+// Verify the JWT stored in the 'token' cookie of a raw Cookie header ("JWT <token>", URI encoded).
+// Used by the websocket servers (socket.io and collaborative editing) which don't go through Express.
+// Returns the decoded token or null if it is missing or invalid.
+function decodeTokenFromCookieHeader(cookieHeader) {
+    if (typeof cookieHeader !== 'string')
+        return null
+
+    var tokenCookie = cookieHeader.split(';').map(c => c.trim()).find(c => c.startsWith('token='))
+    if (!tokenCookie)
+        return null
+
+    try {
+        var cookie = decodeURIComponent(tokenCookie.substring('token='.length)).split(' ')
+        if (cookie.length !== 2 || cookie[0] !== 'JWT')
+            return null
+        return require('jsonwebtoken').verify(cookie[1], jwtSecret)
+    }
+    catch (err) {
+        return null
+    }
+}
+exports.decodeTokenFromCookieHeader = decodeTokenFromCookieHeader

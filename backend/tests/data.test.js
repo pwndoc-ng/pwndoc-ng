@@ -279,7 +279,8 @@ module.exports = function(request, app) {
       it('Create vulnerability type Web', async () => {
         var type = {
           locale: 'en',
-          name: 'Web'
+          name: 'Web',
+          description: '<p>Web application vulnerabilities</p>'
         }
         var response = await request(app).post('/api/data/vulnerability-types')
           .set('Cookie', [
@@ -304,10 +305,25 @@ module.exports = function(request, app) {
         expect(response.status).toBe(422)
       })
 
+      it('Should not create with non string description', async () => {
+        var type = {
+          locale: 'en',
+          name: 'Mobile',
+          description: {value: 'not a string'}
+        }
+        var response = await request(app).post('/api/data/vulnerability-types')
+          .set('Cookie', [
+            `token=JWT ${userToken}`
+          ])
+          .send(type)
+
+        expect(response.status).toBe(422)
+      })
+
       it('Get vulnerability types', async () => {
         const expected = [
-          {"locale": "en", "name": "Internal"},
-          {"locale": "en", "name": "Web"}
+          {"locale": "en", "name": "Internal", "description": ""},
+          {"locale": "en", "name": "Web", "description": "<p>Web application vulnerabilities</p>"}
         ]
         var response = await request(app).get('/api/data/vulnerability-types')
           .set('Cookie', [
@@ -318,7 +334,48 @@ module.exports = function(request, app) {
         expect(response.body.datas).toEqual(expect.arrayContaining(expected))
       })
 
-      it('Delete vulnerability type', async () => {
+      it('Update vulnerability types descriptions', async () => {
+        const types = [
+          {"locale": "en", "name": "Internal", "description": "<p>Internal network</p><ul><li><p>Active Directory</p></li></ul>"},
+          {"locale": "en", "name": "Web", "description": "<p>Web application vulnerabilities</p>"}
+        ]
+        var response = await request(app).put('/api/data/vulnerability-types')
+          .set('Cookie', [
+            `token=JWT ${userToken}`
+          ])
+          .send(types)
+        expect(response.status).toBe(201)
+
+        response = await request(app).get('/api/data/vulnerability-types')
+          .set('Cookie', [
+            `token=JWT ${userToken}`
+          ])
+        expect(response.body.datas).toEqual(expect.arrayContaining(types))
+        expect(response.body.datas).toHaveLength(2)
+      })
+
+      it('Delete vulnerability type of one language only', async () => {
+        var response = await request(app).post('/api/data/vulnerability-types')
+          .set('Cookie', [
+            `token=JWT ${userToken}`
+          ])
+          .send({locale: 'fr', name: 'Web'})
+        expect(response.status).toBe(201)
+
+        response = await request(app).delete('/api/data/vulnerability-types/Web?locale=fr')
+          .set('Cookie', [
+            `token=JWT ${userToken}`
+          ])
+        expect(response.status).toBe(200)
+
+        response = await request(app).get('/api/data/vulnerability-types')
+          .set('Cookie', [
+            `token=JWT ${userToken}`
+          ])
+        expect(response.body.datas.filter(t => t.name === 'Web').map(t => t.locale)).toEqual(['en'])
+      })
+
+            it('Delete vulnerability type', async () => {
         var response = await request(app).delete('/api/data/vulnerability-types/Web')
           .set('Cookie', [
             `token=JWT ${userToken}`

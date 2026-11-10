@@ -6,7 +6,7 @@
     :approvals="parentApprovals"
   >
     <template v-slot:buttons>
-      <div >
+      <div v-if="editable">
         <q-btn-dropdown class="q-mr-sm" :label="$t('import')" no-caps>
           <q-list>
             <q-item clickable @click="$refs.nmapFile.click()">
@@ -40,7 +40,7 @@
             </q-item>
           </q-list>
         </q-btn-dropdown>
-        <q-btn color="positive" :label="$t('btn.save') + ' (ctrl+s)'" no-caps @click="updateAuditNetwork" />
+        <q-btn color="positive" :label="$t('btn.save') + ' (ctrl+s)'" :disable="!loaded" no-caps @click="updateAuditNetwork" />
       </div>
     </template>
   </breadcrumb>
@@ -50,10 +50,16 @@
         <q-card>
             <q-card-section>{{$t('hostsAssociateScopes')}}</q-card-section>
             <q-separator />
-            <q-card-section v-for="scope of audit.scope" :key="scope.name">
-                    <span class="text-h6">{{scope.name}}</span>
+            <!-- Scopes of the network data (the scopes of the general data are names only, without hosts) -->
+            <q-card-section v-for="scope of (loaded ? audit.scope : [])" :key="scope.name">
+                    <div class="row items-center">
+                        <span class="text-h6">{{scope.name}}</span>
+                        <q-space />
+                        <comment-button :target="{kind: 'network', field: 'scope.' + scope.name}" />
+                    </div>
                     <div class="q-col-gutter-md row">
                             <q-select
+                            v-if="editable"
                             class="col-md-12"
                             multiple
                             :label="selectHostsLabel"
@@ -76,7 +82,7 @@
                             dense
                             square
                             class="col-md-6"
-                            removable
+                            :removable="editable"
                             @remove="scope.hosts.splice(index, 1)"
                             >
                             {{host.ip || host}}

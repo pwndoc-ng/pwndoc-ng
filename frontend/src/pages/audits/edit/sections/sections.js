@@ -4,8 +4,9 @@ import { Notify, Dialog } from 'quasar';
 import BasicEditor from 'components/editor';
 import Breadcrumb from 'components/breadcrumb';
 import CustomFields from 'components/custom-fields';
+import CommentButton from 'components/comment-button';
 
-import AuditService from '@/services/audit';
+import AuditService, { errorMessage } from '@/services/audit';
 import DataService from '@/services/data';
 import Utils from '@/services/utils';
 
@@ -32,6 +33,13 @@ export default {
                 customFields: []
             },
             sectionOrig: {},
+            // Section loaded: it cannot be saved before (the empty section would replace it)
+            loaded: false,
+            // Saves numbered in the order of the requests: copy of the section sent by the last one, number of the last
+            // one answered (an older save answered after a newer one is not the saved version)
+            sectionSaving: null,
+            saveCount: 0,
+            savedCount: 0,
             // List of CustomFields
             customFields: [],
             AUDIT_VIEW_STATE: Utils.AUDIT_VIEW_STATE
@@ -41,7 +49,21 @@ export default {
     components: {
         BasicEditor,
         Breadcrumb,
-        CustomFields
+        CustomFields,
+        CommentButton
+    },
+
+    computed: {
+        // Review comments targets of the section (stable objects: used as props of editors)
+        commentTargets: function() {
+            const base = {kind: 'section', sectionId: this.$route.params.sectionId}
+            return {base: base, text: {...base, field: 'text'}}
+        },
+        // Field of the text editor in the shared document of the audit: same for all the users of the section
+        // (without it the editor uses a random field and its text is not shared)
+        textEditorId: function() {
+            return `${this.$route.params.sectionId}-section-text`
+        },
     },
 
     mounted: function() {
@@ -55,7 +77,7 @@ export default {
         document.addEventListener('keydown', this._listener, false)
     },
 
-    destroyed: function() {
+    unmounted: function() {
         document.removeEventListener('keydown', this._listener, false)
     },
 
@@ -110,7 +132,8 @@ export default {
             })
             .then((data) => {
                 this.section = data.data.datas;
-            this.sectionOrig = this.$_.cloneDeep(this.section);
+                this.sectionOrig = this.$_.cloneDeep(this.section);
+                this.loaded = true
                 nextTick(() => {
                     Utils.syncEditors(this.$refs)
                 })
@@ -123,6 +146,7 @@ export default {
 
         // Update Section
         updateSection: function() {
+            if (!this.loaded) return
             Utils.syncEditors(this.$refs)
             nextTick(() => {
                 if (this.$refs.customfields && this.$refs.customfields.requiredFieldsEmpty()) {
@@ -134,9 +158,16 @@ export default {
                     })
                     return
                 }
-                AuditService.updateSection(this.auditId, this.sectionId, this.section)
+                // Saved version: the data sent, not the data typed while the request is pending
+                var sent = this.$_.cloneDeep(this.section)
+                var save = ++this.saveCount
+                this.sectionSaving = sent
+                AuditService.updateSection(this.auditId, this.sectionId, sent)
                 .then(() => {
-                    this.sectionOrig = this.$_.cloneDeep(this.section);
+                    if (save > this.savedCount) {
+                        this.savedCount = save
+                        this.sectionOrig = sent;
+                    }
                     Notify.create({
                         message: $t('msg.sectionUpdateOk'),
                         color: 'positive',
@@ -146,22 +177,33 @@ export default {
                 })
                 .catch((err) => {
                     Notify.create({
-                        message: err.response.data.datas,
+                        message: errorMessage(err),
                         color: 'negative',
                         textColor:'white',
                         position: 'top-right'
                     })
+                })
+                .finally(() => {
+                    if (save === this.saveCount) // Not a later save
+                        this.sectionSaving = null
                 })
             }).catch((err) => {
                 console.error('Error in updateSection nextTick:', err);
             })
         },
 
-        unsavedChanges: function() {  
-            if (!this.$_.isEqual(this.section.customFields, this.sectionOrig.customFields))
-                return true
+        // Text of a section of an old version shown by its editor (not editable before): the HTML normalized by the
+        // editor is the saved version, otherwise leaving would warn about changes not made by the user
+        textEditorReady: function() {
+            Utils.syncEditors(this.$refs)
+            this.sectionOrig.text = this.section.text
+        },
 
-            return false
+        // Changes of the custom fields, or of the text of the sections of the old versions, not saved nor being saved
+        unsavedChanges: function() {
+            if (!this.loaded || this.$_.isEqual(this.section, this.sectionOrig))
+                return false
+            return !(this.sectionSaving && this.$_.isEqual(this.section, this.sectionSaving))
         }
     }
 }

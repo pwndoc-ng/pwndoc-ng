@@ -1,11 +1,16 @@
 import { api } from 'boot/axios'
 
+// Message of a refused request: message of the API, or of the request itself when there is no answer (network error)
+export function errorMessage(err) {
+  return (err.response && err.response.data && err.response.data.datas) || err.message
+}
+
 export default {
   getAudits: function(filters) {
     var queryParams = "?";
     if (filters)
       if (filters.findingTitle)
-        queryParams += `findingTitle=${filters.findingTitle}`;
+        queryParams += `findingTitle=${encodeURIComponent(filters.findingTitle)}`;
     return  api.get(`audits${queryParams}`)
   },
 
@@ -81,11 +86,33 @@ export default {
     return  api.put(`audits/${auditId}/movefinding`, audit)
   },
   
-  toggleApproval: function(auditId) {
-    return  api.put(`audits/${auditId}/toggleApproval`);
+  // data: {approved: true|false} sets the approval of the user (without it, the approval is toggled)
+  toggleApproval: function(auditId, data) {
+    return  api.put(`audits/${auditId}/toggleApproval`, data);
   },
 
   updateReadyForReview: function(auditId, data) {
     return  api.put(`audits/${auditId}/updateReadyForReview`, data);
+  },
+
+  // Review comments (each call returns the updated list of comments of the audit)
+  getComments: function(auditId) {
+    return api.get(`audits/${auditId}/comments`)
+  },
+
+  createComment: function(auditId, comment) {
+    return api.post(`audits/${auditId}/comments`, comment)
+  },
+
+  replyComment: function(auditId, commentId, text) {
+    return api.post(`audits/${auditId}/comments/${commentId}/replies`, {text: text})
+  },
+
+  updateComment: function(auditId, commentId, update) {
+    return api.put(`audits/${auditId}/comments/${commentId}`, update)
+  },
+
+  deleteComment: function(auditId, commentId) {
+    return api.delete(`audits/${auditId}/comments/${commentId}`)
   }
 }

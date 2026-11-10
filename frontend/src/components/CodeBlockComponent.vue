@@ -1,6 +1,6 @@
 <template>
     <node-view-wrapper class="code-block">
-      <select contenteditable="false" v-model="selectedLanguage">
+      <select contenteditable="false" v-model="selectedLanguage" :disabled="!editable">
         <option :value="null">
           auto
         </option>
@@ -29,7 +29,20 @@
     data() {
       return {
         languages: this.extension.options.lowlight.listLanguages(),
+        // Not reactive in the editor: updated by the update event (editor made editable or read-only)
+        editable: this.editor.isEditable,
       }
+    },
+
+    mounted() {
+      this.onEditorUpdate = () => {
+        this.editable = this.editor.isEditable
+      }
+      this.editor.on('update', this.onEditorUpdate)
+    },
+
+    beforeUnmount() {
+      this.editor.off('update', this.onEditorUpdate)
     },
   
     computed: {

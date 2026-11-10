@@ -5,6 +5,7 @@ import Breadcrumb from 'components/breadcrumb'
 import CvssCalculator from 'components/cvsscalculator'
 import TextareaArray from 'components/textarea-array'
 import CustomFields from 'components/custom-fields'
+import ProposalsList from 'components/proposals-list'
 
 import VulnerabilityService from '@/services/vulnerability'
 import DataService from '@/services/data'
@@ -22,6 +23,11 @@ export default {
             currentDetailsIndex:0,
             // Loading state
             loading: true,
+            // Number of the last loading of the list: the answers of the older ones are ignored
+            vulnerabilitiesRequest: 0,
+            // Requests in progress (double click protection)
+            creating: false,
+            merging: false,
             rows:[],
             // Datatable headers
             dtHeaders: [
@@ -63,9 +69,10 @@ export default {
             dtLanguage: "",
             currentDetailsIndex: 0,
             vulnerabilityId: '',
-            vulnUpdates: [],
-            currentUpdate: '',
-            currentUpdateLocale: '',
+            // Proposals tab
+            mainTab: 'vulnerabilities',
+            proposalsFilter: null, // {id, title}: proposals of one vulnerability
+            pendingProposals: 0,
             vulnTypes: [],
             // Merge languages
             mergeLanguageLeft: '',
@@ -76,7 +83,11 @@ export default {
             vulnCategories: [],
             currentCategory: null,
             // Custom Fields
-            customFields: []
+            customFields: [],
+            // Until then, the custom fields of the vulnerability opened are kept as they are (not filtered, not shown)
+            customFieldsLoaded: false,
+            // Number of the last request of the count of the proposals (answers in any order)
+            proposalsRequest: 0
         }
     },
 
@@ -85,10 +96,12 @@ export default {
         Breadcrumb,
         CvssCalculator,
         TextareaArray,
-        CustomFields
+        CustomFields,
+        ProposalsList
     },
 
     mounted: function() {
+        this.refreshPendingProposals();
         this.getLanguages()
         this.getVulnTypes()
         this.getVulnerabilities()
@@ -110,9 +123,19 @@ export default {
             return this.vulnTypes.filter(type => type.locale === this.currentLanguage);
         },
 
+        // Vulnerabilities of the current tab: archived ones only in the archives tab
+        tabVulnerabilities() {
+            const archives = this.mainTab === 'archives';
+            return this.vulnerabilities.filter(vuln => !!vuln.archived === archives);
+        },
+
+        archivedCount() {
+            return this.vulnerabilities.filter(vuln => vuln.archived).length;
+        },
+
         computedVulnerabilities() {
             if (!this.dtLanguage) return [];
-            let filtered = this.vulnerabilities.filter(vuln =>
+            let filtered = this.tabVulnerabilities.filter(vuln =>
                 vuln.details.some(detail => detail.locale === this.dtLanguage && detail.title)
             );
             return filtered;
@@ -163,6 +186,10 @@ export default {
             DataService.getCustomFields()
             .then((data) => {
                 this.customFields = this.$_.cloneDeep(data.data.datas)
+                this.customFieldsLoaded = true
+                // Vulnerability being created or edited before this answer: add its custom fields
+                if (this.currentVulnerability.details.length > 0)
+                    this.setCurrentDetails()
             })
             .catch((err) => {
                 console.log(err)
@@ -193,8 +220,12 @@ export default {
 
         getVulnerabilities: function() {
             this.loading = true
+            // Refreshed after each action: a slow older answer would bring back a deleted or archived vulnerability
+            var request = ++this.vulnerabilitiesRequest
             VulnerabilityService.getVulnerabilities()
             .then((data) => {
+                if (request !== this.vulnerabilitiesRequest)
+                    return
                 this.vulnerabilities = data.data.datas
                 this.loading = false
             })
@@ -210,18 +241,28 @@ export default {
         },
 
         createVulnerability: function() {
+            // Double click or Enter pressed twice: created once
+            if (this.creating)
+                return;
             this.cleanErrors();
             var index = this.currentVulnerability.details.findIndex(obj => obj.title !== '');
             if (index < 0)
                 this.errors.title = $t('err.titleRequired');
-            
+
             if (this.errors.title)
                 return;
 
+            this.creating = true;
+            var created = this.currentVulnerability;
             VulnerabilityService.createVulnerabilities([this.currentVulnerability])
+            .finally(() => {
+                this.creating = false;
+            })
             .then(() => {
                 this.getVulnerabilities();
-                this.$refs.createModal.hide();
+                // Not when the page was left, nor when the dialog was opened again meanwhile (new object)
+                if (this.$refs.createModal && this.currentVulnerability === created)
+                    this.$refs.createModal.hide();
                 Notify.create({
                     message: $t('msg.vulnerabilityCreatedOk'),
                     color: 'positive',
@@ -248,12 +289,16 @@ export default {
             
             if (this.errors.title)
                 return;
-              
+
+            // Each opening edits a new copy: the answer closes the dialog only if it still shows the vulnerability sent
+            // (and if the page was not left during the request)
+            var updated = this.currentVulnerability;
             VulnerabilityService.updateVulnerability(this.vulnerabilityId, this.currentVulnerability)
             .then(() => {
                 this.getVulnerabilities();
-                this.$refs.editModal.hide();
-                this.$refs.updatesModal.hide();
+                if (this.currentVulnerability === updated && this.$refs.editModal)
+                    this.$refs.editModal.hide();
+                this.refreshPendingProposals();
                 Notify.create({
                     message: $t('msg.vulnerabilityUpdatedOk'),
                     color: 'positive',
@@ -292,6 +337,28 @@ export default {
             })
         },
 
+        // Archive (hidden when adding findings) or restore a vulnerability
+        setArchived: function(row, archived) {
+            VulnerabilityService.archiveVulnerability(row._id, archived)
+            .then(() => {
+                this.getVulnerabilities();
+                Notify.create({
+                    message: archived ? $t('archives.archivedOk', [this.getDtTitle(row)]) : $t('archives.restoredOk', [this.getDtTitle(row)]),
+                    color: 'positive',
+                    textColor: 'white',
+                    position: 'top-right'
+                })
+            })
+            .catch((err) => {
+                Notify.create({
+                    message: err.response.data.datas,
+                    color: 'negative',
+                    textColor: 'white',
+                    position: 'top-right'
+                })
+            })
+        },
+
         confirmDeleteVulnerability: function(row) {
             Dialog.create({
                 title: $t('msg.confirmSuppression'),
@@ -302,33 +369,12 @@ export default {
             .onOk(() => this.deleteVulnerability(row._id))
         },
 
-        getVulnUpdates: function(vulnId) {
-            VulnerabilityService.getVulnUpdates(vulnId)
-            .then((data) => {
-                this.vulnUpdates = data.data.datas;
-                this.vulnUpdates.forEach(vuln => {
-                    vuln.customFields = Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, vuln.customFields, vuln.locale)
-                })
-                if (this.vulnUpdates.length > 0) {
-                    // Sort by modification date (newest first)
-                    this.vulnUpdates.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-                    this.currentUpdate = this.vulnUpdates[0]._id || null;
-                    this.currentLanguage = this.vulnUpdates[0].locale || null;
-                }
-            })
-            .catch((err) => {
-                console.log(err)
-            })
-        },
-
         clone: function(row) {
             this.cleanCurrentVulnerability();
             this.currentVulnerability = this.$_.cloneDeep(row)
             this.setCurrentDetails();
             
             this.vulnerabilityId = row._id;
-            if (this.UserService.isAllowed('vulnerabilities:update'))
-                this.getVulnUpdates(this.vulnerabilityId);
         },
 
         editChangeCategory: function(category) {
@@ -353,18 +399,18 @@ export default {
             this.errors.title = '';
         },  
 
+        // New object for each opening: the answer of a request closes only the dialog of the vulnerability it was sent
+        // for (and nothing of a vulnerability opened before, such as its _id, is kept)
         cleanCurrentVulnerability: function() {
             this.cleanErrors();
-            this.currentVulnerability.cvssv3 = '';
-            this.currentVulnerability.priority = '';
-            this.currentVulnerability.remediationComplexity = '';
-            this.currentVulnerability.details = [];
+            this.currentVulnerability = {
+                cvssv3: '',
+                priority: '',
+                remediationComplexity: '',
+                details: [],
+                category: (this.currentCategory && this.currentCategory.name) ? this.currentCategory.name : null
+            };
             this.currentLanguage = this.dtLanguage;
-            if (this.currentCategory && this.currentCategory.name) 
-                this.currentVulnerability.category = this.currentCategory.name
-            else
-                this.currentVulnerability.category = null
-
             this.setCurrentDetails();
         },
 
@@ -389,7 +435,8 @@ export default {
                 this.currentVulnerability.details.push(details,)
                 index = this.currentVulnerability.details.length - 1;
             }
-            else {
+            // Filtered with the custom fields not loaded yet, the values of the vulnerability would be dropped
+            else if (this.customFieldsLoaded) {
                 this.currentVulnerability.details[index].customFields = this.$_.cloneDeep(Utils.filterCustomFields('vulnerability', this.currentVulnerability.category, this.customFields, this.currentVulnerability.details[index].customFields, this.currentLanguage))
             }
             this.currentDetailsIndex = index;
@@ -456,9 +503,11 @@ export default {
                         ? data.sort((a, b) => (this.getDtTitle(b) || '').localeCompare(this.getDtTitle(a) || ''))
                         : data.sort((a, b) => (this.getDtTitle(a) || '').localeCompare(this.getDtTitle(b) || ''));
                 } else if (sortBy === 'updatedAt') {
+                    // Chronological order (dates, not the displayed dd-mm-yyyy strings), vulnerabilities without date first
+                    const time = (row) => (row.updatedAt ? new Date(row.updatedAt).getTime() : 0) || 0;
                     (descending)
-                        ? data.sort((a, b) => (this.getDtUpdatedAt(b) || '').localeCompare(this.getDtUpdatedAt(a) || ''))
-                        : data.sort((a, b) => (this.getDtUpdatedAt(a) || '').localeCompare(this.getDtUpdatedAt(b) || ''));  
+                        ? data.sort((a, b) => time(b) - time(a))
+                        : data.sort((a, b) => time(a) - time(b));
                 } else if (sortBy === 'category') {
                     (descending)
                         ? data.sort((a, b) => (b.category || $t('noCategory')).localeCompare(a.category || $t('noCategory')))
@@ -510,7 +559,14 @@ export default {
         
 
         mergeVulnerabilities: function() {
+            // Double click: the second merge would fail (merged vulnerability deleted by the first one)
+            if (this.merging)
+                return;
+            this.merging = true;
             VulnerabilityService.mergeVulnerability(this.mergeVulnLeft, this.mergeVulnRight, this.mergeLanguageRight)
+            .finally(() => {
+                this.merging = false;
+            })
             .then(() => {
                 this.getVulnerabilities();
                 Notify.create({
@@ -531,11 +587,27 @@ export default {
         },
 
         dblClick: function(row) {
-            this.clone(row)
             if (this.UserService.isAllowed('vulnerabilities:update') && row.status === 2)
-                this.$refs.updatesModal.show()
-            else
-                this.$refs.editModal.show()
+                return this.openVulnerabilityProposals(row)
+            this.clone(row)
+            this.$refs.editModal.show()
+        },
+
+        // Pending update proposals of a vulnerability (reviewed in the proposals tab)
+        openVulnerabilityProposals: function(row) {
+            this.proposalsFilter = {id: row._id, title: this.getDtTitle(row)}
+            this.mainTab = 'proposals'
+        },
+
+        refreshPendingProposals: function() {
+            var request = ++this.proposalsRequest
+            VulnerabilityService.getProposalsCount()
+            .then((data) => {
+                // An older answer must not replace the count of the last request
+                if (request === this.proposalsRequest)
+                    this.pendingProposals = data.data.datas.pending
+            })
+            .catch((err) => console.log(err))
         }
     }
 }

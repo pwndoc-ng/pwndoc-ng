@@ -1,4 +1,4 @@
-// Configuration for your app
+// Configuration for your app (@quasar/app-webpack v4: CommonJS config file, hence the .cjs extension)
 let path = require('path')
 let fs = require('fs')
 
@@ -25,12 +25,8 @@ module.exports = function (ctx) {
       'roboto-font'
     ],
     build: {
-      scopeHoisting: true,
       vueRouterMode: 'history',
       vueCompiler: true,
-      showProgress: true,
-      showWarnings: true,
-      stylusVariables: 'src/css/quasar-variables.styl',
       // gzip: true,
       // analyze: true,
       // extractCSS: false,
@@ -49,19 +45,24 @@ module.exports = function (ctx) {
         }
     },
     devServer: {
-      https: {
-        key: fs.readFileSync(__dirname+'/ssl/server.key'),
-        cert: fs.readFileSync(__dirname+'/ssl/server.cert')
+      server: {
+        type: 'https',
+        options: {
+          key: fs.readFileSync(__dirname+'/ssl/server.key'),
+          cert: fs.readFileSync(__dirname+'/ssl/server.cert')
+        }
       },
       host: "0.0.0.0",
       port: 8081,
-      proxy: {
-        '/api': {
+      // webpack-dev-server v5: list of proxies
+      proxy: [
+        {
+          context: ['/api'],
           target: 'https://pwndoc-ng-backend:5252',
           changeOrigin: true,
           secure: false
         }
-      }
+      ]
       //open: true // opens browser window automatically
     },
     // framework: 'all' --- includes everything; for dev only!
@@ -82,6 +83,8 @@ module.exports = function (ctx) {
         'QAvatar',
         'QBadge',
         'QBanner',
+        'QFile',
+        'QLinearProgress',
         'QBar',
         'QBreadcrumbs',
         'QBreadcrumbsEl',

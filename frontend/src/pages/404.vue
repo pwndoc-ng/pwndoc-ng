@@ -19,14 +19,11 @@
 import { defineComponent } from 'vue';
 
 export default defineComponent({
-  data () {
-    return {
-      message: ''
+  computed: {
+    // Reason given by the page redirecting here (optional :error param of the route), updated when the page is reused
+    message: function() {
+      return this.$route.params.error || '';
     }
-  },
-
-  created: function() {
-      this.message = this.$route.params.error;
   },
 });
 </script>

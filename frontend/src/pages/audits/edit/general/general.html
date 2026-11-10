@@ -1,7 +1,7 @@
 <div>
     <breadcrumb
     buttons
-    :title="audit ? `${audit.name} (${audit.auditType || 'Audit Type not set'})` : 'Loading...'"
+    :title="audit.name ? `${audit.name} (${audit.auditType || 'Audit Type not set'})` : 'Loading...'"
     :state="parentState"
     :approvals="parentApprovals"
   >
@@ -10,6 +10,7 @@
         v-if="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
         color="positive"
         :label="$t('btn.save') + ' (ctrl+s)'"
+        :disable="!loaded"
         no-caps
         @click="updateAuditGeneral"
       />
@@ -22,7 +23,9 @@
         <q-card>
             <q-card-section>
                 <div class="row q-col-gutter-md">
-                    <q-input class="col-md-6 col-12" :label="$t('name')+' *'" v-model="audit.name" outlined :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"/>
+                    <q-input class="col-md-6 col-12" :label="$t('name')+' *'" v-model="audit.name" outlined :readonly="readonly">
+                        <template v-slot:after><comment-button :target="{kind: 'general', field: 'name'}" /></template>
+                    </q-input>
                     <div class="col"></div>
                     <q-select 
                     class="col-md-6 col-12"
@@ -35,8 +38,10 @@
                     map-options
                     options-sanitize
                     outlined 
-                    :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                    />
+                    :readonly="readonly"
+                    >
+                        <template v-slot:after><comment-button :target="{kind: 'general', field: 'language'}" /></template>
+                    </q-select>
                     <q-select
                     class="col-md-6 col-12"
                     :label="$t('template')"
@@ -48,8 +53,10 @@
                     map-options
                     options-sanitize
                     outlined 
-                    :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                    /> 
+                    :readonly="readonly"
+                    >
+                        <template v-slot:after><comment-button :target="{kind: 'general', field: 'template'}" /></template>
+                    </q-select>
                 </div>
             </q-card-section>
     
@@ -67,15 +74,16 @@
                     option-label="name"
                     input-debounce="0"
                     @new-value="createSelectCompany"
-                    @input="filterClients()"
                     @clear="clearCompany"
                     @filter="filterSelectCompany"
                     clearable
                     options-sanitize
                     use-input
                     outlined 
-                    :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                    />
+                    :readonly="readonly"
+                    >
+                        <template v-slot:after><comment-button :target="{kind: 'general', field: 'company'}" /></template>
+                    </q-select>
                     <q-select
                     ref="select_client"
                     class="col-md-6 col-12"
@@ -86,14 +94,16 @@
                     option-label="email"
                     input-debounce="0"
                     @clear="clearClient"
-                    @input="setCompanyFromClient"
+                    @update:model-value="setCompanyFromClient"
                     @filter="filterSelectClient"
                     clearable
                     options-sanitize
                     use-input
                     outlined 
-                    :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
-                    />
+                    :readonly="readonly"
+                    >
+                        <template v-slot:after><comment-button :target="{kind: 'general', field: 'client'}" /></template>
+                    </q-select>
                     <q-select 
                     v-if="$settings.reviews.enabled"
                     class="col-md-12 col-12"
@@ -108,12 +118,14 @@
                     use-chips
                     options-sanitize
                     outlined 
-                    :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                    :readonly="readonly"
                     >
+                        <template v-slot:after><comment-button :target="{kind: 'general', field: 'reviewers'}" /></template>
+
                         <template v-slot:selected-item="scope">
                             <q-chip
                             dense
-                            :removable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                            :removable="!readonly"
                             @remove="scope.removeAtIndex(scope.index)"
                             :tabindex="scope.tabindex"
                             color="blue-grey-5"
@@ -136,22 +148,25 @@
                     use-chips
                     options-sanitize
                     outlined 
-                    :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"
+                    :readonly="readonly"
                     >
                         <template v-slot:after>
-                            <q-chip 
-                            class="q-mt-lg" 
+                            <!-- Creator null when its user was deleted -->
+                            <q-chip
+                            v-if="audit.creator"
+                            class="q-mt-lg"
                             color="blue-grey-5" 
                             text-color="white" 
                             dense
                             >
                                 {{audit.creator.firstname}} {{audit.creator.lastname}}
                             </q-chip>
+                            <comment-button class="q-mt-lg" :target="{kind: 'general', field: 'collaborators'}" />
                         </template>
                         <template v-slot:selected-item="scope">
                             <q-chip
                             dense
-                            :removable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT"
+                            :removable="!readonly"
                             @remove="scope.removeAtIndex(scope.index)"
                             :tabindex="scope.tabindex"
                             color="blue-grey-5"
@@ -168,29 +183,32 @@
 
             <q-card-section>
                 <div class="row q-col-gutter-md">
-                    <q-input class="col-md-4 col-12" :label="$t('startDate')" v-model="audit.date_start" outlined :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT">
+                    <q-input class="col-md-4 col-12" :label="$t('startDate')" v-model="audit.date_start" outlined :readonly="readonly">
+                        <template v-slot:after><comment-button :target="{kind: 'general', field: 'date_start'}" /></template>
                         <template v-slot:append>
                             <q-icon name="event" class="cursor-pointer">
                             <q-popup-proxy ref="qDateStartProxy" transition-show="scale" transition-hide="scale">
-                                <q-date :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT" first-day-of-week="1" mask="YYYY-MM-DD" v-model="audit.date_start" @input="() => $refs.qDateStartProxy.hide()" />
+                                <q-date :readonly="readonly" first-day-of-week="1" mask="YYYY-MM-DD" v-model="audit.date_start" @update:model-value="() => $refs.qDateStartProxy.hide()" />
                             </q-popup-proxy>
                             </q-icon>
                         </template>
                     </q-input>
-                    <q-input class="col-md-4 col-12" :label="$t('endDate')" v-model="audit.date_end" outlined :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT">
+                    <q-input class="col-md-4 col-12" :label="$t('endDate')" v-model="audit.date_end" outlined :readonly="readonly">
+                        <template v-slot:after><comment-button :target="{kind: 'general', field: 'date_end'}" /></template>
                         <template v-slot:append>
                             <q-icon name="event" class="cursor-pointer">
                             <q-popup-proxy ref="qDateEndProxy" transition-show="scale" transition-hide="scale">
-                                <q-date :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT" first-day-of-week="1" mask="YYYY-MM-DD" v-model="audit.date_end" @input="() => $refs.qDateEndProxy.hide()" />
+                                <q-date :readonly="readonly" first-day-of-week="1" mask="YYYY-MM-DD" v-model="audit.date_end" @update:model-value="() => $refs.qDateEndProxy.hide()" />
                             </q-popup-proxy>
                             </q-icon>
                         </template>
                     </q-input>
-                    <q-input class="col-md-4 col-12" :label="$t('reportingDate')" v-model="audit.date" outlined :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT">
+                    <q-input class="col-md-4 col-12" :label="$t('reportingDate')" v-model="audit.date" outlined :readonly="readonly">
+                        <template v-slot:after><comment-button :target="{kind: 'general', field: 'date'}" /></template>
                         <template v-slot:append>
                             <q-icon name="event" class="cursor-pointer">
                             <q-popup-proxy ref="qDateProxy" transition-show="scale" transition-hide="scale">
-                                <q-date :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT" first-day-of-week="1" mask="YYYY-MM-DD" v-model="audit.date" @input="() => $refs.qDateProxy.hide()" />
+                                <q-date :readonly="readonly" first-day-of-week="1" mask="YYYY-MM-DD" v-model="audit.date" @update:model-value="() => $refs.qDateProxy.hide()" />
                             </q-popup-proxy>
                             </q-icon>
                         </template>
@@ -199,7 +217,10 @@
             </q-card-section>
 
             <q-card-section>
-                <textarea-array :label="$t('auditScope')" v-model="audit.scope" no-empty-line :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"/>
+                <div class="row no-wrap items-start">
+                    <textarea-array class="col" :label="$t('auditScope')" v-model="audit.scope" no-empty-line :readonly="readonly"/>
+                    <comment-button class="q-mt-sm q-ml-xs" :target="{kind: 'general', field: 'scope'}" />
+                </div>
             </q-card-section>
             <q-expansion-item 
             :label="$t('customFields')"
@@ -210,6 +231,7 @@
                 <custom-fields 
                 ref="customfields" 
                 v-model="audit.customFields" 
+                :comment-target="{kind: 'general'}"
                 custom-element="QCardSection" 
                 no-sync-editor
                 :readonly="frontEndAuditState !== AUDIT_VIEW_STATE.EDIT"

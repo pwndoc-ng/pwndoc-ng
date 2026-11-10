@@ -3,6 +3,7 @@ module.exports = function(app) {
     var Response = require('../lib/httpResponse.js');
     var Company = require('mongoose').model('Company');
     var acl = require('../lib/auth').acl;
+    var utils = require('../lib/utils');
 
     // Get companies list
     app.get("/api/companies", acl.hasPermission('companies:read'), function(req, res) {
@@ -26,6 +27,10 @@ module.exports = function(app) {
     app.post("/api/companies", acl.hasPermission('companies:create'), function(req, res) {
         // #swagger.tags = ['Company']
 
+        if (!utils.isListOfObjects(req.body)) {
+            Response.BadParameters(res, 'A list of companies is required');
+            return;
+        }
         var companies = [];
         for (var i=0; i< req.body.length;i++) {
             var cpny = req.body[i]

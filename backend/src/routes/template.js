@@ -23,6 +23,11 @@ module.exports = function(app) {
             Response.BadParameters(res, 'Missing required parameters: name, ext, file');
             return;
         }
+        // Checked before the creation: a file that is not a string was decoded after it and left a template without file
+        if ([req.body.name, req.body.file, req.body.ext].some(value => typeof value !== 'string')) {
+            Response.BadParameters(res, 'Parameters name, ext and file must be strings');
+            return;
+        }
 
         if (!utils.validFilename(req.body.name) || !utils.validExtension(req.body.ext)) {
             Response.BadParameters(res, 'Bad name or ext format');
@@ -47,6 +52,10 @@ module.exports = function(app) {
     app.put("/api/templates/:templateId", acl.hasPermission('templates:update'), function(req, res) {
         // #swagger.tags = ['Templates']
 
+        if (![req.body.name, req.body.file, req.body.ext].every(utils.isOptionalString)) {
+            Response.BadParameters(res, 'Parameters name, ext and file must be strings');
+            return;
+        }
         if (req.body.name && !utils.validFilename(req.body.name)) {
             Response.BadParameters(res, 'Bad name format');
             return;
@@ -112,6 +121,10 @@ module.exports = function(app) {
 
          Template.getOne(req.params.templateId)
         .then(data => {
+            if (!data) {
+                Response.NotFound(res, 'Template not found');
+                return;
+            }
             var file = `${__basedir}/../report-templates/${data.name}.${data.ext || 'docx'}`
             res.download(file, `${data.name}.${data.ext}`)
         })

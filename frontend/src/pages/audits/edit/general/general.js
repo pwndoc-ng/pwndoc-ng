@@ -4,8 +4,9 @@ import { Notify, Dialog } from 'quasar';
 import Breadcrumb from 'components/breadcrumb';
 import TextareaArray from 'components/textarea-array'
 import CustomFields from 'components/custom-fields'
+import CommentButton from 'components/comment-button'
 
-import AuditService from '@/services/audit';
+import AuditService, { errorMessage } from '@/services/audit';
 import ClientService from '@/services/client';
 import CompanyService from '@/services/company';
 import CollabService from '@/services/collaborator';
@@ -27,13 +28,14 @@ export default {
         return {
             // Set audit ID
             auditId: null,
-            // Current editing audit object
+            // Current editing audit object (client and company null until loaded: an empty object is shown as
+            // "[object Object]" by their selects)
             audit: {
                 creator: {},
                 name: "",
                 auditType: "",
-                client: {},
-                company: {},
+                client: null,
+                company: null,
                 collaborators: [],
                 reviewers: [],
                 date: "",
@@ -46,6 +48,13 @@ export default {
                 approvals: []
             },
             auditOrig: {},
+            // Audit loaded: the form is read only and cannot be saved before (the late answer would replace what is typed)
+            loaded: false,
+            // Saves numbered in the order of the requests: copy of the audit sent by the last one, number of the last one
+            // answered (an older save answered after a newer one is not the saved version)
+            auditSaving: null,
+            saveCount: 0,
+            savedCount: 0,
             // List of existing clients
             clients: [],
             // List of filtered clients when searching in select
@@ -75,7 +84,8 @@ export default {
     components: {
         Breadcrumb,
         TextareaArray,
-        CustomFields
+        CustomFields,
+        CommentButton
     },
 
     mounted: function() {
@@ -88,17 +98,16 @@ export default {
         this.$socket.emit('menu', {menu: 'general', room: this.auditId});
 
         // save on ctrl+s
-        // var lastSave = 0;
         document.addEventListener('keydown', this._listener, false)
     },
 
-    destroyed: function() {
+    unmounted: function() {
         document.removeEventListener('keydown', this._listener, false)
     },
 
     beforeRouteLeave (to, from , next) {
         Utils.syncEditors(this.$refs)
-        if (this.$_.isEqual(this.audit, this.auditOrig))
+        if (!this.unsavedChanges())
             next();
         else {
             Dialog.create({
@@ -118,13 +127,19 @@ export default {
           deep: true, // in case the object is modified deeply
         },
       },
-      
+
+    computed: {
+        readonly: function() {
+            return this.frontEndAuditState !== this.AUDIT_VIEW_STATE.EDIT || !this.loaded
+        }
+    },
+
     methods: {
         _listener: function(e) {
             if ((window.navigator.platform.match("Mac") ? e.metaKey : e.ctrlKey) && e.keyCode == 83) {
                 e.preventDefault();
                 // Only trigger save if we're in the general audit context
-                if (this.frontEndAuditState === this.AUDIT_VIEW_STATE.EDIT && 
+                if (this.frontEndAuditState === this.AUDIT_VIEW_STATE.EDIT &&
                     this.$route.name === 'general')
                     this.updateAuditGeneral();
             }
@@ -140,17 +155,27 @@ export default {
             .then((data) => {
                 this.audit = data.data.datas;
                 this.auditOrig = this.$_.cloneDeep(this.audit);
+                this.loaded = true
                 this.getCollaborators();
                 this.getReviewers();
                 this.getClients();
             })
-            .catch((err) => {              
+            .catch((err) => {
                 console.log(err.response)
             })
         },
 
+        // Changes not saved, nor being saved. Nothing can be changed before the audit is loaded (audit not readable:
+        // the redirection to the error page must not be blocked)
+        unsavedChanges: function() {
+            if (!this.loaded || this.$_.isEqual(this.audit, this.auditOrig))
+                return false
+            return !(this.auditSaving && this.$_.isEqual(this.audit, this.auditSaving))
+        },
+
         // Save Audit
         updateAuditGeneral: function() {
+            if (!this.loaded) return
             Utils.syncEditors(this.$refs)
             nextTick(() => {
                 if (this.$refs.customfields && this.$refs.customfields.requiredFieldsEmpty()) {
@@ -162,9 +187,16 @@ export default {
                     })
                     return
                 }
-                AuditService.updateAuditGeneral(this.auditId, this.audit)
+                // Saved version: the data sent, not the data typed while the request is pending
+                var sent = this.$_.cloneDeep(this.audit)
+                var save = ++this.saveCount
+                this.auditSaving = sent
+                AuditService.updateAuditGeneral(this.auditId, sent)
                 .then(() => {
-                    this.auditOrig = this.$_.cloneDeep(this.audit);
+                    if (save > this.savedCount) {
+                        this.savedCount = save
+                        this.auditOrig = sent;
+                    }
                     Notify.create({
                         message: $t('msg.auditUpdateOk'),
                         color: 'positive',
@@ -174,11 +206,15 @@ export default {
                 })
                 .catch((err) => {
                     Notify.create({
-                        message: err.response.data.datas,
+                        message: errorMessage(err),
                         color: 'negative',
                         textColor:'white',
                         position: 'top-right'
                     })
+                })
+                .finally(() => {
+                    if (save === this.saveCount) // Not a later save
+                        this.auditSaving = null
                 })
             }).catch((err) => {
                 console.error('Error in updateAuditGeneral nextTick:', err);
@@ -287,7 +323,6 @@ export default {
 
         // Set Company when selecting client 
         setCompanyFromClient: function(value) {
-            console.log(value)
             if (value && value.company) {
                 for (var i=0; i<this.companies.length; i++) {
                     if (this.companies[i].name === value.company.name) {

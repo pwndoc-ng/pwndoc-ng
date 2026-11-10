@@ -2,6 +2,8 @@ import { Notify, Dialog } from 'quasar'
 
 import SettingsService from '@/services/settings'
 import UserService from '@/services/user'
+import DataService from '@/services/data'
+import Utils from '@/services/utils'
 
 import { $t } from 'boot/i18n'
 import LanguageSelector from '@/components/language-selector';
@@ -13,7 +15,40 @@ export default {
             UserService: UserService,
             settings: {danger:{enabled:false,public:{nbdaydelete: 0}},reviews:{enabled:false}},
             settingsOrig : {danger:{enabled:false},reviews:{enabled:false}},
-            canEdit: false
+            canEdit: false,
+            // Number of the last loading of the settings (reloaded after a revert or an import)
+            settingsRequest: 0,
+            findingCustomFieldLabels: [] // Labels of findings custom fields usable in the sidebar template
+        }
+    },
+
+    computed: {
+        // Variables of the findings sidebar template, including findings custom fields
+        findingTemplateVariables: function() {
+            var builtIn = Object.keys(Utils.findingTemplateVariables({}, {}))
+            return builtIn.concat(this.findingCustomFieldLabels.map(label => `custom.${label}`))
+        },
+
+        // Braces are passed as parameters: they are interpolation delimiters in i18n messages
+        findingTemplateDescription: function() {
+            return $t('findingSidebarTemplateDescription', {customExample: '{custom.Label}', defaultExample: '{title}'})
+        },
+
+        // Template rendered with a sample finding
+        findingTemplatePreview: function() {
+            var finding = {
+                title: 'SQL Injection',
+                vulnType: 'Web',
+                category: 'Web',
+                cvssv3: 'CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N',
+                priority: 3,
+                remediationComplexity: 1,
+                scope: '<p>srv-web-01</p>',
+                customFields: this.findingCustomFieldLabels.map(label => ({customField: {label: label, fieldType: 'input'}, text: `<${label}>`}))
+            }
+            var variables = Utils.findingTemplateVariables(finding, {index: 2, cvss: () => ({severity: 'High', score: '8.1'})})
+            var template = this.settings.report && this.settings.report.public.findingSidebarTemplate
+            return Utils.renderTemplate(template || '{title}', variables, finding.customFields).replace(/\s+/g, ' ').trim() || finding.title
         }
     },
     components: {
@@ -25,7 +60,7 @@ export default {
             Dialog.create({
             title: $t('msg.thereAreUnsavedChanges'),
             message: $t('msg.doYouWantToLeave'),
-            ok: {label: $t('btn.comfirm'), color: 'negative'},
+            ok: {label: $t('btn.confirm'), color: 'negative'},
             cancel: {label: $t('btn.cancel'), color: 'white'}
             })
             .onOk(() => next())
@@ -37,6 +72,7 @@ export default {
     mounted: function() {
         if (UserService.isAllowed('settings:read')) {
             this.getSettings()
+            this.getFindingCustomFieldLabels()
             this.canEdit = this.UserService.isAllowed('settings:update');
             document.addEventListener('keydown', this._listener, false)
         }
@@ -45,7 +81,7 @@ export default {
         }
     },
 
-    destroyed: function() {
+    unmounted: function() {
         document.removeEventListener('keydown', this._listener, false)
     },
 
@@ -58,8 +94,12 @@ export default {
         },
 
         getSettings: function() {
+            // A revert then an import confirmed quickly: the answer of the older loading must not replace the last one
+            var request = ++this.settingsRequest
             SettingsService.getSettings()
             .then((data) => {
+                if (request !== this.settingsRequest)
+                    return
                 this.settings = this.$_.merge(
                     {
                       danger: { enabled: false, public:{nbdaydelete: 0}},
@@ -72,8 +112,10 @@ export default {
                 this.loading = false
             })
             .catch((err) => {
+                if (request !== this.settingsRequest)
+                    return
                 Notify.create({
-                    message: err.response.data.datas,
+                    message: this.errorMessage(err),
                     color: 'negative',
                     textColor:'white',
                     position: 'top-right'
@@ -81,15 +123,44 @@ export default {
             })
         },
 
+        // Message of the server (the message of axios only says the status code), or of the network error
+        errorMessage: function(err) {
+            return (err.response && err.response.data && err.response.data.datas) || err.message
+        },
+
+        getFindingCustomFieldLabels: function() {
+            DataService.getCustomFields()
+            .then((data) => {
+                var labels = data.data.datas
+                .filter(field => ['finding', 'vulnerability'].includes(field.display) && field.fieldType !== 'space' && field.label && !/[{}]/.test(field.label))
+                .map(field => field.label)
+                this.findingCustomFieldLabels = [...new Set(labels)]
+            })
+            .catch(err => console.log(err))
+        },
+
+        // Append a variable to the findings sidebar template
+        insertFindingTemplateVariable: function(variable) {
+            if (!this.canEdit)
+                return
+            var template = this.settings.report.public.findingSidebarTemplate || ''
+            this.settings.report.public.findingSidebarTemplate = `${template}${template ? ' ' : ''}{${variable}}`
+        },
+
         updateSettings: function() {
+            // Ctrl+S before the end of the loading would send the empty initial settings
+            if (this.loading)
+                return;
             var min = 1;
             var max = 99;
             if(this.settings.reviews.public.minReviewers < min || this.settings.reviews.public.minReviewers > max) {
                 this.settings.reviews.public.minReviewers = this.settings.reviews.public.minReviewers < min ? min: max;
             }
-            SettingsService.updateSettings(this.settings)
+            // Snapshot of the settings sent: the changes made while the request is pending stay unsaved
+            var sent = this.$_.cloneDeep(this.settings);
+            SettingsService.updateSettings(sent)
             .then((data) => {
-                this.settingsOrig = this.$_.cloneDeep(this.settings);
+                this.settingsOrig = sent;
                 this.$settings.refresh();
                 Notify.create({
                     message: $t('msg.settingsUpdatedOk'),
@@ -100,7 +171,7 @@ export default {
             })
             .catch((err) => {
                 Notify.create({
-                    message: err.message || err.response.data.datas,
+                    message: this.errorMessage(err),
                     color: 'negative',
                     textColor:'white',
                     position: 'top-right'
@@ -116,11 +187,22 @@ export default {
                 cancel: {label: $t('btn.cancel'), color: 'white'}
             })
             .onOk(async () => {
-                await SettingsService.revertDefaults();
+                try {
+                    await SettingsService.revertDefaults();
+                }
+                catch (err) {
+                    Notify.create({
+                        message: this.errorMessage(err),
+                        color: 'negative',
+                        textColor:'white',
+                        position: 'top-right'
+                    })
+                    return;
+                }
                 this.$settings.refresh();
                 this.getSettings();
                 Notify.create({
-                    message: $t('settingsUpdatedOk'),
+                    message: $t('msg.settingsUpdatedOk'),
                     color: 'positive',
                     textColor:'white',
                     position: 'top-right'
@@ -133,7 +215,8 @@ export default {
             fileReader.onloadend = async (e) => {
                 try {
                     var settings = JSON.parse(fileReader.result);
-                    if (typeof settings === 'object') {
+                    // typeof gives 'object' for null and the arrays too
+                    if (settings && typeof settings === 'object' && !Array.isArray(settings)) {
                         Dialog.create({
                             title: $t('msg.importingSettings'),
                             message: $t('msg.importingSettingsConfirm'),
@@ -141,7 +224,18 @@ export default {
                             cancel: {label: $t('btn.cancel'), color: 'white'}
                         })
                         .onOk(async () => {
-                            await SettingsService.updateSettings(settings);
+                            try {
+                                await SettingsService.updateSettings(settings);
+                            }
+                            catch (err) {
+                                Notify.create({
+                                    message: this.errorMessage(err),
+                                    color: 'negative',
+                                    textColor: 'white',
+                                    position: 'top-right'
+                                })
+                                return;
+                            }
                             this.getSettings();
                             Notify.create({
                                 message: $t('msg.settingsImportedOk'),

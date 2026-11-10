@@ -28,3 +28,4 @@ docker-compose.override.yml
 
 # Version managers
 .tool-versions
+backend/backup

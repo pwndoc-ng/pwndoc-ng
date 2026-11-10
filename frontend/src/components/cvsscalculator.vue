@@ -971,15 +971,17 @@ export default defineComponent({
       return CVSS31.roundUp1(n);
     },
 
+    // Metrics of the vector, the metrics absent from it are reset (vector changed by the parent)
     cvssStrToObject(str) {
-      if (str) {
-        const temp = str.split('/');
-        for (let i = 0; i < temp.length; i++) {
-          const elt = temp[i].split(':');
-          if (this.cvssObj.hasOwnProperty(elt[0])) {
-            this.cvssObj[elt[0]] = elt[1] || '';
-          }
-        }
+      const values = {};
+      for (const part of (str || '').split('/')) {
+        const [metric, value] = part.split(':');
+        if (metric !== 'version' && Object.prototype.hasOwnProperty.call(this.cvssObj, metric))
+          values[metric] = value || '';
+      }
+      for (const metric in this.cvssObj) {
+        if (metric !== 'version' && this.cvssObj[metric] !== (values[metric] || ''))
+          this.cvssObj[metric] = values[metric] || '';
       }
     },
 
@@ -992,6 +994,9 @@ export default defineComponent({
       }
 
       this.cvss = CVSS31.calculateCVSSFromVector(vectorString);
+      // Empty vector given by the parent (reset): kept empty
+      if (!this.modelValue && !vectorString.includes('/'))
+        return;
       this.$emit('update:modelValue', vectorString);
     }
   }

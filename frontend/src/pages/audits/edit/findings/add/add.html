@@ -128,7 +128,8 @@
                   flat
                   color="primary"
                   icon="fa fa-plus-circle"
-                  @click="addFindingFromVuln(props.row)"
+                  :loading="addingVulns.includes(props.row._id)"
+                  @click="addFindingFromVuln(props.row, $event)"
                 >
                   <q-tooltip
                     anchor="bottom middle"
@@ -157,7 +158,7 @@
           <!-- Footer - pagination -->
           <template v-slot:bottom="scope">
             <span v-if="vulnerabilities.length === 1">{{ filteredRowsCount }} / 1 {{$t('vulnerabilityNum1')}}</span>
-            <span v-else>{{ filteredVulnerabilities.length }} / {{ vulnerabilities.length }} {{$t('vulnerabilitiesNums')}}</span>
+            <span v-else>{{ filteredRowsCount }} / {{ vulnerabilities.length }} {{$t('vulnerabilitiesNums')}}</span>
             <q-space />
             <span>{{$t('resultsPerPage')}}</span>
             <q-select

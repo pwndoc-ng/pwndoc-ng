@@ -3,7 +3,7 @@ import { Dialog, Notify, QSpinnerGears } from 'quasar';
 import AuditStateIcon from 'components/audit-state-icon'
 import Breadcrumb from 'components/breadcrumb'
 
-import AuditService from '@/services/audit'
+import AuditService, { errorMessage } from '@/services/audit'
 import DataService from '@/services/data'
 import CompanyService from '@/services/company'
 import UserService from '@/services/user'
@@ -18,6 +18,8 @@ export default {
             audits: [],
             // Loading state
             loading: true,
+            // Number of the last request of the audits
+            lastAuditsRequest: 0,
             // AuditTypes list
             auditTypes: [],
             // Companies list
@@ -25,13 +27,17 @@ export default {
             // Languages availbable
             languages: [],
             showCreateModal: false,
+            // Creation (or clone) of an audit pending: a double click creates it once
+            creatingAudit: false,
+            // Audits whose report is being generated
+            reportsPending: [],
             // Datatable headers
             dtHeaders: [
                 { name: 'name', label: $t('name'), field: 'name', align: 'left', sortable: true },
                 { name: 'company', label: $t('company'), field: row => row.company.name, align: 'left', sortable: true },
                 { name: 'language', label: $t('language'), field: 'language', align: 'left', sortable: true },
                 { name: 'users', label: $t('participants'), field: 'users', align: 'left', sortable: false },
-                { name: 'date', label: $t('date'), field: 'date', align: 'left', sortable: true },
+                { name: 'date', label: $t('date'), field: 'createdAt', align: 'left', sortable: true, sort: (a, b) => Date.parse(a) - Date.parse(b) },
                 { name: 'connected', label: $t('usersConnected'), field: 'connected', align: 'left', sortable: false },
                 { name: 'reviews', label: $t('reviews'), field: 'reviews', align: 'left', sortable: false },
                 { name: 'action', label: '', field: 'action', align: 'left', sortable: false }
@@ -42,7 +48,7 @@ export default {
                 page: 1,
                 rowsPerPage: 25,
                 sortBy: 'date',
-                descending: false,
+                descending: true,
                 pagesNumber: 1
             },
 
@@ -66,7 +72,9 @@ export default {
             cloneExistingReport: false,
             // Selected audit to clone
             selectedAuditToClone: null,
-            // Available audits for cloning
+            // All the audits that can be cloned, sorted by name
+            auditsForCloning: [],
+            // Audits for cloning matching the text typed in the select
             availableAuditsForCloning: []
         }
     },
@@ -123,43 +131,49 @@ export default {
             })
         },
 
-        // Get available audits for cloning
+        // Get available audits for cloning, sorted by name
         getAvailableAuditsForCloning: function() {
             AuditService.getAudits()
             .then((data) => {
-                this.availableAuditsForCloning = data.data.datas;
+                this.auditsForCloning = [...data.data.datas].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                this.availableAuditsForCloning = this.auditsForCloning
             })
             .catch((err) => {
                 console.log(err)
             })
         },
 
-        // Filter audits for cloning
+        // Filter audits for cloning: among all of them (not the audits of the table, filtered by the search of a finding)
         filterAuditsForCloning: function(val, update) {
-            if (val === '') {
-                update(() => this.availableAuditsForCloning = this.audits)
-                return
-            }
             update(() => {
                 const needle = val.toLowerCase()
-                this.availableAuditsForCloning = this.audits.filter(v => 
-                    v.name.toLowerCase().indexOf(needle) > -1 ||
-                    (v.company && v.company.name && v.company.name.toLowerCase().indexOf(needle) > -1) ||
-                    v.language.toLowerCase().indexOf(needle) > -1
+                this.availableAuditsForCloning = this.auditsForCloning.filter(v =>
+                    (v.name || '').toLowerCase().includes(needle) ||
+                    (v.company && v.company.name && v.company.name.toLowerCase().includes(needle)) ||
+                    (v.language || '').toLowerCase().includes(needle)
                 )
             })
         },
 
+        // Only the answer of the last search is shown (searches answered in any order)
         getAudits: function() {
+            var request = ++this.lastAuditsRequest
             this.loading = true
             AuditService.getAudits({findingTitle: this.search.finding})
             .then((data) => {
+                if (request !== this.lastAuditsRequest) return
                 this.audits = data.data.datas
-      
                 this.loading = false
             })
             .catch((err) => {
-                console.log(err)
+                if (request !== this.lastAuditsRequest) return
+                this.loading = false
+                Notify.create({
+                    message: errorMessage(err),
+                    color: 'negative',
+                    textColor:'white',
+                    position: 'top-right'
+                })
             })
         },
         formatDate(dateString) {
@@ -168,8 +182,9 @@ export default {
             return date.toLocaleDateString('fr-FR');
           },
         createAudit: function() {
+            if (this.creatingAudit) return;
             this.cleanErrors();
-            
+
             if (this.cloneExistingReport) {
                 // Mode clonage
                 if (!this.currentAudit.name)
@@ -183,25 +198,27 @@ export default {
                 // Create a cloned audit
                 this.createClonedAudit();
             } else {
-                // Normal creation mode
-                this.currentAudit.auditType = this.currentAudit.auditType.name;
-                if (!this.currentAudit.name)
+                // Normal creation mode. The type selected (object of the select) is kept for a new attempt, its name is sent
+                var auditType = this.currentAudit.auditType;
+                var audit = {...this.currentAudit, auditType: (auditType && typeof auditType === 'object') ? auditType.name : auditType};
+                if (!audit.name)
                     this.errors.name = "Name required";
-                if (!this.currentAudit.language)
+                if (!audit.language)
                     this.errors.language = "Language required";
-                if (!this.currentAudit.auditType)
+                if (!audit.auditType)
                     this.errors.auditType = "Assessment required";
-                    
+
                 if (this.errors.name || this.errors.language || this.errors.auditType)
                     return;
 
-                this.createNormalAudit();
+                this.createNormalAudit(audit);
             }
         },
 
         // Create a normal audit
-        createNormalAudit: function() {
-            AuditService.createAudit(this.currentAudit)
+        createNormalAudit: function(audit) {
+            this.creatingAudit = true;
+            AuditService.createAudit(audit)
             .then((response) => {
                 this.showCreateModal = false;
                 this.getAudits();
@@ -209,16 +226,20 @@ export default {
             })
             .catch((err) => {
                 Notify.create({
-                    message: err.response.data.datas,
+                    message: errorMessage(err),
                     color: 'negative',
                     textColor:'white',
                     position: 'top-right'
                 })
             })
+            .finally(() => {
+                this.creatingAudit = false;
+            })
         },
 
         // Create a cloned audit
         createClonedAudit: function() {
+            this.creatingAudit = true;
             AuditService.createClonedAudit(this.selectedAuditToClone, this.currentAudit.name)
             .then((response) => {
                 this.showCreateModal = false;
@@ -227,11 +248,14 @@ export default {
             })
             .catch((err) => {
                 Notify.create({
-                    message: err.response.data.datas,
+                    message: errorMessage(err),
                     color: 'negative',
                     textColor:'white',
                     position: 'top-right'
                 })
+            })
+            .finally(() => {
+                this.creatingAudit = false;
             })
         },
 
@@ -248,7 +272,7 @@ export default {
             })
             .catch((err) => {
                 Notify.create({
-                    message: err.response.data.datas,
+                    message: errorMessage(err),
                     color: 'negative',
                     textColor:'white',
                     position: 'top-right'
@@ -284,7 +308,12 @@ export default {
             })
         },
 
-        generateReport: function(auditId) {
+        generateReport: function(auditId, event) {
+            // One generation at a time per audit, and the second click of a double click ignored (the generation may
+            // already be answered): a double click downloads the report once
+            if (this.reportsPending.includes(auditId) || (event && event.detail > 1))
+                return
+            this.reportsPending.push(auditId)
             var downloadNotif = Notify.create({
                 spinner: QSpinnerGears,
                 message: 'Generating the Report',
@@ -328,6 +357,9 @@ export default {
                     classes: "text-pre-wrap"
                 })
             })
+            .finally(() => {
+                this.reportsPending = this.reportsPending.filter(id => id !== auditId)
+            })
         },
 
         cleanErrors: function() {
@@ -370,6 +402,11 @@ export default {
             var usersTerm = (terms.users || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
             var dateTerm = (terms.date)? terms.date.toLowerCase(): ""
 
+            // Usernames of the creator and collaborators (whole usernames compared for "my audits")
+            var participants = (row) => [row.creator, ...(row.collaborators || [])]
+                .filter(user => user && user.username)
+                .map(user => user.username.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
+
             return rows && rows.filter(row => {
                 var name = (row.name || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
                 var language = (row.language)? row.language.toLowerCase(): ""
@@ -382,9 +419,9 @@ export default {
                     (!companyTerm || companyTerm === companyName) &&
                     users.indexOf(usersTerm) > -1 &&
                     date.indexOf(dateTerm) > -1 &&
-                    ((this.myAudits && users.indexOf(username) > -1) || !this.myAudits) &&
+                    ((this.myAudits && participants(row).includes(username)) || !this.myAudits) &&
                     ((this.displayConnected && row.connected && row.connected.length > 0) || !this.displayConnected) &&
-                    ((this.displayReadyForReview && users.indexOf(username) < 0 && row.state === 'REVIEW') || !this.displayReadyForReview)
+                    ((this.displayReadyForReview && !participants(row).includes(username) && row.state === 'REVIEW') || !this.displayReadyForReview)
             })
         },
 

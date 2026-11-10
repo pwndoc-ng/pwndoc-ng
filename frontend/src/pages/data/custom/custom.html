@@ -249,11 +249,11 @@
                                         <q-expansion-item :label="auditType.name" popup header-class="expansion-header">
                                             <q-item>
                                                 <q-item-section>
-                                                    <div v-for="(language,idx) of languages" class="q-mb-sm">
-                                                        <q-select 
-                                                        v-if="auditType.templates && auditType.templates[idx]"
+                                                    <div v-for="language of languages" class="q-mb-sm">
+                                                        <q-select
+                                                        v-if="getAuditTypeTemplate(auditType, language.locale)"
                                                         readonly
-                                                        v-model="auditType.templates[idx].template"
+                                                        :model-value="getAuditTypeTemplate(auditType, language.locale).template"
                                                         :label="`${language.language} ${$t('template')}`"
                                                         :options="templates" 
                                                         option-value="_id"
@@ -343,11 +343,11 @@
                                   
                                             <q-item>
                                               <q-item-section>
-                                                <div v-for="(language, idx) in languages" :key="idx">
+                                                <div v-for="language in languages" :key="language.locale">
                                                   <q-select
                                                     ref="validate-template-edit"
-                                                    v-if="auditType.templates[idx]"
-                                                    v-model="auditType.templates[idx].template"
+                                                    v-if="getAuditTypeTemplate(auditType, language.locale)"
+                                                    v-model="getAuditTypeTemplate(auditType, language.locale).template"
                                                     label-slot
                                                     :options="getTemplateOptionsLanguage(language.locale)"
                                                     option-value="template"
@@ -364,11 +364,12 @@
                                                     </template>
                                                   </q-select>
                                   
-                                                  <!-- needed for updating old Audit Types without templates -->
+                                                  <!-- needed for updating old Audit Types without templates (or without the template of this language: added, never put at the index of another language) -->
                                                   <q-select
                                                     v-else
                                                     ref="validate-template-edit2"
-                                                    v-model="auditType.templates[idx]"
+                                                    :model-value="null"
+                                                    @update:model-value="auditType.templates.push($event)"
                                                     label-slot
                                                     :options="getTemplateOptionsLanguage(language.locale)"
                                                     option-value="template"
@@ -461,124 +462,123 @@
                   <q-card-section>
                     <div class="text-grey-8">{{ $t('createVulnerabilityTypes') }}</div>
                   </q-card-section>
-              
-                  <q-card-section v-if="languages.length > 0" class="row">
-                    <div class="col-md-6 col-12" v-if="UserService.isAllowed('vulnerability-types:create')">
-                      <q-item class="row">
-                        <q-item-section class="col-md-4 col-12">
-                          <q-select
-                            v-model="newVulnType.locale"
-                            :label="$t('language')"
-                            :options="languages"
-                            option-value="locale"
-                            option-label="language"
-                            emit-value
-                            map-options
-                            options-sanitize
-                            outlined
-                          />
-                        </q-item-section>
-                      </q-item>
-              
-                      <q-item>
-                        <q-item-section>
-                          <q-input
-                            :label="$t('name')"
-                            v-model="newVulnType.name"
-                            clearable
-                            :error="!!errors.vulnType"
-                            :error-message="errors.vulnType"
-                            @keyup.enter="createVulnerabilityType"
-                            outlined
-                          />
-                        </q-item-section>
-                        <q-item-section side>
-                          <q-btn color="secondary" unelevated label="+" size="md" @click="createVulnerabilityType" />
-                        </q-item-section>
-                      </q-item>
-                    </div>
-              
-                    <!-- Affichage des vulnTypes en mode liste (readonly) -->
-                    <div v-if="!editVulnType" class="col-md-6 col-12">
-                      <q-card flat bordered>
-                        <q-toolbar>
-                          <div class="text-grey-8">{{ $t('vulnerabilityTypesList') }}</div>
-                          <q-space />
-                          <q-btn
-                            v-if="UserService.isAllowed('vulnerability-types:update')"
-                            flat
-                            class="edit-btn-color"
-                            icon="fa fa-edit"
-                            @click="startEditingVulnTypes"
-                          >
-                            <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">
-                              {{ $t('tooltip.edit') }}
-                            </q-tooltip>
-                          </q-btn>
-                        </q-toolbar>
-                        <q-separator />
-              
-                        <template v-if="vulnTypesFiltered.length > 0">
-                          <q-item v-for="vulnType in vulnTypesFiltered" :key="vulnType._id || vulnType.name">
-                            <q-item-section>
-                              <q-input v-model="vulnType.name" readonly outlined />
-                            </q-item-section>
-                          </q-item>
+
+                  <q-card-section v-if="languages.length > 0" class="row q-col-gutter-md">
+                    <!-- Types of the language: creation, search, order -->
+                    <div class="col-md-4 col-12">
+                      <q-select
+                        :model-value="newVulnType.locale"
+                        @update:model-value="changeVulnTypesLocale"
+                        :label="$t('language')"
+                        :options="languages"
+                        option-value="locale"
+                        option-label="language"
+                        emit-value
+                        map-options
+                        options-sanitize
+                        outlined
+                        dense
+                      />
+                      <q-input
+                        v-if="UserService.isAllowed('vulnerability-types:create')"
+                        class="q-mt-sm"
+                        :label="$t('name')"
+                        v-model="newVulnType.name"
+                        :error="!!errors.vulnType"
+                        :error-message="errors.vulnType"
+                        hide-bottom-space
+                        @keyup.enter="createVulnerabilityType"
+                        outlined
+                        dense
+                      >
+                        <template v-slot:after>
+                          <q-btn color="secondary" unelevated dense icon="add" @click="createVulnerabilityType" />
                         </template>
-              
-                        <q-banner v-else class="bg-grey-2 text-grey-8">
-                          {{ $t('noVulnTypesForLanguage') }}
-                        </q-banner>
-                      </q-card>
+                      </q-input>
+                      <q-input class="q-mt-sm" v-model="vulnTypeSearch" :placeholder="$t('search')" clearable outlined dense>
+                        <template v-slot:prepend>
+                          <q-icon name="search" />
+                        </template>
+                      </q-input>
+
+                      <q-list bordered separator dense class="q-mt-sm rounded-borders">
+                        <draggable
+                          :model-value="vulnTypesFiltered"
+                          @update:model-value="reorderVulnTypes"
+                          item-key="name"
+                          handle=".handle"
+                          ghost-class="drag-ghost"
+                          :disabled="!!vulnTypeSearch || !canEditVulnTypes"
+                        >
+                          <template #item="{ element: vulnType }">
+                            <q-item
+                              v-show="vulnTypeMatchesSearch(vulnType)"
+                              clickable
+                              :active="!!selectedVulnType && selectedVulnType.originalName === vulnType.name"
+                              active-class="bg-blue-1 text-primary"
+                              @click="selectVulnType(vulnType)"
+                            >
+                              <q-item-section v-if="!vulnTypeSearch && canEditVulnTypes" side class="handle cursor-pointer">
+                                <q-icon name="mdi-arrow-split-horizontal" color="grey" size="xs" />
+                              </q-item-section>
+                              <q-item-section>
+                                <q-item-label>{{ vulnType.name }}</q-item-label>
+                                <q-item-label v-if="vulnType.description" caption lines="1">{{ htmlToText(vulnType.description) }}</q-item-label>
+                              </q-item-section>
+                            </q-item>
+                          </template>
+                        </draggable>
+                        <q-item v-if="vulnTypesFiltered.length === 0">
+                          <q-item-section class="text-grey-8">{{ $t('noVulnTypesForLanguage') }}</q-item-section>
+                        </q-item>
+                      </q-list>
                     </div>
-              
-                    <!-- Mode édition des vulnTypes -->
-                    <div v-else class="col-md-6 col-12">
-                      <q-card flat bordered>
-                        <q-toolbar>
-                          <div class="text-grey-8">{{ $t('editVulnerabilityTypes') }}</div>
-                        </q-toolbar>
-                        <q-separator />
+
+                    <!-- Selected type: name and description -->
+                    <div class="col-md-8 col-12">
+                      <q-card v-if="selectedVulnType" flat bordered>
                         <q-card-section>
-                          <draggable v-model="editVulnTypes" handle=".handle" ghost-class="drag-ghost" item-key="_id">
-                            <template #item="{ element: vulnType }">
-                              <q-item>
-                                <q-item-section avatar>
-                                  <q-icon name="mdi-arrow-split-horizontal" class="cursor-pointer handle" color="grey" />
-                                </q-item-section>
-              
-                                <q-item-section>
-                                  <q-input :label="$t('name')" v-model="vulnType.name" outlined />
-                                </q-item-section>
-              
-                                <q-item-section side>
-                                  <q-btn
-                                    color="red"
-                                    unelevated
-                                    label="x"
-                                    size="md"
-                                    class="q-mt-md"
-                                    @click="removeVulnType(vulnType)"
-                                  />
-                                </q-item-section>
-                              </q-item>
+                          <q-input :label="$t('name')" v-model="selectedVulnType.name" :readonly="!canEditVulnTypes" outlined dense />
+                          <q-field class="basic-editor q-mt-sm" borderless stack-label :label="$t('description')" :hint="$t('vulnTypeDescriptionHint')">
+                            <template v-slot:control>
+                              <basic-editor
+                                :key="selectedVulnTypeKey"
+                                v-model="selectedVulnType.description"
+                                :collab="false"
+                                :editable="canEditVulnTypes"
+                              />
                             </template>
-                          </draggable>
+                          </q-field>
                         </q-card-section>
-              
-                        <q-card-actions align="right" class="q-mr-lg">
-                          <q-btn color="primary" outline @click="editVulnType = false">{{ $t('btn.cancel') }}</q-btn>
-                          <q-btn color="secondary" unelevated @click="updateVulnTypes">{{ $t('btn.save') }}</q-btn>
+                        <q-card-actions align="right">
+                          <q-btn
+                            v-if="UserService.isAllowed('vulnerability-types:delete')"
+                            color="negative"
+                            flat
+                            no-caps
+                            :label="$t('btn.delete')"
+                            @click="deleteVulnType"
+                          />
+                          <q-btn
+                            v-if="canEditVulnTypes"
+                            color="secondary"
+                            unelevated
+                            no-caps
+                            :label="$t('btn.save')"
+                            :disable="!vulnTypeUnsavedChanges()"
+                            @click="saveVulnType"
+                          />
                         </q-card-actions>
                       </q-card>
+                      <q-banner v-else class="bg-grey-2 text-grey-8 rounded-borders">{{ $t('selectVulnTypeToEdit') }}</q-banner>
                     </div>
                   </q-card-section>
-              
+
                   <q-card-section v-else>
                     <p>{{ $t('createAtLeastOneLanguage') }}</p>
                   </q-card-section>
                 </q-card>
-              </q-tab-panel>
+            </q-tab-panel>
               
               
               
@@ -769,7 +769,7 @@
                                 :options="cfDisplayOptions"
                                 emit-value
                                 map-options
-                                @input="newCustomField.displaySub = ''"
+                                @update:model-value="newCustomField.displaySub = ''"
                                 outlined dense
                                 />
                             </q-item-section>
@@ -968,7 +968,7 @@
                       <draggable v-model="customFields" item-key="_id" class="row bg-grey-2 q-pa-sm" handle=".drag-handle">
                         <template #item="{ element: field, index: idx }">
                           <q-item
-                            v-if="field.display === newCustomField.display && field.displaySub === newCustomField.displaySub"
+                            v-if="canDisplayCustomField(field)"
                             :class="`col-md-${field.size || 12} col-12 offset-md-${field.offset || 0}`"
                             class="relative-position q-pa-xs"
                           >
@@ -1041,10 +1041,12 @@
                                 hide-bottom-space
                               >
                                 <template v-slot:control>
+                                  <!-- Default text of the field: edited alone in this page, no collaborative document -->
                                   <basic-editor
                                     :key="field._id + '-' + cfLocale"
                                     :model-value="getFieldValue(field)"
                                     @update:model-value="setFieldValue(field, $event)"
+                                    :collab="false"
                                   />
                                 </template>
                                 <template v-slot:label>
@@ -1078,7 +1080,7 @@
                                 <template v-slot:append>
                                   <q-icon name="event" class="cursor-pointer">
                                     <q-popup-proxy transition-show="scale" transition-hide="scale">
-                                      <q-date v-model="tempDate" mask="YYYY-MM-DD" @update:model-value="setFieldValue(field, $event)" />
+                                      <q-date :model-value="getFieldValue(field)" mask="YYYY-MM-DD" @update:model-value="setFieldValue(field, $event)" />
                                     </q-popup-proxy>
                                   </q-icon>
                                 </template>

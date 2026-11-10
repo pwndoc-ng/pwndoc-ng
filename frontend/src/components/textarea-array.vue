@@ -46,20 +46,23 @@ export default defineComponent({
         deep: true,
 
         handler(val) {
-            var str = (val)? val.join('\n'): ""
-            if (str === this.dataString)
+            var lines = val || []
+            // Lines of the text being typed (a new empty line not emitted with noEmptyLine): the text is kept
+            if (JSON.stringify(this.toLines(this.dataString)) === JSON.stringify(lines))
                 return
-            this.dataString = str
+            this.dataString = lines.join('\n')
         },
       }
   },
 
   methods: {
+      toLines: function(str) {
+          var lines = str.split('\n')
+          return (this.noEmptyLine)? lines.filter(e => e !== ''): lines
+      },
+
       updateParent: function() {
-          if (this.noEmptyLine)
-              this.$emit('update:modelValue', this.dataString.split('\n').filter(e => e !== ''))
-          else
-              this.$emit('update:modelValue', this.dataString.split('\n'))
+          this.$emit('update:modelValue', this.toLines(this.dataString))
       }
   },
 });

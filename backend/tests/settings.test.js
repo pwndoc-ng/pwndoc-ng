@@ -21,6 +21,8 @@ module.exports = function(request, app) {
                 "noneColor": "#4a86e8",
               },
               "extendCvssTemporalEnvironment": false,
+              "findingSidebarTemplate": "{title}",
+              "imageDefaultWidth": "large",
               "remediationColorsComplexity": {
                 "highColor": "#FF2F2F",
                 "lowColor": "#4472c4",
@@ -39,6 +41,7 @@ module.exports = function(request, app) {
           "public": {
             "mandatoryReview": false,
             "minReviewers": 1,
+            "blockApprovalWithOpenComments": false,
           },
         },
         "danger": { 
@@ -68,6 +71,8 @@ module.exports = function(request, app) {
                 "noneColor": "#4a86e8",
               },
               "extendCvssTemporalEnvironment": false,
+              "findingSidebarTemplate": "{title}",
+              "imageDefaultWidth": "large",
               "remediationColorsComplexity": {
                 "highColor": "#FF2F2F",
                 "lowColor": "#4472c4",
@@ -89,6 +94,7 @@ module.exports = function(request, app) {
           "public": {
             "mandatoryReview": false,
             "minReviewers": 1,
+            "blockApprovalWithOpenComments": false,
           },
         },
         "danger": { 
@@ -139,6 +145,8 @@ module.exports = function(request, app) {
                   "noneColor": "#123456",
                 },
                 "extendCvssTemporalEnvironment": false,
+                "findingSidebarTemplate": "{identifier} - {title} [{custom.Asset}]",
+                "imageDefaultWidth": "medium",
                 "remediationColorsComplexity": {
                   "highColor": "#FF2F2F",
                   "lowColor": "#4472c4",
@@ -160,6 +168,7 @@ module.exports = function(request, app) {
             "public": {
               "mandatoryReview": true,
               "minReviewers": 2,
+              "blockApprovalWithOpenComments": true,
             },
           },
           "danger": { 
@@ -189,6 +198,7 @@ module.exports = function(request, app) {
             "public": {
               "mandatoryReview": false,
               "minReviewers": 5,
+              "blockApprovalWithOpenComments": false,
             }
           }
         };
@@ -215,6 +225,25 @@ module.exports = function(request, app) {
         .set('Cookie', [
           `token=JWT ${userToken}`
         ]);
+      expect(response.status).toBe(200);
+
+      var response = await request(app).get('/api/settings')
+        .set('Cookie', [
+          `token=JWT ${userToken}`
+        ]);
+      expect(response.status).toBe(200);
+      expect(response.body.datas).toEqual(defaultSettings);
+    })
+
+    it('Does not execute MongoDB operators from settings input', async () => {
+      var response = await request(app).put('/api/settings')
+        .set('Cookie', [
+          `token=JWT ${userToken}`
+        ])
+        .send({
+          $unset: {'report.enabled': 1},
+          $rename: {'reviews.enabled': 'injected'}
+        });
       expect(response.status).toBe(200);
 
       var response = await request(app).get('/api/settings')

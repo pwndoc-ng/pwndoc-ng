@@ -33,10 +33,14 @@ const SettingSchema = new Schema({
                 type: [{type: String, unique: true}],
                 default: ['Figure']
             },
-            extendCvssTemporalEnvironment: { 
-                type: Boolean, 
-                default: false 
-            }
+            extendCvssTemporalEnvironment: {
+                type: Boolean,
+                default: false
+            },
+            // Text template of findings in the audit sidebar, e.g. "{identifier} - {title} [{custom.Asset}]"
+            findingSidebarTemplate: { type: String, default: '{title}', maxlength: 500 },
+            // Width of editor images without explicit width (large: between page margins)
+            imageDefaultWidth: { type: String, enum: ['small', 'medium', 'large'], default: 'large' }
         },
         private: {
             imageBorder: { type: Boolean, default: false },
@@ -47,7 +51,9 @@ const SettingSchema = new Schema({
         enabled: { type: Boolean, default: false },
         public: {
             mandatoryReview: { type: Boolean, default: false },
-            minReviewers: { type: Number, default: 1, min: 1, max: 100, validate: [Number.isInteger, 'Invalid integer'] }
+            minReviewers: { type: Number, default: 1, min: 1, max: 100, validate: [Number.isInteger, 'Invalid integer'] },
+            // Approving an audit requires all its review comments to be resolved
+            blockApprovalWithOpenComments: { type: Boolean, default: false }
         },
         private: {
             removeApprovalsUponUpdate: { type: Boolean, default: false }
@@ -86,14 +92,25 @@ SettingSchema.statics.getPublic = () => {
     });
 };
 
-// Update Settings
-SettingSchema.statics.update = (settings) => {
-    return new Promise((resolve, reject) => {
-        const query = Settings.findOneAndUpdate({}, settings, { new: true, runValidators: true });
-        query.exec()
-            .then(settings => resolve(settings))
-            .catch(err => reject(err));
+// Values of the input by path of the schema ('reviews.public.minReviewers'): the sections (nested paths) are followed, any
+// other value (number, string, list, object given for a value) is a value. Keys of the prototype and keys of operators
+// ($unset...) are ignored
+function settingValues(input, prefix = '') {
+    return Object.keys(input).filter(key => !['__proto__', 'constructor', 'prototype'].includes(key) && !key.startsWith('$')).flatMap(key => {
+        var path = prefix + key;
+        if (SettingSchema.pathType(path) === 'nested' && Utils.isObject(input[key]))
+            return settingValues(input[key], `${path}.`);
+        return [[path, input[key]]];
     });
+}
+
+// Update Settings: the given values only (a section given partially keeps its other settings: set() of a whole section put
+// back the default values of the others), in one update with the validators (concurrent updates: the last one wins for
+// each value). Values of the input are cast to the type of their path (paths of the schema only): MongoDB operators of the
+// input ($unset, $rename...) are not executed
+SettingSchema.statics.update = async (settings) => {
+    var values = Object.fromEntries(settingValues(settings));
+    return Settings.findOneAndUpdate({}, {$set: values}, {new: true, upsert: true, runValidators: true});
 };
 
 

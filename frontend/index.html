@@ -2,6 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
+    <!-- Relative URLs (images "api/images/download/<id>", public files) are resolved from the root:
+         @quasar/app-webpack v3 injected this tag automatically, v4 does not -->
+    <base href="/">
     <meta name="description" content="<%= productDescription %>">
     <meta name="format-detection" content="telephone=no">
     <meta name="msapplication-tap-highlight" content="no">
@@ -17,9 +20,6 @@
       This is your fallback content in case JavaScript fails to load.
     </noscript>
 
-    <!-- DO NOT touch the following <div> -->
-    <div id="q-app"></div>
-
-    <!-- built files will be auto injected here -->
+    <!-- quasar:entry-point -->
   </body>
 </html>

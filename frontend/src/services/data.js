@@ -44,8 +44,8 @@ export default {
         return  api.post(`data/vulnerability-types`, vulnerabilityType)
     },
 
-    deleteVulnerabilityType: function(name) {
-        return  api.delete(`data/vulnerability-types/${name}`)
+    deleteVulnerabilityType: function(name, locale) {
+        return  api.delete(`data/vulnerability-types/${encodeURIComponent(name)}`, {params: {locale: locale}})
     },
 
     updateVulnTypes: function(vulnTypes) {

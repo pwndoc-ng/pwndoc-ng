@@ -3,7 +3,7 @@ var Docxtemplater = require('docxtemplater');
 var PizZip = require("pizzip");
 var expressions = require('angular-expressions');
 var ImageModule = require('docxtemplater-image-module-pwndoc');
-var sizeOf = require('image-size');
+var { imageSize: sizeOf } = require('image-size');
 var customGenerator = require('./custom-generator');
 var chartGenerator = require('./chart-generator');
 var utils = require('./utils');
@@ -11,6 +11,8 @@ var html2ooxml = require('./html2ooxml');
 var _ = require('lodash');
 var Image = require('mongoose').model('Image');
 var Settings = require('mongoose').model('Settings');
+var VulnerabilityType = require('mongoose').model('VulnerabilityType');
+var CustomField = require('mongoose').model('CustomField');
 var CVSS31 = require('./cvsscalc31.js');
 var translate = require('../translate')
 var $t
@@ -21,26 +23,86 @@ var numberOfPieChart = 0
 var numberOfBarChart = 0
 var chartRelXml = ''
 var chartContentTypeXml = ''
-var globalAbstractNumId = null // Global variable to share abstractNumId between all sections
-var abstractNumCreated = false // Flag to avoid creating abstractNum multiple times
-var bulletDefinitionCreated = false // Flag to avoid creating bullet definition multiple times
-var globalBulletNumId = null // Global variable to store dynamic bullet ID
+var generatedListIds = [] // Numbering instances of the numbered lists converted by convertHTML (one per list)
+var nextListId = 0
 
 const encodeHTMLEntities = s => s.replace(/[\u00A0-\u9999<>&]/g, i => '&#'+i.charCodeAt(0)+';')
 
+// Width of images from editor fields relative to the template text width (large: between page margins)
+// Same values as the editor display (frontend/src/components/uploadImage.vue)
+const IMAGE_WIDTH_RATIOS = {small: 0.5, medium: 0.75, large: 1}
+// Height (px) kept free below a page-high image so that its caption stays on the same page
+const IMAGE_CAPTION_RESERVED_HEIGHT = 60
+
+// The width chosen for an image is carried as a parameter of its data URI: the image module only gives
+// the tag value to getSize and treats object values as already resolved images, while getImage only uses
+// the data after the comma. e.g. data:image/png;pwndoc-width=medium;base64,iVBOR...
+function setImageWidthParam(dataUri, width) {
+    if (typeof dataUri !== 'string' || !dataUri.startsWith('data:'))
+        return dataUri
+    return dataUri.replace(/^data:([^,]*?)(;base64)?,/, (match, mediaType, base64) => `data:${mediaType};pwndoc-width=${width}${base64 || ''},`)
+}
+exports.setImageWidthParam = setImageWidthParam
+
+function getImageWidthParam(dataUri) {
+    if (typeof dataUri !== 'string' || !dataUri.startsWith('data:'))
+        return null
+    var match = dataUri.substring(0, dataUri.indexOf(',')).match(/;pwndoc-width=([a-z]+)/)
+    return match ? match[1] : null
+}
+exports.getImageWidthParam = getImageWidthParam
+
+// Text area of the template in pixels (96 dpi: 1px = 15 twips), from the page size and margins
+// of the main section (last w:sectPr of the body)
+function getTemplateTextArea(zip) {
+    try {
+        var sections = zip.files['word/document.xml'].asText().match(/<w:sectPr[\s\S]*?<\/w:sectPr>/g)
+        var section = sections[sections.length - 1]
+        var attr = (tag, name) => {
+            var element = (section.match(new RegExp(`<w:${tag}\\b[^>]*>`)) || [''])[0]
+            var value = element.match(new RegExp(`w:${name}="(-?\\d+)"`))
+            return value ? Math.abs(parseInt(value[1], 10)) : 0
+        }
+        var width = attr('pgSz', 'w') - (attr('pgMar', 'left') || attr('pgMar', 'start')) - (attr('pgMar', 'right') || attr('pgMar', 'end')) - attr('pgMar', 'gutter')
+        var height = attr('pgSz', 'h') - attr('pgMar', 'top') - attr('pgMar', 'bottom')
+        if (width > 0)
+            return {width: Math.floor(width / 15), height: height > 0 ? Math.floor(height / 15) : null}
+    }
+    catch (err) {}
+    return {width: 600, height: null} // Previous fixed max width
+}
+exports.getTemplateTextArea = getTemplateTextArea
+
+// The generation relies on module-level state shared with the template filters (zip, charts counters
+// and relations, numbering ids, translation locale). Generations are therefore queued so that two
+// concurrent requests never interleave (prepAuditData is async).
+var generationQueue = Promise.resolve()
+
+function generateDoc(audit) {
+    var generation = generationQueue.then(() => _generateDoc(audit))
+    generationQueue = generation.catch(() => {}) // A failed generation must not block the next ones
+    return generation
+}
+exports.generateDoc = generateDoc;
+
 // Generate document with docxtemplater
-async function generateDoc(audit) {
+async function _generateDoc(audit) {
 
     // Reset global variables for each document generation
-    globalAbstractNumId = null;
-    abstractNumCreated = false;
-    bulletDefinitionCreated = false;
-    globalBulletNumId = null;
+    generatedListIds = [];
+    pieChartXML = null;
+    barChartXML = null;
+    numberOfPieChart = 0;
+    numberOfBarChart = 0;
+    chartRelXml = '';
+    chartContentTypeXml = '';
 
     var templatePath = `${__basedir}/../report-templates/${audit.template.name}.${audit.template.ext || 'docx'}`
     var content = fs.readFileSync(templatePath, "binary");
 
     zip = new PizZip(content);
+    var textArea = getTemplateTextArea(zip); // Space between margins, for editor images width
+    nextListId = firstFreeNumId(zip);
 
     translate.setLocale(audit.language)
     $t = translate.translate
@@ -82,6 +144,18 @@ async function generateDoc(audit) {
                     width = 400;
                 }
             }
+            // Image from an editor field (findings, sections...): small, medium or large (between margins) width
+            else if (getImageWidthParam(tagValue)) {
+                var ratio = IMAGE_WIDTH_RATIOS[getImageWidthParam(tagValue)] || IMAGE_WIDTH_RATIOS[settings.report.public.imageDefaultWidth] || 1;
+                width = Math.floor(textArea.width * ratio);
+                height = Math.round(sizeObj.height * width / sizeObj.width);
+                // Keep tall images inside the page, with room left for their caption
+                var maxHeight = textArea.height ? textArea.height - IMAGE_CAPTION_RESERVED_HEIGHT : null;
+                if (maxHeight && height > maxHeight) {
+                    height = maxHeight;
+                    width = Math.round(sizeObj.width * height / sizeObj.height);
+                }
+            }
             else if (sizeObj.width > 600) {
                 var divider = sizeObj.width / 600;
                 width = 600;
@@ -101,37 +175,28 @@ async function generateDoc(audit) {
     catch(err) {
         console.log(err)
     }
-    var doc = new Docxtemplater(zip, {
-        modules: [imageModule],
-        parser: parser,
-        paragraphLoop: true
-    });
-    
+    try {
+        var doc = new Docxtemplater(zip, {
+            modules: [imageModule],
+            parser: parser,
+            paragraphLoop: true,
+            stripInvalidXMLChars: true // Control characters of the audit data: a document containing them cannot be opened
+        });
+    }
+    catch (error) {
+        throw templateError(error) // Syntax errors of the template
+    }
+
     customGenerator.apply(preppedAudit);
 
     try {
         doc.render(preppedAudit);
     }
     catch (error) {
-        if (error.properties.id === 'multi_error') {
-            error.properties.errors.forEach(function(err) {
-                console.log(err);
-            });
-        }
-        else
-            console.log(error)
-        if (error.properties && error.properties.errors instanceof Array) {
-            const errorMessages = error.properties.errors.map(function (error) {
-                return `Explanation: ${error.properties.explanation}\nScope: ${JSON.stringify(error.properties.scope).substring(0,142)}...`
-            }).join("\n\n");
-            // errorMessages is a humanly readable message looking like this :
-            // 'The tag beginning with "foobar" is unopened'
-            throw `Template Error:\n${errorMessages}`;
-        }
-        else {
-            throw error
-        }
+        throw templateError(error)
     }
+    declareListNumbering(zip, generatedListIds);
+    declareTableStyle(zip);
 
     // Include refs in document
     const relsPath = "word/_rels/document.xml.rels";
@@ -171,15 +236,14 @@ async function generateDoc(audit) {
 
     return buf;
 }
-exports.generateDoc = generateDoc;
 
 // *** Angular parser filters ***
 
 // Keep only first finding with a given title
 expressions.filters.uniqFindings = function (findings) {
     if (!findings) return findings;
-    titles = [];
-    filtered_findings = [];
+    var titles = [];
+    var filtered_findings = [];
     findings.forEach(function (f) {
         if (!(titles.includes(f.title))){
             titles.push(f.title);
@@ -297,7 +361,7 @@ expressions.filters.fromTo = function(start, end, locale) {
     options = {day: '2-digit', month: '2-digit', year: 'numeric'};
     end_str = end_date.toLocaleDateString(locale, options);
 
-    if (start_date.getYear() != end_date.getYear()) {
+    if (start_date.getFullYear() != end_date.getFullYear()) {
         options = {day: '2-digit', month: '2-digit', year: 'numeric'};
         start_str = start_date.toLocaleDateString(locale, options);
     }
@@ -305,7 +369,7 @@ expressions.filters.fromTo = function(start, end, locale) {
         options = {day: '2-digit', month: '2-digit'};
         start_str = start_date.toLocaleDateString(locale, options);
     }
-    else if (start_date.getDay() != end_date.getDay()) {
+    else if (start_date.getDate() != end_date.getDate()) { // Day of the month
         options = {day: '2-digit'};
         start_str = start_date.toLocaleDateString(locale, options);
     }
@@ -322,9 +386,10 @@ expressions.filters.fromTo = function(start, end, locale) {
 expressions.filters.groupBy = function(input, key) {
     return expressions.filters.loopObject(
         input.reduce(function(rv, x) {
-            (rv[x[key]] = rv[x[key]] || []).push(x);
+            var group = _getPropertyValue(x, key);
+            (rv[group] = rv[group] || []).push(x);
             return rv;
-        }, {})
+        }, Object.create(null)) // No prototype: a value such as '__proto__' is a group like any other
     );
 }
 
@@ -405,6 +470,8 @@ expressions.filters.mailto = function(input, address = null) {
 // Applies a filter on a sequence of objects: {scope | select: 'name' | map: 'lower' | join: ', '}
 expressions.filters.map = function(input, filter) {
     let args = Array.prototype.slice.call(arguments, 2);
+    if (!Object.prototype.hasOwnProperty.call(expressions.filters, filter) || typeof expressions.filters[filter] !== 'function')
+        throw new Error(`Filter '${filter}' is not defined`);
     return input.map(x => expressions.filters[filter](x, ...args));
 }
 
@@ -458,7 +525,12 @@ expressions.filters.p = function(input, style = null) {
             result += '<w:pPr><w:pStyle w:val="' + style_parsed + '"/></w:pPr>';
         }
     }
-    result += '<w:r><w:t>' + input + '</w:t></w:r></w:p>';
+    // OOXML input (runs, bookmarks or fields of the other filters) goes directly in the paragraph: inside a w:t, which only
+    // contains text, it would be lost or make the document invalid. Text input is put in an escaped run
+    if (/^\s*<w:/.test(input))
+        result += input + '</w:p>';
+    else
+        result += '<w:r><w:t>' + utils.escapeXMLEntities(String(input)) + '</w:t></w:r></w:p>';
     return result;
 }
 
@@ -484,8 +556,15 @@ expressions.filters.sort = function(input, key = null) {
         return input.sort();
     }
     else {
+        // Ascending order (same as without key), elements without value at the end ("" in the report data, e.g. the CVSS
+        // score of a finding without vector)
+        var noValue = (value) => value === undefined || value === null || value === "";
         return input.sort(function(a, b) {
-            return _getPropertyValue(a, key) < _getPropertyValue(b, key);
+            var x = _getPropertyValue(a, key), y = _getPropertyValue(b, key);
+            if (x === y) return 0;
+            if (noValue(x)) return noValue(y) ? 0 : 1;
+            if (noValue(y)) return -1;
+            return x < y ? -1 : 1;
         });
     }
 }
@@ -537,7 +616,7 @@ expressions.filters.upper = function(input) {
 // Source: https://docxtemplater.com/docs/angular-parse/#data-filtering
 expressions.filters.where = function(input, query) {
     return input.filter(function (item) {
-        return expressions.compile(query)(item);
+        return expressions.compile(query, COMPILE_OPTIONS)(item);
     });
 };
 
@@ -546,20 +625,13 @@ expressions.filters.convertHTML = function(input, style, listIds) {
     if (typeof input === 'undefined') {
         var result = html2ooxml('')
     } else {
-        // Compter les balises <ol> dans l'input HTML
+        // Count numbered lists (<ol>) in HTML input
         let olCount = 0;
-        let ulCount = 0;
-        
         if (input && typeof input === 'string') {
             olCount = (input.match(/<ol/g) || []).length;
-            ulCount = (input.match(/<ul/g) || []).length;
         }
-        
-        console.log(`📄 List count in convertHTML:`);
-        console.log(`   🔢 Numbered lists (<ol>): ${olCount}`);
-        console.log(`   🔘 Bullet lists (<ul>): ${ulCount}`);
-        
-        // Convertir listIds en array si c'est une string
+
+        // Convert listIds to array if it is a string
         let listIdsArray = [];
         if (listIds) {
             if (typeof listIds === 'string') {
@@ -575,175 +647,83 @@ expressions.filters.convertHTML = function(input, style, listIds) {
             }
         }
         
-        // If we don't have provided IDs but have numbered lists, generate them automatically
+        // Without identifiers given by the template: one new numbering instance per list, declared in numbering.xml
+        // after the rendering (declareListNumbering) so that each list starts at 1
         if (olCount > 0 && listIdsArray.length === 0) {
-            // Generate unpredictable IDs between 10000 and 99999
-            listIdsArray = Array.from({length: olCount}, () => Math.floor(Math.random() * 90000) + 10000);
-            console.log(`🎲 Automatic generation of unpredictable IDs:`, listIdsArray);
+            listIdsArray = Array.from({length: olCount}, () => nextListId++);
+            generatedListIds.push(...listIdsArray);
         }
-        
-        console.log(`🆔 List IDs to use:`, listIdsArray);
-        
-        // TOTAL ELIMINATION: No longer modify numbering.xml at all
-        // Use ONLY existing template definitions
-        console.log(`🚫 ELIMINATION: No modification of numbering.xml (olCount: ${olCount}, ulCount: ${ulCount})`);
-        
+
         var result = html2ooxml(input.replace(/(<p><\/p>)+$/, ''), style, listIdsArray)
     }
     return result;
 }
 
-// Fonction pour modifier le numbering.xml du document DOCX
-function modifyNumberingXml(olCount, ulCount, listIdsArray = []) {
-    try {
-        // Lire le numbering.xml existant
-        const numberingPath = "word/numbering.xml";
-        let numberingXml = zip.files[numberingPath].asText();
-        
-        // Save modified file doesn't exist, create it with complete structure
-        if (!numberingXml) {
-            numberingXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering mc:Ignorable="w14 w15 wp14" xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:w10="urn:schemas-microsoft-com:office:word" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml" xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup" xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk" xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">
-</w:numbering>`;
-        }
-        
-        // Use global abstractNumId or create a new one ONLY if we have numbered lists
-        let nextAbstractNumId = null;
-        if (olCount > 0) {
-            if (globalAbstractNumId === null) {
-                // First call: find next available abstractNumId
-                nextAbstractNumId = 1;
-                if (numberingXml.includes('w:abstractNum w:abstractNumId="')) {
-                    const matches = numberingXml.match(/w:abstractNum w:abstractNumId="(\d+)"/g);
-                    if (matches) {
-                        const ids = matches.map(match => parseInt(match.match(/"(\d+)"/)[1]));
-                        nextAbstractNumId = Math.max(...ids) + 1;
-                    }
-                }
-                globalAbstractNumId = nextAbstractNumId;
-                console.log(`🆕 First abstractNumId created for numbered lists: ${globalAbstractNumId}`);
-            } else {
-                // Reuse existing abstractNumId
-                nextAbstractNumId = globalAbstractNumId;
-                console.log(`♻️ Reusing abstractNumId: ${globalAbstractNumId}`);
-            }
-        } else {
-            console.log(`ℹ️ No numbered list (<ol>) detected, no abstractNumId creation`);
-        }
-        
-        // Create abstract definition for numbered lists only if it's the first time AND we have numbered lists
-        if (olCount > 0 && !abstractNumCreated) {
-            // Create multi-level definition (0-8) for numbered lists
-            let decimalAbstract = `<w:abstractNum w:abstractNumId="${nextAbstractNumId}" w15:restartNumberingAfterBreak="0">
-                <w:multiLevelType w:val="hybridMultilevel"/>`;
-            
-            // Generate definitions for each level (0 to 8)
-            for (let i = 0; i <= 8; i++) {
-                const leftIndent = 720 + (i * 720); // Progressive indentation: 720, 1440, 2160, etc.
-                const hanging = 360; // Constant spacing for numbers
-                
-                // Use ONLY decimal to avoid conflicts with table of contents
-                const numFormat = "decimal";
-                const lvlText = `%${i+1}.`; // Each level uses its own counter
-                
-                decimalAbstract += `
-                <w:lvl w:ilvl="${i}" w15:tentative="1">
-                    <w:start w:val="1"/>
-                    <w:numFmt w:val="${numFormat}"/>
-                    <w:lvlText w:val="${lvlText}"/>
-                    <w:lvlJc w:val="start"/>
-                    <w:pPr>
-                        <w:ind w:left="${leftIndent}" w:hanging="${hanging}"/>
-                    </w:pPr>
-                </w:lvl>`;
-            }
-            
-            decimalAbstract += `\n</w:abstractNum>`;
-            
-            numberingXml = numberingXml.replace('</w:numbering>', `${decimalAbstract}\n</w:numbering>`);
-            abstractNumCreated = true;
-            console.log(`📝 Multi-level abstract definition created for abstractNumId: ${nextAbstractNumId}`);
-        } else {
-            console.log(`🚫 Abstract definition ignored (already created) for abstractNumId: ${nextAbstractNumId}`);
-        }
-        
-        // Create unique concrete numberings for each list (only if we have numbered lists and valid abstractNumId)
-        if (olCount > 0 && nextAbstractNumId !== null) {
-            listIdsArray.forEach((listId, index) => {
-                const concreteNumbering = `<w:num w:numId="${listId}"><w:abstractNumId w:val="${nextAbstractNumId}"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num>`;
-                
-                numberingXml = numberingXml.replace('</w:numbering>', `${concreteNumbering}\n</w:numbering>`);
-            });
-        }
-        
-        // Add bullet definition if necessary (only once for entire document)
-        if (ulCount > 0 && !bulletDefinitionCreated) {
-            // Find next available numId by analyzing existing numbering.xml
-            let nextBulletNumId = 1;
-            if (numberingXml.includes('w:numId="')) {
-                const numIdMatches = numberingXml.match(/w:numId="(\d+)"/g);
-                if (numIdMatches) {
-                    const existingIds = numIdMatches.map(match => parseInt(match.match(/"(\d+)"/)[1]));
-                    nextBulletNumId = Math.max(...existingIds) + 1;
-                }
-            }
-            
-            // Trouver le prochain abstractNumId disponible pour les puces
-            let bulletAbstractNumId = 1;
-            if (numberingXml.includes('w:abstractNum w:abstractNumId="')) {
-                const abstractMatches = numberingXml.match(/w:abstractNum w:abstractNumId="(\d+)"/g);
-                if (abstractMatches) {
-                    const existingAbstractIds = abstractMatches.map(match => parseInt(match.match(/"(\d+)"/)[1]));
-                    bulletAbstractNumId = Math.max(...existingAbstractIds) + 1;
-                }
-            }
-            
-            // Create simple abstract definition for bullets
-            let bulletAbstract = `<w:abstractNum w:abstractNumId="${bulletAbstractNumId}" w15:restartNumberingAfterBreak="0">
-                <w:multiLevelType w:val="hybridMultilevel"/>
-                <w:lvl w:ilvl="0" w15:tentative="1">
-                    <w:start w:val="1"/>
-                    <w:numFmt w:val="bullet"/>
-                    <w:lvlText w:val="•"/>
-                    <w:lvlJc w:val="left"/>
-                    <w:pPr>
-                        <w:ind w:left="720" w:hanging="360"/>
-                    </w:pPr>
-                </w:lvl>
-            </w:abstractNum>`;
-            
-            numberingXml = numberingXml.replace('</w:numbering>', `${bulletAbstract}\n</w:numbering>`);
-            
-            const bulletNumbering = `<w:num w:numId="${nextBulletNumId}"><w:abstractNumId w:val="${bulletAbstractNumId}"/></w:num>`;
-            
-            numberingXml = numberingXml.replace('</w:numbering>', `${bulletNumbering}\n</w:numbering>`);
-            
-            bulletDefinitionCreated = true;
-            // Store dynamic ID for reuse
-            globalBulletNumId = nextBulletNumId;
-            console.log(`📝 Simple definition created for bullets (ID: ${nextBulletNumId}, abstractNumId: ${bulletAbstractNumId})`);
-        } else if (ulCount > 0 && bulletDefinitionCreated) {
-            console.log(`♻️ Bullet definition already created, reusing ID: ${globalBulletNumId}`);
-        }
-        
-        
-        zip.file(numberingPath, numberingXml);
-        
-        console.log(`✅ numbering.xml modified with success`);
-        console.log(`✅ numbering.xml modified successfully`);
-        if (olCount > 0 && nextAbstractNumId !== null) {
-            console.log(`   🔢 AbstractNumId used for numbered lists: ${nextAbstractNumId}`);
-            console.log(`   🔢 Numbered list IDs: ${listIdsArray.join(', ')}`);
-        }
-        if (bulletDefinitionCreated) {
-            console.log(`   🔘 Bullet ID: ${globalBulletNumId}`);
-        }
-        if (olCount === 0 && ulCount === 0) {
-            console.log(`   ℹ️ No list detected, numbering.xml not modified`);
-        }
-        
-    } catch (error) {
-        console.log(`❌ Error modifying numbering.xml:`, error);
+// First numbering identifier not used by the template (identifiers of the numbering instances of the generated lists)
+function firstFreeNumId(zip) {
+    var numbering = zip.file('word/numbering.xml')
+    var ids = numbering ? [...numbering.asText().matchAll(/<w:num\b[^>]*\bw:numId="(\d+)"/g)].map(match => parseInt(match[1], 10)) : []
+    return Math.max(0, ...ids) + 1
+}
+
+// Declares the numbering instances of the lists generated by convertHTML. They use the definition of the ordered list of
+// the template (numId 2, see docs/docxtemplate.md), restarted at 1 for each list. Templates without this definition get
+// a decimal definition. Templates without numbering.xml are not supported (bullet lists use its numId 1 too).
+function declareListNumbering(zip, listIds) {
+    var file = zip.file('word/numbering.xml')
+    if (listIds.length === 0 || !file)
+        return
+    var numbering = file.asText()
+
+    var ordered = numbering.match(/<w:num\b[^>]*\bw:numId="2"[^>]*>\s*<w:abstractNumId w:val="(\d+)"\s*\/>/)
+    var abstractNumId = ordered ? ordered[1] : null
+    if (abstractNumId === null) {
+        abstractNumId = Math.max(-1, ...[...numbering.matchAll(/<w:abstractNum\b[^>]*\bw:abstractNumId="(\d+)"/g)].map(match => parseInt(match[1], 10))) + 1
+        var levels = Array.from({length: 9}, (_, level) =>
+            `<w:lvl w:ilvl="${level}"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%${level + 1}."/><w:lvlJc w:val="left"/>` +
+            `<w:pPr><w:ind w:left="${720 * (level + 1)}" w:hanging="360"/></w:pPr></w:lvl>`).join('')
+        var definition = `<w:abstractNum w:abstractNumId="${abstractNumId}"><w:multiLevelType w:val="hybridMultilevel"/>${levels}</w:abstractNum>`
+        // Definitions (w:abstractNum) come before the instances (w:num)
+        var firstNum = numbering.search(/<w:num\b/)
+        numbering = firstNum === -1 ? numbering.replace('</w:numbering>', `${definition}</w:numbering>`) : numbering.slice(0, firstNum) + definition + numbering.slice(firstNum)
     }
+
+    var restart = Array.from({length: 9}, (_, level) => `<w:lvlOverride w:ilvl="${level}"><w:startOverride w:val="1"/></w:lvlOverride>`).join('')
+    var instances = listIds.map(id => `<w:num w:numId="${id}"><w:abstractNumId w:val="${abstractNumId}"/>${restart}</w:num>`).join('')
+    // Instances before w:numIdMacAtCleanup (last element of the schema) if present
+    numbering = numbering.includes('<w:numIdMacAtCleanup') ? numbering.replace('<w:numIdMacAtCleanup', `${instances}<w:numIdMacAtCleanup`) : numbering.replace('</w:numbering>', `${instances}</w:numbering>`)
+    zip.file('word/numbering.xml', numbering)
+}
+
+// Table style of the tables converted by convertHTML (#244): templates define it to customize the tables of the editors
+// (borders, header row). Added to the report when the template does not define it: Word ignores a style missing from
+// styles.xml, the tables would have no borders. Simple grid, header row (first row of th cells) bold and shaded
+var DEFAULT_TABLE_STYLE = `<w:style w:type="table" w:customStyle="1" w:styleId="${html2ooxml.TABLE_STYLE}"><w:name w:val="Pwndoc Table"/>` +
+    '<w:uiPriority w:val="59"/><w:tblPr><w:tblBorders>' +
+    ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map(side => `<w:${side} w:val="single" w:sz="4" w:space="0" w:color="auto"/>`).join('') +
+    '</w:tblBorders><w:tblCellMar><w:left w:w="108" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr>' +
+    '<w:tblStylePr w:type="firstRow"><w:rPr><w:b/><w:bCs/></w:rPr><w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="D9D9D9"/></w:tcPr></w:tblStylePr>' +
+    '</w:style>'
+exports.DEFAULT_TABLE_STYLE = DEFAULT_TABLE_STYLE
+
+function declareTableStyle(zip) {
+    var file = zip.file('word/styles.xml')
+    if (!file)
+        return
+    var styles = file.asText()
+    if (!styles.includes(`w:styleId="${html2ooxml.TABLE_STYLE}"`))
+        zip.file('word/styles.xml', styles.replace('</w:styles>', `${DEFAULT_TABLE_STYLE}</w:styles>`))
+}
+
+// Error of the template (syntax error found when it is compiled, error when it is rendered): message naming the faulty
+// tags, answered to the user. Only the explanations are logged: the error properties contain the data of the report
+function templateError(error) {
+    if (!error || !error.properties)
+        return error
+    var errors = error.properties.errors instanceof Array ? error.properties.errors : [error]
+    var explanations = errors.map(err => (err.properties && err.properties.explanation) || err.message)
+    explanations.forEach(explanation => console.log(`Template Error: ${explanation}`))
+    return new Error(`Template Error: ${explanations.join(' / ')}`)
 }
 
 // Count vulnerability by severity
@@ -878,8 +858,8 @@ expressions.filters.barChart = function(input, field, title, barColor, labelColo
         }
     }
 
-    valueXML = `<c:ptCount val="${Object.keys(dataTypeCount).length}"/>`;
-    legendXML = `<c:ptCount val="${Object.keys(dataTypeCount).length}"/>`;
+    var valueXML = `<c:ptCount val="${Object.keys(dataTypeCount).length}"/>`;
+    var legendXML = `<c:ptCount val="${Object.keys(dataTypeCount).length}"/>`;
 
     var index = 0;
 
@@ -937,12 +917,15 @@ expressions.filters.translate = function(input, locale) {
 }
 
 // Filters helper: handles the use of dotted notation as property names.
+// Only own properties are read: the report templates have no access to the prototypes (constructor, __proto__...)
 // Source: https://stackoverflow.com/a/37510735
 function _getPropertyValue(obj, dataToRetrieve) {
-  return dataToRetrieve
+  return String(dataToRetrieve)
     .split('.')
     .reduce(function(o, k) {
-      return o && o[k];
+      if (o === null || o === undefined || !Object.prototype.hasOwnProperty.call(Object(o), k))
+        return undefined;
+      return o[k];
     }, obj);
 }
 
@@ -955,6 +938,10 @@ String.prototype.format = function () {
     });
 };
 
+// angular-expressions >= 1.7 refuses expressions longer than 250 characters by default:
+// template tags can be longer (e.g. variables computed in the Default Template)
+var COMPILE_OPTIONS = {maxExpressionLength: 10000};
+
 // Compile all angular expressions
 var angularParser = function(tag) {
     expressions = {...expressions, ...customGenerator.expressions};
@@ -964,7 +951,8 @@ var angularParser = function(tag) {
         };
     }
     const expr = expressions.compile(
-        tag.replace(/(’|‘)/g, "'").replace(/(“|”)/g, '"')
+        tag.replace(/(’|‘)/g, "'").replace(/(“|”)/g, '"'),
+        COMPILE_OPTIONS
     );
     return {
         get: function(scope, context) {
@@ -974,6 +962,9 @@ var angularParser = function(tag) {
             for (let i = 0, len = num + 1; i < len; i++) {
                 obj = _.merge(obj, scopeList[i]);
             }
+            // $index: position in the innermost loop (e.g. {'VULN-'+($index+1)} in the loop of the findings)
+            const scopePathItem = context.scopePathItem || [];
+            obj.$index = scopePathItem[scopePathItem.length - 1];
             return expr(scope, obj);
         }
     };
@@ -1002,6 +993,8 @@ function parser(tag) {
     // https://docxtemplater.readthedocs.io/en/latest/configuration.html#default-parser
     return angularParser(tag);
 }
+exports.parser = parser // Exported for the tests
+
 function cvssStrToObject(cvss) {
     var initialState = 'Not Defined'
     var res = {AV:initialState, AC:initialState, PR:initialState, UI:initialState, S:initialState, C:initialState, I:initialState, A:initialState, E:initialState, RL:initialState, RC:initialState, CR:initialState, IR:initialState, AR:initialState, MAV:initialState, MAC:initialState, MPR:initialState, MUI:initialState, MS:initialState, MC:initialState, MI:initialState, MA:initialState};
@@ -1147,10 +1140,30 @@ function cvssStrToObject(cvss) {
     }
     return res
 }
+// Severity of the CVSS 3.1 subscores (impact, exploitability) for their colors in the report (#410). CVSS defines no
+// severity for the subscores: each one is scaled to the range of the scores (0-10) by its maximum and rated with the
+// qualitative severity scale of the scores (CVSS 3.1 specification, section 5: None 0, Low 0.1-3.9, Medium 4.0-6.9,
+// High 7.0-8.9, Critical 9.0-10.0). Maximums of the CVSS 3.1 formulas, rounded up like the subscores of the report: base
+// impact 6.1 (6.05, scope changed), environmental modified impact 6.2 (6.13, high security requirements), exploitability
+// 3.9 (3.89). Thresholds below: first subscore (one decimal) of Medium, High and Critical, e.g. a base impact of 4.3 is
+// 7.05 on the 0-10 range (High) and 4.2 is 6.89 (Medium)
+var SUBSCORE_THRESHOLDS = {
+    impact: [2.5, 4.3, 5.5],
+    modifiedImpact: [2.5, 4.4, 5.6],
+    exploitability: [1.6, 2.8, 3.6]
+};
+exports.SUBSCORE_THRESHOLDS = SUBSCORE_THRESHOLDS;
+
+function subscoreSeverity(value, thresholds) {
+    if (typeof value !== 'number' || value <= 0)
+        return 'None';
+    return value < thresholds[0] ? 'Low' : value < thresholds[1] ? 'Medium' : value < thresholds[2] ? 'High' : 'Critical';
+}
+exports.subscoreSeverity = subscoreSeverity;
+
 function stripParagraphTags(input) {
-    console.log("JE STRIP MES PARAMETRES")
     return input
-        .replace(/<\/?p[^>]*>/gi, '') // supprime toutes les balises <p> ou </p>
+        .replace(/<\/?p[^>]*>/gi, '') // remove all <p> or </p> tags
         .trim();
 }
 async function prepAuditData(data, settings) {
@@ -1166,6 +1179,7 @@ async function prepAuditData(data, settings) {
     var cellMediumColor = '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="'+mediumColor+'"/></w:tcPr>';
     var cellHighColor = '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="'+highColor+'"/></w:tcPr>';
     var cellCriticalColor = '<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="'+criticalColor+'"/></w:tcPr>';
+    var cellSeverityColors = {Low: cellLowColor, Medium: cellMediumColor, High: cellHighColor, Critical: cellCriticalColor};
 
     /** Remediation complexity  Colors for table cells */
     
@@ -1197,10 +1211,15 @@ async function prepAuditData(data, settings) {
     result.date = data.date || "undefined"
     result.date_start = data.date_start || "undefined"
     result.date_end = data.date_end || "undefined"
+    var customFields = {} // Existing custom fields by identifier
+    for (const customField of await CustomField.find().select('label fieldType').lean())
+        customFields[String(customField._id)] = customField
     if (data.customFields) {
-        for (field of data.customFields) {
-            var fieldType = field.customField.fieldType
-            var label = field.customField.label
+        for (const field of data.customFields) {
+            var definition = customFieldDefinition(field, customFields)
+            if (!definition) continue
+            var fieldType = definition.fieldType
+            var label = definition.label
 
             if (fieldType === 'text')
                 result[_.deburr(label.toLowerCase()).replace(/\s/g, '')] = await splitHTMLParagraphs(field.text)
@@ -1258,12 +1277,20 @@ async function prepAuditData(data, settings) {
     result.language = data.language || "undefined"
     result.scope = data.scope.toObject() || []
 
+    // Descriptions of vulnerability types in the audit language (findings[i].vulnTypeDescription)
+    var vulnTypeDescriptions = {}
+    for (const vulnType of await VulnerabilityType.getAll()) {
+        if (vulnType.locale === data.language)
+            vulnTypeDescriptions[vulnType.name] = vulnType.description || ""
+    }
+
     result.findings = []
-    for (finding of data.findings) {
+    for (const finding of data.findings) {
         var tmpCVSS = CVSS31.calculateCVSSFromVector(finding.cvssv3);
         var tmpFinding = {
             title: finding.title || "",
             vulnType: $t(finding.vulnType) || "",
+            vulnTypeDescription: await splitHTMLParagraphs(vulnTypeDescriptions[finding.vulnType]), // HTML with images
             description: await splitHTMLParagraphs(finding.description),
             observation: await splitHTMLParagraphs(finding.observation),
             remediation: await splitHTMLParagraphs(finding.remediation),
@@ -1278,7 +1305,6 @@ async function prepAuditData(data, settings) {
             identifier: "IDX-" + utils.lPad(finding.identifier),
             unique_id: finding._id.toString()
         }
-        console.log(tmpFinding)
         // Remediation Complexity color 
         if (tmpFinding.remediationComplexity === 1) tmpFinding.remediation.cellColorComplexity = cellLowColorRemediationComplexity
         else if (tmpFinding.remediationComplexity === 2) tmpFinding.remediation.cellColorComplexity = cellMediumColorRemediationComplexity
@@ -1338,20 +1364,21 @@ async function prepAuditData(data, settings) {
         else if (tmpCVSS.environmentalSeverity === "Critical") tmpFinding.cvss.environmentalCellColor = cellCriticalColor
         else tmpFinding.cvss.environmentalCellColor = cellNoneColor
 
+        // Colors of the subscores (#410), same colors as the scores
+        var subscoreColor = (value, thresholds) => cellSeverityColors[subscoreSeverity(value, thresholds)] || cellNoneColor
+        tmpFinding.cvss.baseImpactColor = subscoreColor(tmpFinding.cvss.baseImpact, SUBSCORE_THRESHOLDS.impact)
+        tmpFinding.cvss.baseExploitabilityColor = subscoreColor(tmpFinding.cvss.baseExploitability, SUBSCORE_THRESHOLDS.exploitability)
+        tmpFinding.cvss.environmentalModifiedImpactColor = subscoreColor(tmpFinding.cvss.environmentalModifiedImpact, SUBSCORE_THRESHOLDS.modifiedImpact)
+        tmpFinding.cvss.environmentalModifiedExploitabilityColor = subscoreColor(tmpFinding.cvss.environmentalModifiedExploitability, SUBSCORE_THRESHOLDS.exploitability)
+
         tmpFinding.cvssObj = cvssStrToObject(tmpCVSS.vectorString)
 
         if (finding.customFields) {
-            for (field of finding.customFields) {
-                // For retrocompatibility of findings with old customFields
-                // or if custom field has been deleted, last saved custom fields will be available
-                if (field.customField) {
-                    var fieldType = field.customField.fieldType
-                    var label = field.customField.label
-                }
-                else {
-                    var fieldType = field.fieldType
-                    var label = field.label
-                }
+            for (const field of finding.customFields) {
+                var definition = customFieldDefinition(field, customFields)
+                if (!definition) continue
+                var fieldType = definition.fieldType
+                var label = definition.label
                 if (fieldType === 'text')
                     tmpFinding[_.deburr(label.toLowerCase()).replace(/\s/g, '').replace(/[^\w]/g, '_')] = await splitHTMLParagraphs(field.text)
                 else if (fieldType !== 'space')
@@ -1377,7 +1404,7 @@ async function prepAuditData(data, settings) {
         result.creator.role = data.creator.role || "undefined"
     }
 
-    for (section of data.sections) {
+    for (const section of data.sections) {
         var formatSection = {
             name: $t(section.name)
         }
@@ -1385,9 +1412,11 @@ async function prepAuditData(data, settings) {
             formatSection.text = await splitHTMLParagraphs(section.text)
         // If only because section has "any" inside its text attribute and then skip the section.customFields
         if (section.customFields) {
-            for (field of section.customFields) {
-                var fieldType = field.customField.fieldType
-                var label = field.customField.label
+            for (const field of section.customFields) {
+                var definition = customFieldDefinition(field, customFields)
+                if (!definition) continue
+                var fieldType = definition.fieldType
+                var label = definition.label
                 if (fieldType === 'text')
                     formatSection[_.deburr(label.toLowerCase()).replace(/\s/g, '').replace(/[^\w]/g, '_')] = await splitHTMLParagraphs(field.text)
                 else if (fieldType !== 'space')
@@ -1400,6 +1429,21 @@ async function prepAuditData(data, settings) {
     return result
 }
 
+// Type and label of the custom field of a value: custom field populated (audit, findings), copy stored with the value
+// (sections) or identifier (accepted by the API, not populated). A deleted custom field is populated as null: the label
+// stored with the value (old format of the findings) is used if any, otherwise the value is left out of the report.
+function customFieldDefinition(field, customFields) {
+    var customField = field.customField
+    var definition = null
+    if (customField && typeof customField.label === 'string')
+        definition = customField
+    else if (customField)
+        definition = customFields[String(customField._id || customField)] || null
+    else if (typeof field.label === 'string')
+        definition = {fieldType: field.fieldType, label: field.label}
+    return definition && typeof definition.label === 'string' ? definition : null
+}
+
 async function splitHTMLParagraphs(data) {
     var result = []
     if (!data)
@@ -1407,20 +1451,28 @@ async function splitHTMLParagraphs(data) {
 
     var splitted = data.split(/(<img.+?src=".*?".+?alt=".*?".*?>)/)
 
-    for (value of splitted){
+    for (const value of splitted){
         if (value.startsWith("<img")) {
             var src = value.match(/<img.+src="(.*?)"/) || ""
             var alt = value.match(/<img.+alt="(.*?)"/) || ""
             if (src && src.length > 1) src = src[1]
             if (alt && alt.length > 1) alt = _.unescape(alt[1])
 
+            // Width chosen in the editor (data-width), default width from settings otherwise
+            var width = value.match(/<img.+data-width="(.*?)"/)
+            width = (width && IMAGE_WIDTH_RATIOS[width[1]]) ? width[1] : 'default'
+
+            var imageFound = true
             if (!src.startsWith('data')){
                 try {
                     src = (await Image.getOne(src)).value
                 } catch (error) {
                     src = "data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAA="
+                    imageFound = false // Keep the 1px placeholder small
                 }
             }
+            if (imageFound)
+                src = setImageWidthParam(src, width)
             if (result.length === 0)
                 result.push({text: "", images: []})
             result[result.length-1].images.push({image: src, caption: alt})

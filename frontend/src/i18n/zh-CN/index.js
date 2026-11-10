@@ -112,7 +112,7 @@ export default {
     err: {
         notDefinedLanguage: '没有定义这种语言',
         invalidYamlFormat: '检测到无效的 YAML 格式',
-        parsingError1: '解析错误： {0}',
+        parsingError1: '解析错误： {0}',
         parsingError2: '解析错误： line {0}， column: {1}',
         invalidJsonFormat: '检测到无效的 JSON 格式',
         jsonMustBeAnObject: 'JSON 必须为 object。',
@@ -384,7 +384,6 @@ export default {
     phone: '座机',
     cell: '手机',
     role: '角色',
-    collatorator: '审计员',
     addCollaborator: '添加审计员',
     editCollaborator: '编辑审计员',
     addCompany: '添加公司',
