@@ -740,6 +740,27 @@ describe('review comments in the menu', () => {
     expect(push).not.toHaveBeenCalled()
   })
 
+  // The attempts (up to 6 s) would go on after the audit is left (and after the end of the tests: document undefined)
+  it('stops looking for the commented element when the audit is left', async () => {
+    vi.useFakeTimers()
+    try {
+      await mountEdit()
+      const page = vm()
+      const show = vi.spyOn(page, 'showCommentFocus')
+      page.navigateToComment({ _id: 'c1', target: COMMENTS[0].target }) // Element never displayed
+      vi.advanceTimersByTime(450)
+      const attempts = show.mock.calls.length
+      expect(attempts).toBe(3)
+      wrapper.unmount()
+      wrapper = null
+      vi.advanceTimersByTime(7000)
+      expect(show).toHaveBeenCalledTimes(attempts)
+    }
+    finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('scrolls to the commented field once it is displayed', async () => {
     vi.useFakeTimers()
     try {

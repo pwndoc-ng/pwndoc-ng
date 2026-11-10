@@ -324,6 +324,8 @@ export default defineComponent({
         lastAuditLoad: 0,
         // Page left: the late answers do not join the room of the audit nor register socket listeners
         left: false,
+        // Next attempt to show the element of a review comment (page and editors loaded asynchronously)
+        commentFocusTimer: null,
         // Review comments of the audit, provided to the pages, fields and editors
         commentsStore: createCommentsStore(this.$route.params.auditId, {
           getAudit: () => this.audit,
@@ -355,6 +357,7 @@ export default defineComponent({
 
   unmounted: function() {
     this.left = true
+    clearTimeout(this.commentFocusTimer)
     if (!this.loading) {
       this.$socket.emit('leave', {username: UserService.user.username, room: this.auditId});
       // Only remove this page listeners (keep global ones registered in boot/socketio)
@@ -549,11 +552,14 @@ export default defineComponent({
     },
 
     showCommentFocus: function(focus, attempt = 0) {
-      if (this.commentsStore.focus !== focus) return // Another comment selected meanwhile
+      clearTimeout(this.commentFocusTimer)
+      // Audit left, or another comment selected meanwhile
+      if (this.left || this.commentsStore.focus !== focus) return
       var element = (focus.commentId && document.querySelector(`[data-comment-id="${focus.commentId}"]`)) ||
         (attempt > 10 || !focus.commentId ? document.querySelector(`[data-comment-field="${focus.key}"]`) : null)
       if (!element) {
-        if (attempt < 30) setTimeout(() => this.showCommentFocus(focus, attempt + 1), 200)
+        // Attempts stopped when the audit is left (unmounted)
+        if (attempt < 30) this.commentFocusTimer = setTimeout(() => this.showCommentFocus(focus, attempt + 1), 200)
         return
       }
       element.scrollIntoView({behavior: 'smooth', block: 'center'})
