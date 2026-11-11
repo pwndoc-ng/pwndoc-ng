@@ -1,6 +1,16 @@
 export default {
     generalSettings: 'Allgemeine Einstellungen',
     dangerSettings:'Gefährliche Einstellungen',
+    backupSettings: 'Automatische Sicherungen',
+    backupSettingsInfo: 'Sicherung aller Daten an den ausgewählten Tagen, sobald die Uhrzeit erreicht ist, gespeichert bei den anderen Sicherungen.',
+    backupTime: 'Uhrzeit',
+    backupTimeInfo: 'Uhrzeit des Servers (Variable TZ, standardmäßig UTC)',
+    backupDays: 'Tage',
+    backupKeepDaily: 'Aufbewahrte aktuelle Sicherungen',
+    backupKeepWeekly: 'Aufbewahrte wöchentliche Sicherungen',
+    backupWeeklyDay: 'Letzter Tag der Woche',
+    backupRotationInfo: 'Aufbewahrt: die {0} neuesten automatischen Sicherungen und die neueste jeder der {1} vorherigen Wochen (Wochen, die am {2} enden), höchstens {3} Sicherungen. Von Benutzern erstellte Sicherungen werden nie gelöscht.',
+    backupEncryptionInfo: 'Verschlüsselt, wenn die Variable BACKUP_PASSWORD auf dem Server gesetzt ist (Installationsdokumentation).',
     changeDisplayLanguage: 'Anzeigesprache',
     changeDisplayLanguageInfo: 'Wählen Sie Ihre bevorzugte Anzeigesprache',
     nav: {

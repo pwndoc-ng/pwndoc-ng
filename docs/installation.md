@@ -217,6 +217,16 @@ docker run --rm -v "$PWD":/repo -v /repo/frontend/node_modules -w /repo/frontend
 
 - **Create a backup**: all the data, or a selection (audits, vulnerabilities, images, users, companies and clients, report templates, custom data, settings). Images are always saved with the audits and the vulnerabilities, companies with the clients. A password encrypts the backup (AES-256): its name and content stay visible, its data cannot be read or restored without the password.
 - Backups are stored on the server in `backend/backup` (volume of the backend container). **Download** a backup to keep it elsewhere, **upload** a backup file to add it to the backups of the instance (migration to another server).
+- **Automatic backups** (*Settings > Automatic backups*, permission `settings:update`): a backup of all the data is made on the selected days, once the time is reached (time of the server: `TZ` environment variable of the backend container, UTC by default; a backup missed while the server was stopped is made when it starts again, the same day). Rotation after each automatic backup: the most recent automatic backups are kept (*recent backups kept*), and the most recent one of each previous week (*weekly backups kept*, weeks ending on the *last day of the week*). For example, Monday to Friday, 5 recent and 2 weekly backups, weeks ending on Friday: the backups of the last five days and of the Fridays of the two previous weeks, 7 backups. Backups created or uploaded by the users are never deleted.
+  Automatic backups are encrypted with the password of the `BACKUP_PASSWORD` environment variable of the backend container, when it is set (it is not stored: keep it to restore them):
+  ```yaml
+    backend:
+      environment:
+        - BACKUP_PASSWORD=<password>
+        - TZ=<Region/City>
+  ```
+- **Progress**: the creation and the restore of a backup show their progress (documents written or restored, encryption, decryption).
+- There is no size limit (instances with several GB of images): the data is read and written as a stream, never held in memory as a whole. The server needs free disk space for the backup file, twice its size while an encrypted backup is created, and its size again while an encrypted backup is restored (decrypted into a temporary file). The space is checked first; a backup that cannot be written is removed.
 - **Restore** the selected data of a backup:
   - *Merge*: the data of the backup is added, or replaces the data with the same identifier. Nothing is deleted. Settings are replaced.
   - *Replace*: the current data of the selected categories is deleted and replaced by the data of the backup.

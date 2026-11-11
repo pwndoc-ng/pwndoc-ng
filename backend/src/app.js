@@ -4,6 +4,8 @@ var https = require('https').Server({
   key: fs.readFileSync(__dirname+'/../ssl/server.key'),
   cert: fs.readFileSync(__dirname+'/../ssl/server.cert')
 }, app);
+// Time to receive a whole request: uploads of backups of several GB (default: 5 minutes). Same as the proxy timeout of nginx
+https.requestTimeout = 60 * 60 * 1000;
 var io = require('socket.io')(https, {
   cors: {
     origin: "*"

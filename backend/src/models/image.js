@@ -103,8 +103,13 @@ ImageSchema.statics.grantReferenced = async (content, target, userId, readAll) =
 // Images stored before their access control was added: they were readable by all the users. Access granted from the
 // references present at the upgrade (run once, lib/migrations.js): audits referencing an image added to its audits (clones,
 // copied content), images of the vulnerabilities and of the pending proposals shared. Documents of the database read with
-// cursors, or the documents given (sources: {audits, vulnerabilities, proposals} of a backup made before the upgrade).
-// Returns the number of images granted to an audit and shared
+// cursors, or the documents given (sources: {audits, vulnerabilities, proposals} of a backup made before the upgrade, lists
+// or cursors). Returns the number of images granted to an audit and shared
+async function* pendingProposals(proposals) {
+    for await (var proposal of proposals)
+        if (!proposal.status || proposal.status === 'pending') yield proposal
+}
+
 ImageSchema.statics.grantExistingReferences = async (sources) => {
     var counts = {granted: 0, shared: 0}
     var audits = sources ? sources.audits : mongoose.model('Audit').find({}).select('summary customFields findings sections').lean().cursor({batchSize: 20})
@@ -115,7 +120,7 @@ ImageSchema.statics.grantExistingReferences = async (sources) => {
     }
 
     var shared = new Set()
-    var documents = sources ? [sources.vulnerabilities, sources.proposals.filter(proposal => !proposal.status || proposal.status === 'pending')] : [
+    var documents = sources ? [sources.vulnerabilities, pendingProposals(sources.proposals)] : [
         mongoose.model('Vulnerability').find({}).select('details').lean().cursor({batchSize: 100}),
         mongoose.model('VulnerabilityUpdate').find({status: {$in: ['pending', null]}}).select('description observation remediation customFields').lean().cursor({batchSize: 100})
     ]

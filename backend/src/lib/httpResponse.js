@@ -28,6 +28,15 @@ function SendFile(res, filename, file){
 }
 exports.SendFile = SendFile;
 
+// File sent from the disk, never read in memory as a whole (large files: backups)
+function SendFileStream(res, filename, filePath, size){
+    // filename*: name decoded by the browsers (download by a link), filename: encoded name read by the clients of the API
+    res.set({"Content-Disposition": `attachment; filename="${encodeURIComponent(filename)}"; filename*=UTF-8''${encodeURIComponent(filename)}`, "Content-Type": "application/octet-stream", "Content-Length": size});
+    res.status(200);
+    require('stream/promises').pipeline(require('fs').createReadStream(filePath), res).catch(() => res.destroy());
+}
+exports.SendFileStream = SendFileStream;
+
 function SendImage(res, image){
     res.set({"Content-Type": "image/png", "Content-Length": image.length});
     res.status(200).send(image);
