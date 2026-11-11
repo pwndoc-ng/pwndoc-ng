@@ -115,3 +115,16 @@ function validateAll(Model, documents) {
   })
 }
 exports.validateAll = validateAll
+
+// Task of the start of the server run once the database is connected (connection: mongoose.connection). The connection is
+// retried while the database is not available (container starting, migration of the data to a new MongoDB version: see
+// app.js): the operations sent meanwhile would fail after 10 seconds and the task would be lost until the next start. Errors
+// of the task are logged. Returns a promise of the end of the task.
+function whenConnected(name, task, connection) {
+    connection = connection || require('mongoose').connection
+    var run = () => Promise.resolve().then(task).catch(err => console.error(`${name} failed:`, (err && err.message) || err))
+    if (connection.readyState === 1)
+        return run()
+    return new Promise(resolve => connection.once('connected', resolve)).then(run)
+}
+exports.whenConnected = whenConnected

@@ -86,6 +86,6 @@ CustomSectionSchema.statics.delete = (field) => {
 */
 
 var CustomSection = mongoose.model('CustomSection', CustomSectionSchema);
-CustomSection.syncIndexes();
+utils.whenConnected('Indexes of the custom sections', () => CustomSection.syncIndexes());
 module.exports = CustomSection;
 

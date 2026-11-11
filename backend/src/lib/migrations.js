@@ -20,8 +20,7 @@ exports.doneAt = doneAt
 
 async function runMigrations() {
   // The database may become available later (app.js retries the connection)
-  if (mongoose.connection.readyState !== 1)
-    await new Promise(resolve => mongoose.connection.once('connected', resolve))
+  await require('./utils').whenConnected('Migrations', () => {})
   var done = mongoose.connection.collection('migrations')
   for (var migration of MIGRATIONS) {
     try {

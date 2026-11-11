@@ -151,5 +151,5 @@ ImageSchema.statics.delete = (imageId) => {
 */
 
 var Image = mongoose.model('Image', ImageSchema)
-Image.syncIndexes()
+require('../lib/utils').whenConnected('Indexes of the images', () => Image.syncIndexes())
 module.exports = Image
