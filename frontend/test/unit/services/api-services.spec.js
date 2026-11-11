@@ -155,7 +155,7 @@ describe('API services', () => {
     const call = lastCall()
     expect(call.method).toBe(method)
     expect(call.args).toEqual(expected)
-    expect(Object.values(api).reduce((count, f) => count + f.mock.calls.length, 0)).toBe(1)
+    expect(Object.values(api).filter(f => typeof f === 'function').reduce((count, f) => count + f.mock.calls.length, 0)).toBe(1)
     // The promise of axios is returned to the caller
     expect(result).toBeInstanceOf(Promise)
   })
@@ -199,11 +199,17 @@ describe('BackupService upload and download', () => {
     expect(options.headers['X-Backup-Filename']).toMatch(/^[\x20-\x7e]+$/)
   })
 
-  it('downloads a backup as a Blob with a progress callback and no timeout', () => {
-    const onProgress = vi.fn()
-    BackupService.downloadBackup('b1', onProgress)
+  it('reads the progress of the operation in progress and the automatic backups', () => {
+    BackupService.getProgress()
     expect(lastCall().method).toBe('get')
-    expect(lastCall().args).toEqual(['backups/b1/download', { responseType: 'blob', timeout: 0, onDownloadProgress: onProgress }])
+    expect(lastCall().args).toEqual(['backups/progress'])
+    BackupService.getSchedule()
+    expect(lastCall().args).toEqual(['backups/schedule'])
+  })
+
+  it('gives the address of the archive of a backup, downloaded by the browser', () => {
+    expect(BackupService.downloadUrl('20240131-130500-aaaaaaaa')).toBe('https://pwndoc.test/api/backups/20240131-130500-aaaaaaaa/download')
+    expect(BackupService.downloadUrl('../x')).toBe('https://pwndoc.test/api/backups/..%2Fx/download')
   })
 
   it('reads the error message of a JSON response', async () => {

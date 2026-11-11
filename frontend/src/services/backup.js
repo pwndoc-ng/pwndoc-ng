@@ -21,6 +21,16 @@ export default {
     return api.get('backups')
   },
 
+  // Creation or restore in progress on the server, null if none: {type, step, done, total}
+  getProgress: function() {
+    return api.get('backups/progress')
+  },
+
+  // Automatic backups (settings): {enabled, encrypted, nextRun}
+  getSchedule: function() {
+    return api.get('backups/schedule')
+  },
+
   // Backup of all the data (categories not given) or of the selected categories, encrypted when a password is given
   createBackup: function(name, categories, password) {
     return api.post('backups', {name: name, categories: categories || undefined, password: password || undefined}, {timeout: 0})
@@ -32,9 +42,10 @@ export default {
     return api.post('backups/upload', file, {headers, timeout: 0, onUploadProgress})
   },
 
-  // Archive of a backup, returned as a Blob
-  downloadBackup: function(backupId, onDownloadProgress) {
-    return api.get(`backups/${backupId}/download`, {responseType: 'blob', timeout: 0, onDownloadProgress})
+  // Address of the archive of a backup, downloaded by the browser: written to the disk while it is received (backups of
+  // several GB), authenticated by the session cookie
+  downloadUrl: function(backupId) {
+    return `${api.defaults.baseURL}/backups/${encodeURIComponent(backupId)}/download`
   },
 
   // mode: 'replace' (data of the categories replaced) or 'merge' (documents added or updated, nothing deleted)

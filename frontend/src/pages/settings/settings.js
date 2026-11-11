@@ -24,6 +24,11 @@ export default {
 
     computed: {
         // Variables of the findings sidebar template, including findings custom fields
+        // Days of the automatic backups, Monday first: {value: 0 (Sunday) to 6, label: name in the language of the interface}
+        weekDayOptions: function() {
+            return [1, 2, 3, 4, 5, 6, 0].map(day => ({value: day, label: this.weekDayName(day)}))
+        },
+
         findingTemplateVariables: function() {
             var builtIn = Object.keys(Utils.findingTemplateVariables({}, {}))
             return builtIn.concat(this.findingCustomFieldLabels.map(label => `custom.${label}`))
@@ -100,12 +105,14 @@ export default {
             .then((data) => {
                 if (request !== this.settingsRequest)
                     return
-                this.settings = this.$_.merge(
+                // Lists of the server replace the defaults (merged by index otherwise)
+                this.settings = this.$_.mergeWith(
                     {
                       danger: { enabled: false, public:{nbdaydelete: 0}},
                       reviews: { enabled: false, public: { minReviewers: 1 } }
                     },
-                    data.data.datas
+                    data.data.datas,
+                    (current, value) => Array.isArray(value) ? value : undefined
                   );
                   
                 this.settingsOrig = this.$_.cloneDeep(this.settings);
@@ -121,6 +128,12 @@ export default {
                     position: 'top-right'
                 })
             })
+        },
+
+        // Name of a day of the week (0: Sunday) in the language of the interface
+        weekDayName: function(day) {
+            var locale = (this.$i18n && this.$i18n.locale) || 'en-US'
+            return new Intl.DateTimeFormat(locale, {weekday: 'long'}).format(new Date(2026, 10, 1 + Number(day))) // 2026-11-01: Sunday
         },
 
         // Message of the server (the message of axios only says the status code), or of the network error

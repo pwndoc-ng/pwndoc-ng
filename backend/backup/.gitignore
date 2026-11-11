@@ -1,0 +1,4 @@
+# Backups of the application (data of the instance): never in git. This file only keeps the folder, mounted by the backend
+# container (docker-compose.yml)
+*
+!.gitignore

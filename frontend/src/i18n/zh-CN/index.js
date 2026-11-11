@@ -1,6 +1,16 @@
 export default {
     generalSettings: '通用设置',
     dangerSettings: '危险环境',
+    backupSettings: '自动备份',
+    backupSettingsInfo: '在所选日期达到设定时间后备份全部数据，并与其他备份一起保存。',
+    backupTime: '时间',
+    backupTimeInfo: '服务器时间（TZ 变量，默认 UTC）',
+    backupDays: '日期',
+    backupKeepDaily: '保留的最近备份数',
+    backupKeepWeekly: '保留的每周备份数',
+    backupWeeklyDay: '每周的最后一天',
+    backupRotationInfo: '保留：最近的 {0} 个自动备份，以及之前 {1} 周中每周最近的一个（每周以{2}结束），最多 {3} 个备份。用户创建的备份永不删除。',
+    backupEncryptionInfo: '在服务器上设置 BACKUP_PASSWORD 变量后加密（见安装文档）。',
     changeDisplayLanguage: '界面显示语言',
     changeDisplayLanguageInfo: '为平台设置默认的显示语言',
     nav: {

@@ -47,6 +47,9 @@ services:
     # environment:
     #   - JWT_SECRET=change-me-with-a-random-value
     #   - JWT_REFRESH_SECRET=change-me-with-another-random-value
+    # Password of the automatic backups (encrypted when set) and time zone of their time (UTC by default):
+    #   - BACKUP_PASSWORD=change-me
+    #   - TZ=<Region/City>
     depends_on:
       - mongodb
     restart: always

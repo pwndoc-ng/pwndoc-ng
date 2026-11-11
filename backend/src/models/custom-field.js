@@ -93,6 +93,6 @@ CustomFieldSchema.statics.delete = async (fieldId) => {
 */
 
 var CustomField = mongoose.model('CustomField', CustomFieldSchema);
-CustomField.syncIndexes()
+require('../lib/utils').whenConnected('Indexes of the custom fields', () => CustomField.syncIndexes())
 module.exports = CustomField;
 

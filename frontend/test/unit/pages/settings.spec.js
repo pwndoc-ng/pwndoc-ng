@@ -522,3 +522,58 @@ describe('settings dependent fields', () => {
     expect(color().attributes('disabled')).toBeUndefined()
   })
 })
+
+describe('automatic backups', () => {
+  const withBackups = (changes = {}) => ({
+    ...SETTINGS(),
+    backups: { enabled: true, private: { time: '02:00', days: [1, 2, 3, 4, 5], keepDaily: 5, keepWeekly: 2, weeklyDay: 5, ...changes } }
+  })
+  const card = () => wrapper.find('.backup-settings')
+
+  it('shows the schedule and the rotation, days of the week from Monday', async () => {
+    await mountPage({ settings: withBackups() })
+    expect(card().exists()).toBe(true)
+    expect(card().findAll('.q-checkbox').map((box) => box.text())).toEqual(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])
+    expect(card().findAll('.q-checkbox[aria-checked="true"]').map((box) => box.text())).toEqual(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'])
+    expect(card().text()).toContain(wrapper.vm.$t('backupRotationInfo', [5, 2, 'Friday', 7]))
+    expect(card().text()).toContain('BACKUP_PASSWORD')
+  })
+
+  it('keeps the days of the server (lists not merged with the default values)', async () => {
+    await mountPage({ settings: withBackups({ days: [0, 6] }) })
+    expect(wrapper.vm.settings.backups.private.days).toEqual([0, 6])
+    expect(wrapper.vm.unsavedChanges()).toBe(false)
+  })
+
+  it('saves the schedule with the other settings', async () => {
+    mockNotify()
+    vi.spyOn(SettingsService, 'updateSettings').mockResolvedValue({ data: { datas: 'Settings updated' } })
+    await mountPage({ settings: withBackups() })
+    wrapper.vm.settings.backups.private.keepDaily = 3
+    wrapper.vm.settings.backups.private.days = [1, 3]
+    await flushPromises()
+    expect(card().text()).toContain(wrapper.vm.$t('backupRotationInfo', [3, 2, 'Friday', 5]))
+    expect(wrapper.vm.unsavedChanges()).toBe(true)
+    await buttonByLabel(wrapper.vm.$t('saveSettings')).trigger('click')
+    await flushPromises()
+    expect(SettingsService.updateSettings.mock.calls[0][0].backups).toEqual(withBackups({ keepDaily: 3, days: [1, 3] }).backups)
+  })
+
+  it('disables the schedule while the automatic backups are disabled or for the users not allowed to update', async () => {
+    await mountPage({ settings: { ...withBackups(), backups: { ...withBackups().backups, enabled: false } } })
+    const inputs = () => card().findAllComponents(QInput)
+    expect(inputs().every((input) => input.props('disable'))).toBe(true)
+    wrapper.vm.settings.backups.enabled = true
+    await flushPromises()
+    expect(inputs().every((input) => !input.props('disable'))).toBe(true)
+    wrapper.unmount()
+    await mountPage({ roles: ['settings:read'], settings: withBackups() })
+    expect(card().findComponent(QToggle).props('disable')).toBe(true)
+    expect(card().findAllComponents(QInput).every((input) => input.props('disable'))).toBe(true)
+  })
+
+  it('is not shown without the settings of the automatic backups (previous server)', async () => {
+    await mountPage()
+    expect(card().exists()).toBe(false)
+  })
+})

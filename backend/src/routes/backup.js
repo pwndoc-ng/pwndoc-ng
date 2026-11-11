@@ -1,29 +1,9 @@
 module.exports = function(app) {
 
-    var bodyParser = require('body-parser');
     var Response = require('../lib/httpResponse.js');
     var acl = require('../lib/auth').acl;
     var backup = require('../lib/backup');
-
-    // Backup creation or restore in progress: one operation at a time (a backup made during a restore would be inconsistent)
-    var operation = null;
-
-    async function exclusive(res, name, fn) {
-        if (operation) {
-            Response.BadParameters(res, `A backup ${operation} is already in progress`);
-            return;
-        }
-        operation = name;
-        try {
-            await fn();
-        }
-        catch (err) {
-            Response.Internal(res, err);
-        }
-        finally {
-            operation = null;
-        }
-    }
+    var schedule = require('../lib/backup-schedule');
 
     function validPassword(password) {
         return password === undefined || password === null || typeof password === 'string';
@@ -35,6 +15,25 @@ module.exports = function(app) {
 
         try {
             Response.Ok(res, backup.listBackups());
+        }
+        catch (err) {
+            Response.Internal(res, err);
+        }
+    });
+
+    // Backup creation or restore in progress (one at a time) and its progress, null if none: {type, step, done, total, startedAt}
+    app.get("/api/backups/progress", acl.hasPermission('backups:read'), function(req, res) {
+        // #swagger.tags = ['Backup']
+
+        Response.Ok(res, backup.getProgress());
+    });
+
+    // Automatic backups (settings): {enabled, encrypted (BACKUP_PASSWORD set), nextRun (date, null if disabled)}
+    app.get("/api/backups/schedule", acl.hasPermission('backups:read'), async function(req, res) {
+        // #swagger.tags = ['Backup']
+
+        try {
+            Response.Ok(res, await schedule.getSchedule());
         }
         catch (err) {
             Response.Internal(res, err);
@@ -55,18 +54,18 @@ module.exports = function(app) {
             Response.BadParameters(res, 'Invalid password');
             return;
         }
-        exclusive(res, 'creation', async () => {
-            var info = await backup.createStoredBackup({ name: (body.name || '').trim(), categories: body.categories, password: body.password || null });
-            Response.Created(res, info);
-        });
+        backup.createStoredBackup({ name: (body.name || '').trim(), categories: body.categories, password: body.password || null })
+        .then(info => Response.Created(res, info))
+        .catch(err => Response.Internal(res, err));
     });
 
     // Adds a backup file to the backups of the server (backup downloaded from this instance or another one)
-    // Body: the backup file. File name: X-Backup-Filename header (URI encoded)
-    app.post("/api/backups/upload", acl.hasPermission('backups:create'), bodyParser.raw({type: 'application/octet-stream', limit: '2gb'}), function(req, res) {
+    // Body: the backup file, written to the disk as it is received (no size limit, the disk space is checked).
+    // File name: X-Backup-Filename header (URI encoded)
+    app.post("/api/backups/upload", acl.hasPermission('backups:create'), async function(req, res) {
         // #swagger.tags = ['Backup']
 
-        if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+        if (!req.is('application/octet-stream')) {
             Response.BadParameters(res, 'Backup file required (Content-Type: application/octet-stream)');
             return;
         }
@@ -76,7 +75,7 @@ module.exports = function(app) {
         }
         catch (err) {}
         try {
-            Response.Created(res, backup.addUploadedBackup(req.body, fileName));
+            Response.Created(res, await backup.addUploadedBackup(req, fileName, parseInt(req.headers['content-length'], 10) || 0));
         }
         catch (err) {
             Response.Internal(res, err);
@@ -87,11 +86,10 @@ module.exports = function(app) {
         // #swagger.tags = ['Backup']
 
         try {
-            var stored = backup.readStoredBackup(req.params.backupId);
+            var stored = backup.getStoredBackup(req.params.backupId);
             var date = (stored.info.createdAt || stored.info.addedAt).replace(/[-:]/g, '').replace('T', '-').slice(0, 13);
             var name = (stored.info.name || 'backup').replace(/[^\p{Letter}\p{Mark}0-9_-]+/gu, '_').slice(0, 60);
-            res.set({'Content-Type': 'application/octet-stream', 'Content-Length': stored.buffer.length});
-            Response.SendFile(res, `pwndoc-ng-${name}-${date}.zip${stored.info.encrypted ? '.enc' : ''}`, stored.buffer);
+            Response.SendFileStream(res, `pwndoc-ng-${name}-${date}.zip${stored.info.encrypted ? '.enc' : ''}`, stored.path, stored.info.size);
         }
         catch (err) {
             Response.Internal(res, err);
@@ -121,12 +119,13 @@ module.exports = function(app) {
             Response.BadParameters(res, 'Invalid password');
             return;
         }
-        exclusive(res, 'restore', async () => {
-            var result = await backup.restoreStoredBackup(req.params.backupId, { mode: body.mode || 'replace', categories: body.categories, password: body.password || null });
+        backup.restoreStoredBackup(req.params.backupId, { mode: body.mode || 'replace', categories: body.categories, password: body.password || null })
+        .then(result => {
             // Collaborative editing sessions contain the previous data: clients reconnect on the restored data
             var hocuspocus = app.get('hocuspocus');
             if (hocuspocus) hocuspocus.closeConnections();
             Response.Ok(res, result);
-        });
+        })
+        .catch(err => Response.Internal(res, err));
     });
 }

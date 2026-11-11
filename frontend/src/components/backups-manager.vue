@@ -5,14 +5,26 @@
         <div class="col-md col-12">
           <div class="text-grey-8"><q-icon name="mdi-backup-restore" class="q-mr-xs" />{{ $t('backup.title') }}</div>
           <div class="text-caption text-grey-7">{{ $t('backup.info') }}</div>
+          <div v-if="schedule" class="text-caption text-grey-7 backup-schedule">
+            <q-icon name="mdi-calendar-clock" class="q-mr-xs" />
+            <template v-if="schedule.enabled && schedule.nextRun">
+              {{ $t('backup.schedule.next', [formatDate(schedule.nextRun)]) }} · {{ schedule.encrypted ? $t('backup.schedule.encrypted') : $t('backup.schedule.notEncrypted') }}
+            </template>
+            <template v-else>{{ $t('backup.schedule.disabled') }}</template>
+          </div>
         </div>
         <div v-if="canCreate" class="col-md-auto col-12 q-gutter-sm">
-          <q-btn unelevated no-caps color="secondary" icon="mdi-database-export" :label="$t('backup.create')" @click="openCreate" />
+          <q-btn unelevated no-caps color="secondary" icon="mdi-database-export" :label="$t('backup.create')" :disable="!!serverOperation" @click="openCreate" />
           <q-btn outline no-caps color="secondary" icon="mdi-upload" :label="$t('backup.upload')" :loading="upload.running" @click="$refs.uploadInput.click()" />
           <input ref="uploadInput" type="file" accept=".zip,.enc" class="hidden" @change="uploadBackup" />
         </div>
       </q-card-section>
       <q-linear-progress v-if="upload.running" :value="upload.progress" color="secondary" size="4px" />
+      <q-banner v-if="serverOperation" dense class="bg-blue-1 text-grey-9 backup-server-operation">
+        <template #avatar><q-icon name="mdi-progress-clock" color="secondary" /></template>
+        {{ $t(`backup.serverOperation.${serverOperation.type}`) }} · {{ progressText(serverOperation) }}
+        <q-linear-progress :value="progressFraction(serverOperation) || 0" :indeterminate="progressFraction(serverOperation) === null" color="secondary" size="4px" class="q-mt-xs" />
+      </q-banner>
       <q-table
         flat
         :rows="backups"
@@ -28,8 +40,9 @@
             <q-icon v-if="props.row.encrypted" name="mdi-lock" color="grey-7" class="q-mr-xs">
               <q-tooltip>{{ $t('backup.encrypted') }}</q-tooltip>
             </q-icon>
-            {{ props.row.name }}
+            {{ displayName(props.row) }}
             <q-chip v-if="props.row.origin === 'uploaded'" dense size="sm" color="grey-3" text-color="grey-8" icon="mdi-upload">{{ $t('backup.uploaded') }}</q-chip>
+            <q-chip v-if="props.row.origin === 'scheduled'" dense size="sm" color="grey-3" text-color="grey-8" icon="mdi-calendar-clock">{{ $t('backup.scheduled') }}</q-chip>
           </q-td>
         </template>
         <template #body-cell-content="props">
@@ -46,7 +59,7 @@
             <q-btn v-if="canRead" flat round dense size="sm" color="secondary" icon="mdi-download" :loading="downloading === props.row.id" @click="downloadBackup(props.row)">
               <q-tooltip>{{ $t('backup.download') }}</q-tooltip>
             </q-btn>
-            <q-btn v-if="canRestore" flat round dense size="sm" color="warning" icon="mdi-backup-restore" @click="openRestore(props.row)">
+            <q-btn v-if="canRestore" flat round dense size="sm" color="warning" icon="mdi-backup-restore" :disable="!!serverOperation" @click="openRestore(props.row)">
               <q-tooltip>{{ $t('backup.restore') }}</q-tooltip>
             </q-btn>
             <q-btn v-if="canDelete" flat round dense size="sm" color="negative" icon="delete" @click="deleteBackup(props.row)">
@@ -116,7 +129,10 @@
               :error-message="$t('backup.passwordsMismatch')"
             />
           </div>
-          <q-linear-progress v-if="create.running" indeterminate color="secondary" size="4px" />
+          <div v-if="create.running" class="backup-progress">
+            <q-linear-progress :value="progressValue || 0" :indeterminate="progressValue === null" color="secondary" size="6px" />
+            <div class="text-caption text-grey-7 q-mt-xs">{{ progressLabel }}</div>
+          </div>
         </q-card-section>
         <q-card-actions align="right" class="q-px-md q-pb-md">
           <q-btn flat no-caps :label="$t('btn.cancel')" v-close-popup :disable="create.running" />
@@ -138,7 +154,7 @@
     <q-dialog v-model="restore.show" :persistent="restore.running">
       <q-card v-if="restore.backup" class="backup-dialog">
         <q-card-section class="row items-center">
-          <div class="text-h6">{{ $t('backup.restoreTitle', [restore.backup.name]) }}</div>
+          <div class="text-h6">{{ $t('backup.restoreTitle', [displayName(restore.backup)]) }}</div>
           <q-space />
           <q-btn icon="close" flat round dense v-close-popup :disable="restore.running" />
         </q-card-section>
@@ -182,7 +198,10 @@
             <template #avatar><q-icon name="warning" :color="restore.mode === 'replace' ? 'negative' : 'orange-10'" /></template>
             {{ $t(`backup.restoreWarning.${restore.mode}`) }}
           </q-banner>
-          <q-linear-progress v-if="restore.running" indeterminate :color="restore.mode === 'replace' ? 'negative' : 'warning'" size="4px" />
+          <div v-if="restore.running" class="backup-progress">
+            <q-linear-progress :value="progressValue || 0" :indeterminate="progressValue === null" :color="restore.mode === 'replace' ? 'negative' : 'warning'" size="6px" />
+            <div class="text-caption text-grey-7 q-mt-xs">{{ progressLabel }}</div>
+          </div>
         </q-card-section>
         <q-card-actions align="right" class="q-px-md q-pb-md">
           <q-btn flat no-caps :label="$t('btn.cancel')" v-close-popup :disable="restore.running" />
@@ -221,6 +240,12 @@ export default {
       upload: { running: false, progress: 0 },
       create: { show: false, running: false, name: '', type: 'full', categories: [], password: '', confirm: '' },
       restore: { show: false, running: false, backup: null, mode: 'merge', categories: [], password: '' },
+      schedule: null, // Automatic backups: {enabled, encrypted, nextRun}
+      serverOperation: null, // Creation or restore running on the server, not started from this page (automatic backup...)
+      serverTimer: null,
+      left: false, // Page left: no more checks
+      progress: null, // Creation or restore running on the server: {type, step, done, total}
+      progressTimer: null,
     }
   },
 
@@ -229,6 +254,9 @@ export default {
     canCreate() { return UserService.isAllowed('backups:create') },
     canRestore() { return UserService.isAllowed('backups:restore') },
     canDelete() { return UserService.isAllowed('backups:delete') },
+    // Progress of the creation or the restore started from this page
+    progressValue() { return this.progressFraction(this.progress) },
+    progressLabel() { return this.progressText(this.progress) },
     allCategories() { return BackupService.CATEGORY_GROUPS.flatMap((group) => group.categories) },
     columns() {
       return [
@@ -242,7 +270,16 @@ export default {
   },
 
   mounted() {
-    if (this.canRead) this.getBackups()
+    if (this.canRead) {
+      this.getBackups()
+      this.checkServerOperation()
+    }
+  },
+
+  beforeUnmount() {
+    this.left = true
+    clearTimeout(this.serverTimer)
+    this.stopProgress()
   },
 
   methods: {
@@ -256,6 +293,66 @@ export default {
         .then((response) => { this.backups = response.data.datas })
         .catch((err) => this.notifyError(err))
         .finally(() => { this.loading = false })
+      // Next automatic backup (changes once one is made): not shown if it cannot be read
+      BackupService.getSchedule()
+        .then((response) => { this.schedule = response.data.datas })
+        .catch(() => { this.schedule = null })
+    },
+
+    // Progress of the creation or the restore, read every second while the request runs
+    watchProgress: function() {
+      this.stopProgress()
+      this.progressTimer = setInterval(() => {
+        BackupService.getProgress()
+          .then((response) => { if (this.progressTimer) this.progress = response.data.datas })
+          .catch(() => {})
+      }, 1000)
+    },
+
+    stopProgress: function() {
+      clearInterval(this.progressTimer)
+      this.progressTimer = null
+      this.progress = null
+    },
+
+    // Fraction done of an operation, null when unknown (indeterminate bar)
+    progressFraction: function(progress) {
+      return progress && progress.total > 0 ? Math.min(1, progress.done / progress.total) : null
+    },
+
+    progressText: function(progress) {
+      if (!progress) return $t('backup.progress.start')
+      var fraction = this.progressFraction(progress)
+      var percent = fraction === null ? '' : ` (${Math.floor(fraction * 100)} %)`
+      if (progress.step === 'data') return `${$t('backup.progress.data', [progress.done, progress.total])}${percent}`
+      return `${$t(`backup.progress.${progress.step}`)}${percent}`
+    },
+
+    // Operation of the server not started from this page (automatic backup, other user): shown with its progress, the list is
+    // refreshed at its end. Checked every 15 seconds, every second while it runs; not while an operation of this page runs
+    checkServerOperation: function() {
+      if (this.progressTimer)
+        return this.nextServerCheck(15000)
+      BackupService.getProgress()
+        .then((response) => {
+          if (this.left || this.progressTimer) return
+          var progress = response.data.datas && response.data.datas.type ? response.data.datas : null
+          var finished = this.serverOperation && !progress
+          this.serverOperation = progress
+          if (finished) this.getBackups()
+          this.nextServerCheck(progress ? 1000 : 15000)
+        })
+        .catch(() => this.nextServerCheck(15000))
+    },
+
+    nextServerCheck: function(delay) {
+      clearTimeout(this.serverTimer)
+      if (!this.left) this.serverTimer = setTimeout(() => this.checkServerOperation(), delay)
+    },
+
+    // Name of a backup: automatic backups named by the server, in the language of the interface
+    displayName: function(backup) {
+      return backup.origin === 'scheduled' && backup.name === 'Automatic backup' ? $t('backup.scheduledName') : backup.name
     },
 
     formatDate: function(value) {
@@ -334,6 +431,7 @@ export default {
 
     createBackup: async function() {
       this.create.running = true
+      this.watchProgress()
       try {
         var categories = this.create.type === 'partial' ? this.create.categories : null
         await BackupService.createBackup(this.create.name, categories, this.create.password)
@@ -344,6 +442,7 @@ export default {
       catch (err) {
         this.notifyError(err)
       }
+      this.stopProgress()
       this.create.running = false
       this.create.password = ''
       this.create.confirm = ''
@@ -370,19 +469,21 @@ export default {
       this.upload.running = false
     },
 
+    // Downloaded by the browser, not held in memory (backups of several GB): file name given by the server. The list is
+    // requested first: the session is renewed if needed, and a backup deleted meanwhile is not downloaded (the link would
+    // download the error message)
     downloadBackup: async function(backup) {
       this.downloading = backup.id
       try {
-        var response = await BackupService.downloadBackup(backup.id)
-        var match = (response.headers['content-disposition'] || '').match(/filename="([^"]+)"/)
-        var url = URL.createObjectURL(response.data)
-        var link = document.createElement('a')
-        link.href = url
-        link.download = match ? decodeURIComponent(match[1]) : 'pwndoc-ng-backup.zip'
-        document.body.appendChild(link)
-        link.click()
-        URL.revokeObjectURL(url)
-        document.body.removeChild(link)
+        this.backups = (await BackupService.getBackups()).data.datas
+        if (this.backups.some(b => b.id === backup.id)) {
+          var link = document.createElement('a')
+          link.href = BackupService.downloadUrl(backup.id)
+          link.download = ''
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+        }
       }
       catch (err) {
         this.notifyError(err)
@@ -393,7 +494,7 @@ export default {
     deleteBackup: function(backup) {
       Dialog.create({
         title: $t('backup.deleteTitle'),
-        message: $t('backup.deleteMessage', [backup.name]),
+        message: $t('backup.deleteMessage', [this.displayName(backup)]),
         ok: { label: $t('btn.delete'), color: 'negative', unelevated: true },
         cancel: { label: $t('btn.cancel'), color: 'white' },
       })
@@ -431,6 +532,7 @@ export default {
 
     restoreBackup: async function() {
       this.restore.running = true
+      this.watchProgress()
       var backup = this.restore.backup
       try {
         var categories = backup.categories ? this.restore.categories : undefined
@@ -455,6 +557,7 @@ export default {
       catch (err) {
         this.notifyError(err)
       }
+      this.stopProgress()
       this.restore.running = false
       this.restore.password = ''
     },

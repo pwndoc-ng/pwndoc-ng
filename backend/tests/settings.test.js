@@ -103,6 +103,16 @@ module.exports = function(request, app) {
             "nbdaydelete": 1,
             },
          },
+        "backups": {
+          "enabled": false,
+          "private": {
+            "time": "02:00",
+            "days": [1, 2, 3, 4, 5],
+            "keepDaily": 5,
+            "keepWeekly": 2,
+            "weeklyDay": 5,
+          },
+        },
       };
 
       it('Get settings', async () => {
@@ -175,6 +185,17 @@ module.exports = function(request, app) {
             "enabled": true,
             "public": {
               "nbdaydelete": 2,
+            },
+          },
+          // Automatic backups not enabled: the check of every minute would create backups during the other tests
+          "backups": {
+            "enabled": false,
+            "private": {
+              "time": "23:30",
+              "days": [0, 6],
+              "keepDaily": 3,
+              "keepWeekly": 1,
+              "weeklyDay": 0,
             },
           },
         };

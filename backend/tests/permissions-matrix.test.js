@@ -277,6 +277,8 @@ module.exports = function(request, app) {
 
         // Backups (src/routes/backup.js)
         ['get', '/api/backups', 'backups:read', 200],
+        ['get', '/api/backups/progress', 'backups:read', 200],
+        ['get', '/api/backups/schedule', 'backups:read', 200],
         ['post', '/api/backups', 'backups:create', 422, {body: {name: 1}}],
         ['post', '/api/backups/upload', 'backups:create', 422, {type: 'application/octet-stream'}],
         ['get', `/api/backups/${FAKE_BACKUP}/download`, 'backups:read', 404],

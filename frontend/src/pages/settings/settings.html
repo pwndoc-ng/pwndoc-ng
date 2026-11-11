@@ -90,6 +90,81 @@
 </q-card>
 <!-- Danger Settings END  -->
 
+<!-- Automatic backups START -->
+<q-card v-if="UserService.isAllowed('settings:read') && settings.backups" class="q-my-md backup-settings">
+    <q-card-section class="q-py-none bg-blue-grey-5 text-white">
+        <q-item style="padding:0px;">
+            <q-item-section class="col-11">
+                <div class="text-h6">{{$t('backupSettings')}}</div>
+            </q-item-section>
+            <q-item-section class="col-md-1 items-center">
+                <q-toggle color="primary" keep-color :disable="!canEdit" v-model="settings.backups.enabled" />
+            </q-item-section>
+        </q-item>
+    </q-card-section>
+    <q-card-section>
+        <div class="text-grey-8 q-mb-md">{{$t('backupSettingsInfo')}}</div>
+        <div class="row q-col-gutter-md items-start">
+            <div class="col-md-3 col-12">
+                <q-input
+                    v-model="settings.backups.private.time"
+                    type="time"
+                    filled
+                    :label="$t('backupTime')"
+                    :hint="$t('backupTimeInfo')"
+                    :disable="!canEdit || !settings.backups.enabled"
+                />
+            </div>
+            <div class="col-md-9 col-12">
+                <div class="text-caption text-grey-8">{{$t('backupDays')}}</div>
+                <q-option-group
+                    v-model="settings.backups.private.days"
+                    type="checkbox"
+                    inline
+                    :options="weekDayOptions"
+                    :disable="!canEdit || !settings.backups.enabled"
+                />
+            </div>
+            <div class="col-md-3 col-12">
+                <q-input
+                    v-model.number="settings.backups.private.keepDaily"
+                    type="number"
+                    min="1"
+                    filled
+                    :label="$t('backupKeepDaily')"
+                    :disable="!canEdit || !settings.backups.enabled"
+                />
+            </div>
+            <div class="col-md-3 col-12">
+                <q-input
+                    v-model.number="settings.backups.private.keepWeekly"
+                    type="number"
+                    min="0"
+                    filled
+                    :label="$t('backupKeepWeekly')"
+                    :disable="!canEdit || !settings.backups.enabled"
+                />
+            </div>
+            <div class="col-md-3 col-12">
+                <q-select
+                    v-model="settings.backups.private.weeklyDay"
+                    :options="weekDayOptions"
+                    emit-value
+                    map-options
+                    filled
+                    :label="$t('backupWeeklyDay')"
+                    :disable="!canEdit || !settings.backups.enabled"
+                />
+            </div>
+        </div>
+        <div class="text-caption text-grey-7 q-mt-md">
+            {{$t('backupRotationInfo', [settings.backups.private.keepDaily, settings.backups.private.keepWeekly, weekDayName(settings.backups.private.weeklyDay), (settings.backups.private.keepDaily || 0) + (settings.backups.private.keepWeekly || 0)])}}
+        </div>
+        <div class="text-caption text-grey-7">{{$t('backupEncryptionInfo')}}</div>
+    </q-card-section>
+</q-card>
+<!-- Automatic backups END -->
+
         <q-card v-if="UserService.isAllowed('settings:read')" class="q-my-md">
             <q-card-section class="q-py-none bg-blue-grey-5 text-white">
                 <q-item style="padding:0px;">

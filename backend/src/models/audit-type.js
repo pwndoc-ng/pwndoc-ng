@@ -93,5 +93,5 @@ AuditTypeSchema.statics.delete = (name) => {
 */
 
 var AuditType = mongoose.model('AuditType', AuditTypeSchema);
-AuditType.syncIndexes();
+utils.whenConnected('Indexes of the audit types', () => AuditType.syncIndexes());
 module.exports = AuditType;

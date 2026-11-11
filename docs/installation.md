@@ -59,10 +59,88 @@ git pull
 docker-compose up -d --build
 ```
 
-?> The database uses MongoDB 8. The data of installations using MongoDB 4.x is migrated automatically at the first start after the update (the previous data files are kept as a backup). On CPUs unable to run MongoDB 8 (no AVX, ARMv8.0), MongoDB 4.4 keeps serving the data. See `mongodb/README.md`.
+?> The database uses MongoDB 8, its data is stored on the host in `mongodb/mongo-data`. The data of installations using MongoDB 4.x (Docker volume) is copied and migrated automatically at the first start after the update: read [Update to MongoDB 8](#update-to-mongodb-8) before updating.
 
 Application is accessible through https://localhost:8443
 API is accessible through https://localhost:8443/api
+
+## Update to MongoDB 8
+
+Previous versions stored the data of MongoDB 4.x in a Docker volume (`<project>_mongo-data`, e.g. `pwndoc-ng_mongo-data`). The database now uses MongoDB 8, and its data is stored on the host, in the folder `mongodb/mongo-data`. The update copies the data automatically at the first start, and migrates it only if needed, according to the version of the data files:
+
+- **MongoDB 4.x data** (all the versions before MongoDB 8): the volume is copied, then the data is migrated to MongoDB 8.
+- **Volume already migrated to MongoDB 8** (versions storing the MongoDB 8 data in the volume, folder `mongodb/` of the volume): only the MongoDB 8 data is copied, nothing is migrated.
+- **MongoDB 7.0 or 8.0 data files** (official MongoDB image used instead of the one of pwndoc-ng): copied and used as is, nothing is migrated.
+
+The previous data is never modified: the volume and the MongoDB 4.x files are kept as backups until you remove them.
+
+### Before the update
+
+1. **Back up the data**: a backup from the application (*Data > Import / Export > Backups*, downloaded), or a dump of the database, and the report templates:
+   ```
+   docker exec mongo-pwndoc-ng mongodump --quiet --archive --gzip --db pwndoc > pwndoc-$(date +%F).archive.gz
+   tar czf report-templates-$(date +%F).tgz backend/report-templates
+   ```
+2. **Free disk space**: about 3 times the size of the database, on the disk of the `mongodb/mongo-data` folder: copy of the volume (1 time, the volume is kept), export of the data (`.pwndoc-migration/dump.archive.gz`, up to 1 time), MongoDB 8 data (1 time). A volume already migrated to MongoDB 8 only needs the size of its MongoDB 8 data. Size of the database: `docker system df -v | grep mongo-data`.
+3. **CPU**: MongoDB 8 needs AVX on x86_64 CPUs and ARMv8.2-A on arm64 CPUs. Otherwise the data is copied but not migrated: MongoDB 4.4 keeps serving it (see `mongodb/README.md`).
+
+### Update
+
+```
+git pull
+docker-compose up -d --build
+```
+
+- **`--build` is required**: the copy and the migration are done by the new MongoDB image. Without it, the previous image starts an empty database in `mongodb/mongo-data` (nothing is lost, the data is still in the volume: stop the containers, empty `mongodb/mongo-data` except its `.gitignore`, run `docker-compose up -d --build`).
+- The folders `mongodb/mongo-data` and `backend/backup`, mounted by the containers, are part of the repository (their content is ignored by git): some Docker hosts refuse to start a container whose folder does not exist (`Bind mount failed: ... does not exist`). With a copy of the sources made without git: `mkdir -p mongodb/mongo-data backend/backup`.
+
+### First start: what happens
+
+Everything is automatic. Follow it in the logs of the database (`docker-compose logs -f mongodb | grep pwndoc-mongodb`):
+
+| Log | Step |
+|---|---|
+| `Data folder empty, previous Docker volume with data: copy into the data folder` | Copy of the volume into `mongodb/mongo-data` (only when the folder is empty). An interrupted copy is done again at the next start |
+| `... previous Docker volume with MongoDB 8 data (migrated): copy of this data into the data folder` | Volume already migrated: only its MongoDB 8 data is copied, into `mongodb/mongo-data/mongodb-v8`; no migration (the steps below are skipped) |
+| `... data of MongoDB 7.0 or later: copy into the data folder (no migration)` | Recent data files: copied into `mongodb-v8` and used as is |
+| `Files of the data folder not owned by the user mongodb (uid 999): owner changed` | The files are given to the user of MongoDB: it cannot open data files owned by another user (files copied by another user) |
+| `MongoDB 4.x data found: migration to MongoDB 8` | Start of the migration |
+| `Previous data: 4.2 (feature compatibility version)` | MongoDB 4.4 started on the previous data |
+| `Exporting 15 collections` | Export of the data (`mongodump`): the longest step |
+| `Importing the data in MongoDB 8` | Import into `mongodb/mongo-data/mongodb-v8` (`mongorestore`, indexes included) |
+| `Migration completed: ...` | The number of documents of every collection was compared between both versions: MongoDB 8 starts |
+
+Meanwhile, the backend waits for the database (`Database not available (...): new attempt in 5 seconds`, errors of the startup tasks are expected), then connects and migrates the access control of the images (`Migration image-access-from-references: done`). The application is available once the migration is completed.
+
+Duration: a few minutes for a few GB of data. The logs do not give a percentage; the progress can be followed from the size of the files written:
+
+```
+ls -lh mongodb/mongo-data/.pwndoc-migration/dump.archive.gz   # export
+du -sh mongodb/mongo-data/mongodb-v8                           # import
+```
+
+### After the update
+
+1. **Check**: `Migration completed` in the logs, the database container healthy (`docker-compose ps`), the audits and their images in the application, a report generated. The numbers of documents compared are in `mongodb/mongo-data/.pwndoc-migration/counts-legacy.txt` and `counts-mongodb-8.txt`.
+2. **Remove the previous data**, once checked (keep it as long as you want: it is not used):
+   - MongoDB 4.x files and migration files: everything in `mongodb/mongo-data` except `mongodb-v8/` and `.gitignore`:
+     ```
+     docker-compose stop mongodb
+     cd mongodb/mongo-data
+     ls -A | grep -vxE 'mongodb-v8|\.gitignore'                       # files removed by the next command
+     ls -A | grep -vxE 'mongodb-v8|\.gitignore' | xargs rm -rf
+     cd ../.. && docker-compose start mongodb
+     ```
+   - Previous Docker volume: remove the line `- mongo-data:/data/previous-volume` of `docker-compose.yml` (and `mongo-data:` in `volumes:`), then `docker volume rm pwndoc-ng_mongo-data`.
+
+### Troubleshooting
+
+- **`Migration failed (logs: /data/db/.pwndoc-migration)`**: MongoDB 4.4 keeps serving the previous data, the migration is done again at the next start (`docker-compose restart mongodb`). Details in `mongodb/mongo-data/.pwndoc-migration/mongodb-legacy.log` and `mongodb-8.log`.
+- **`Not enough disk space for the migration`**, or `Copy of the previous Docker volume failed (disk space?)`: free disk space, then `docker-compose restart mongodb`.
+- **`WiredTiger.wt: handle-open: open: Operation not permitted`** (container restarting): data files owned by another user, with an image older than this version. Rebuild the image (`docker-compose up -d --build`), or give the files to MongoDB: `docker-compose stop mongodb && chown -R 999:999 mongodb/mongo-data && docker-compose up -d`.
+- **`Bind mount failed: ... does not exist`**: create the folder (`mkdir -p mongodb/mongo-data backend/backup`).
+- **Empty application after the update**: started without `--build` (see above).
+- **Back to the previous version**: the previous data was not modified. Check out the previous version and run `docker-compose up -d --build`: it uses the Docker volume again.
 
 ## Development
 
@@ -139,6 +217,16 @@ docker run --rm -v "$PWD":/repo -v /repo/frontend/node_modules -w /repo/frontend
 
 - **Create a backup**: all the data, or a selection (audits, vulnerabilities, images, users, companies and clients, report templates, custom data, settings). Images are always saved with the audits and the vulnerabilities, companies with the clients. A password encrypts the backup (AES-256): its name and content stay visible, its data cannot be read or restored without the password.
 - Backups are stored on the server in `backend/backup` (volume of the backend container). **Download** a backup to keep it elsewhere, **upload** a backup file to add it to the backups of the instance (migration to another server).
+- **Automatic backups** (*Settings > Automatic backups*, permission `settings:update`): a backup of all the data is made on the selected days, once the time is reached (time of the server: `TZ` environment variable of the backend container, UTC by default; a backup missed while the server was stopped is made when it starts again, the same day). Rotation after each automatic backup: the most recent automatic backups are kept (*recent backups kept*), and the most recent one of each previous week (*weekly backups kept*, weeks ending on the *last day of the week*). For example, Monday to Friday, 5 recent and 2 weekly backups, weeks ending on Friday: the backups of the last five days and of the Fridays of the two previous weeks, 7 backups. Backups created or uploaded by the users are never deleted.
+  Automatic backups are encrypted with the password of the `BACKUP_PASSWORD` environment variable of the backend container, when it is set (it is not stored: keep it to restore them):
+  ```yaml
+    backend:
+      environment:
+        - BACKUP_PASSWORD=<password>
+        - TZ=<Region/City>
+  ```
+- **Progress**: the creation and the restore of a backup show their progress (documents written or restored, encryption, decryption).
+- There is no size limit (instances with several GB of images): the data is read and written as a stream, never held in memory as a whole. The server needs free disk space for the backup file, twice its size while an encrypted backup is created, and its size again while an encrypted backup is restored (decrypted into a temporary file). The space is checked first; a backup that cannot be written is removed.
 - **Restore** the selected data of a backup:
   - *Merge*: the data of the backup is added, or replaces the data with the same identifier. Nothing is deleted. Settings are replaced.
   - *Replace*: the current data of the selected categories is deleted and replaced by the data of the backup.
@@ -146,33 +234,16 @@ docker run --rm -v "$PWD":/repo -v /repo/frontend/node_modules -w /repo/frontend
   If the restore fails (for example data of the backup in conflict with the current data during a merge: same name, another identifier), the previous data is kept. Users editing audits are disconnected and reconnect on the restored data.
 - The free disk space is checked before writing a backup.
 
-### Database volume
+### Database folder
 
-It's also possible to regularly backup the `mongo-data` volume. It contains all the database.
-
-Find the location of the volume on the disk:
+The whole database is in the folder `mongodb/mongo-data` (MongoDB 8 data in `mongodb/mongo-data/mongodb-v8`). It can be backed up like any folder, with the database stopped (files copied while MongoDB writes them can be inconsistent), e.g. by the backups of the server (a snapshot of the file system is consistent):
 
 ```
-sudo docker inspect pwndoc-ng_mongo-data
-[
-    {
-        "CreatedAt": "2022-09-18T19:11:42+02:00",
-        "Driver": "local",
-        "Labels": {
-            "com.docker.compose.project": "pwndoc-ng",
-            "com.docker.compose.version": "2.11.0",
-            "com.docker.compose.volume": "mongo-data"
-        },
-        "Mountpoint": "/var/lib/docker/volumes/pwndoc-ng_mongo-data/_data",
-        "Name": "pwndoc-ng_mongo-data",
-        "Options": null,
-        "Scope": "local"
-    }
-]
+docker-compose stop mongodb
+tar czf mongo-data-$(date +%F).tgz mongodb/mongo-data
+docker-compose start mongodb
 ```
 
-To restore :
+To restore: stop the containers, replace the content of `mongodb/mongo-data` with the backed up one, start the containers.
 
-- Stop containers
-- Replace the current `mongo-data` volume with the backed up one
-- Start containers
+Without stopping the database: `docker exec mongo-pwndoc-ng mongodump --quiet --archive --gzip --db pwndoc > pwndoc.archive.gz` (restore: `docker exec -i mongo-pwndoc-ng mongorestore --archive --gzip --drop < pwndoc.archive.gz`).

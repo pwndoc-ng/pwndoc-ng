@@ -42,6 +42,10 @@ services:
       # backend/src/config/config.json. Random values, e.g. `openssl rand -hex 32`
       # - JWT_SECRET=change-me-with-a-random-value
       # - JWT_REFRESH_SECRET=change-me-with-another-random-value
+      # Password of the automatic backups (Settings > Automatic backups): encrypted when set, never stored
+      # - BACKUP_PASSWORD=change-me
+      # Time zone of the time of the automatic backups (UTC by default)
+      # - TZ=<Region/City>
     restart: always
     ports:
       - 4242:4242

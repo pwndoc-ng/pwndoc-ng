@@ -5,6 +5,40 @@ module.exports = function () {
 
   describe('Lib functions Suite Tests', () => {
 
+    // Tasks of the start of the server (indexes, settings, migrations): the database may be available later (migration of the
+    // data to MongoDB 8), the operations sent before would fail after 10 seconds
+    describe('Tasks run once the database is connected', () => {
+      var { EventEmitter } = require('events')
+
+      it('Waits for the connection, then runs the task once', async () => {
+        var connection = Object.assign(new EventEmitter(), { readyState: 0 })
+        var runs = 0
+        var done = utils.whenConnected('Test task', () => { runs++ }, connection)
+        await new Promise(resolve => setTimeout(resolve, 30))
+        expect(runs).toBe(0)
+        connection.readyState = 1
+        connection.emit('connected')
+        await done
+        connection.emit('connected') // Reconnection: not run again
+        expect(runs).toBe(1)
+      })
+
+      it('Runs at once when connected, logs the errors without throwing them', async () => {
+        var connection = Object.assign(new EventEmitter(), { readyState: 1 })
+        expect(await utils.whenConnected('Test task', () => 42, connection)).toBe(42) // Result of the task
+        var logged = jest.spyOn(console, 'error').mockImplementation(() => {})
+        try {
+          await expect(utils.whenConnected('Failing task', async () => { throw new Error('boom') }, connection)).resolves.toBeUndefined()
+          await expect(utils.whenConnected('Rejected task', () => Promise.reject('refused'), connection)).resolves.toBeUndefined()
+          expect(logged).toHaveBeenCalledWith('Failing task failed:', 'boom')
+          expect(logged).toHaveBeenCalledWith('Rejected task failed:', 'refused')
+        }
+        finally {
+          logged.mockRestore()
+        }
+      })
+    })
+
     describe('Name format validation tests', () => {
       it('Valid Filename', () => {
         var filename = "Vulnerability 1"

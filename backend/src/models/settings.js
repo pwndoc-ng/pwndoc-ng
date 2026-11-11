@@ -59,13 +59,30 @@ const SettingSchema = new Schema({
             removeApprovalsUponUpdate: { type: Boolean, default: false }
         }
     },
-    danger: { 
+    danger: {
       enabled: { type: Boolean, default: false },
       public: {
         nbdaydelete: { type: Number, default: 1, min: 1, max: 365, validate: [Number.isInteger, 'Invalid integer'] }
       },
       private: {}
-     }
+     },
+    // Automatic backups of all the data (lib/backup-schedule.js), on the days and at the time of the server, then rotation:
+    // the keepDaily most recent automatic backups are kept, and the most recent one of each of the keepWeekly previous weeks
+    // (weeks ending on weeklyDay). Days: 0 (Sunday) to 6 (Saturday)
+    backups: {
+        enabled: { type: Boolean, default: false },
+        private: {
+            time: { type: String, default: '02:00', validate: [time => /^([01]\d|2[0-3]):[0-5]\d$/.test(time), 'Invalid time'] },
+            days: {
+                type: [{ type: Number, min: 0, max: 6, validate: [Number.isInteger, 'Invalid integer'] }],
+                default: [1, 2, 3, 4, 5],
+                validate: [days => new Set(days).size === days.length, 'Invalid days']
+            },
+            keepDaily: { type: Number, default: 5, min: 1, max: 366, validate: [Number.isInteger, 'Invalid integer'] },
+            keepWeekly: { type: Number, default: 2, min: 0, max: 520, validate: [Number.isInteger, 'Invalid integer'] },
+            weeklyDay: { type: Number, default: 5, min: 0, max: 6, validate: [Number.isInteger, 'Invalid integer'] }
+        }
+    }
 }, {strict: true});
 
 // Get all settings
@@ -131,34 +148,28 @@ SettingSchema.statics.restoreDefaults = () => {
 
 const Settings = mongoose.model('Settings', SettingSchema);
 
-// Populate/update settings when server starts
-Settings.findOne()
-.then((liveSettings) => {
+// Populate/update settings when server starts, once the database is connected
+Utils.whenConnected('Initialization of the settings', async () => {
+  var liveSettings = await Settings.findOne();
   if (!liveSettings) {
     console.log("Initializing Settings");
-    Settings.create({}).catch((err) => {
-      throw "Error creating the settings in the database : " + err;
-    });
-  } 
-  else {
-    var needUpdate = false
-    var liveSettingsPaths = Utils.getObjectPaths(liveSettings.toObject())
-
-    liveSettingsPaths.forEach(path => {
-        if (!SettingSchema.path(path) && !path.startsWith('_')) {
-            needUpdate = true
-            _.set(liveSettings, path, undefined)
-        }
-    })
-
-    if (needUpdate) {
-        console.log("Removing unused fields from Settings")
-        liveSettings.save()
-    }
+    await Settings.create({});
+    return;
   }
-})
-.catch((err) => {
-  throw "Error checking for initial settings in the database : " + err;
+  var needUpdate = false
+  var liveSettingsPaths = Utils.getObjectPaths(liveSettings.toObject())
+
+  liveSettingsPaths.forEach(path => {
+      if (!SettingSchema.path(path) && !path.startsWith('_')) {
+          needUpdate = true
+          _.set(liveSettings, path, undefined)
+      }
+  })
+
+  if (needUpdate) {
+      console.log("Removing unused fields from Settings")
+      await liveSettings.save()
+  }
 });
 
 module.exports = Settings;

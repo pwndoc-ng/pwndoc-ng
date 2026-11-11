@@ -257,6 +257,182 @@ module.exports = function(request, app) {
       expect(await count('Company', {name: /Duplicate/})).toBe(0)
     })
 
+    it('Backup larger than the maximum length of a string: created, uploaded and restored', async () => {
+      // Audits whose text exceeds the maximum length of a string (data of a collection held as a single string before):
+      // compressible text, the archive stays small
+      var audits = mongoose.model('Audit').collection
+      var documentLength = 15 * 1024 * 1024 // Below the maximum size of a document (16 MB)
+      var bigAudits = Math.ceil(require('buffer').constants.MAX_STRING_LENGTH / documentLength) + 1
+      var ids = []
+      try {
+        for (var i = 0; i < bigAudits; i++) {
+          var auditId = new mongoose.Types.ObjectId()
+          ids.push(auditId)
+          await audits.insertOne({_id: auditId, name: `big-backup-${i}`, findings: [{title: `big-${i}`, description: `<p>${i}-${'A'.repeat(documentLength)}</p>`}]})
+        }
+        var auditCount = await count('Audit')
+
+        // Progress of the operation, read while it runs
+        var observe = async (operation) => {
+          var states = []
+          var finished = false
+          var result = operation.then(response => { finished = true; return response })
+          while (!finished) {
+            var progress = (await request(app).get('/api/backups/progress').set('Cookie', adminCookie)).body.datas
+            if (progress) states.push(progress)
+            await new Promise(resolve => setTimeout(resolve, 20))
+          }
+          return {response: await result, states}
+        }
+
+        var {response, states} = await observe(createBackup({name: 'Big backup', categories: ['audits'], password: 'Big-Backup-2026'}))
+        expect(response.status).toBe(201)
+        var data = states.filter(state => state.type === 'creation' && state.step === 'data')
+        expect(data.length).toBeGreaterThan(0)
+        expect(data.every(state => state.done <= state.total)).toBe(true)
+        expect(data[0].total).toBe(auditCount + await count('Image'))
+        expect((await request(app).get('/api/backups/progress').set('Cookie', adminCookie)).body.datas).toBeNull()
+        expect(response.body.datas.collections.Audit).toBe(auditCount)
+        var id = response.body.datas.id
+
+        // Download and upload (streams): same backup
+        response = await download(id)
+        expect(response.status).toBe(200)
+        response = await upload(response.body, 'big.zip.enc')
+        expect(response.status).toBe(201)
+        expect(response.body.datas).toMatchObject({name: 'Big backup', collections: {Audit: auditCount}, encrypted: true})
+        var uploadedId = response.body.datas.id
+
+        // Changed after the backup, then restored
+        await audits.updateOne({_id: ids[0]}, {$set: {name: 'big-backup-changed', findings: []}})
+        await audits.deleteOne({_id: ids[1]})
+        var {response, states} = await observe(restore(uploadedId, {mode: 'replace', categories: ['audits'], password: 'Big-Backup-2026'}))
+        expect(response.status).toBe(200)
+        data = states.filter(state => state.type === 'restore' && state.step === 'data')
+        expect(data.length).toBeGreaterThan(0)
+        expect(data[0].total).toBe(auditCount)
+        expect(data.every(state => state.done <= state.total)).toBe(true)
+        expect(response.body.datas.collections).toEqual({Audit: auditCount})
+        expect(await count('Audit')).toBe(auditCount)
+        var restored = await audits.aggregate([
+          {$match: {_id: {$in: ids}}},
+          {$project: {name: 1, length: {$strLenCP: {$first: '$findings.description'}}}}
+        ]).toArray()
+        expect(restored.length).toBe(bigAudits)
+        expect(restored.every(audit => audit.name.startsWith('big-backup-') && audit.name !== 'big-backup-changed')).toBe(true)
+        expect(restored.every(audit => audit.length > documentLength)).toBe(true)
+        // No temporary collection left
+        var collections = (await mongoose.connection.db.listCollections({}, {nameOnly: true}).toArray()).map(c => c.name)
+        expect(collections.filter(name => name.startsWith('pwndoc_restore_'))).toEqual([])
+
+        await deleteBackup(id)
+        await deleteBackup(uploadedId)
+      }
+      finally {
+        await audits.deleteMany({_id: {$in: ids}})
+      }
+    }, 300000)
+
+    describe('Automatic backups', () => {
+      var schedule = require('../src/lib/backup-schedule')
+      var fs = require('fs')
+      var path = require('path')
+      var DEFAULTS = {time: '02:00', days: [1, 2, 3, 4, 5], keepDaily: 5, keepWeekly: 2, weeklyDay: 5}
+      var at = (year, month, day, hours = 2, minutes = 5) => new Date(year, month - 1, day, hours, minutes)
+      var item = (id, date, origin = 'scheduled') => ({id, createdAt: date.toISOString(), origin})
+      var setSchedule = (backups) => request(app).put('/api/settings').set('Cookie', adminCookie).send({backups})
+
+      it('Rotation: the most recent backups of the days, and of the previous weeks', () => {
+        // Monday to Friday: 2026-11-02 (Monday) to 2026-11-20 (Friday), 15 backups, and a backup made by a user
+        var backups = [item('manual', at(2026, 10, 1), 'created')]
+        for (var day = 2; day <= 20; day++)
+          if (at(2026, 11, day).getDay() >= 1 && at(2026, 11, day).getDay() <= 5) backups.push(item(`d${day}`, at(2026, 11, day)))
+        var kept = (now, policy = DEFAULTS) => {
+          var deleted = schedule.backupsToDelete(backups, policy, now).map(b => b.id)
+          return backups.map(b => b.id).filter(id => !deleted.includes(id)).sort()
+        }
+        // Friday: the five days of the week and the Fridays of the two previous weeks (7), the backup of a user kept
+        expect(kept(at(2026, 11, 20, 3))).toEqual(['d16', 'd17', 'd18', 'd19', 'd20', 'd13', 'd6', 'manual'].sort())
+        // Wednesday 2026-11-18 (backups until this day): five most recent, Fridays of the two previous weeks
+        backups = backups.filter(b => b.id === 'manual' || Number(b.id.slice(1)) <= 18)
+        expect(kept(at(2026, 11, 18, 3))).toEqual(['d12', 'd13', 'd16', 'd17', 'd18', 'd6', 'manual'].sort())
+        // Friday of a previous week missing: the most recent backup of this week
+        backups = backups.filter(b => b.id !== 'd13')
+        expect(kept(at(2026, 11, 18, 3))).toEqual(['d11', 'd12', 'd16', 'd17', 'd18', 'd6', 'manual'].sort())
+        // Weeks ending on Sunday, no weekly backup kept: the most recent backup is always kept
+        expect(kept(at(2026, 11, 18, 3), {...DEFAULTS, keepDaily: 1, keepWeekly: 0, weeklyDay: 0})).toEqual(['d18', 'manual'])
+      })
+
+      it('Due once a day, on the days selected, once the time is reached', () => {
+        var settings = {enabled: true, private: {...DEFAULTS, time: '02:30'}}
+        var friday = at(2026, 11, 20, 2, 30)
+        expect(schedule.isDue(settings, friday, [])).toBe(true)
+        expect(schedule.isDue(settings, at(2026, 11, 20, 2, 29), [])).toBe(false)
+        expect(schedule.isDue({...settings, enabled: false}, friday, [])).toBe(false)
+        expect(schedule.isDue(settings, at(2026, 11, 21, 12), [])).toBe(false) // Saturday
+        // Server started later the same day: made then, once
+        expect(schedule.isDue(settings, at(2026, 11, 20, 18), [item('b', at(2026, 11, 19, 2, 31))])).toBe(true)
+        expect(schedule.isDue(settings, at(2026, 11, 20, 18), [item('b', at(2026, 11, 20, 2, 31))])).toBe(false)
+        expect(schedule.isDue(settings, at(2026, 11, 20, 18), [item('b', at(2026, 11, 20, 2, 31), 'created')])).toBe(true)
+
+        // Next backup: now when due, else the next day selected at the time
+        expect(schedule.nextRun(settings, friday, [])).toEqual(friday)
+        expect(schedule.nextRun(settings, at(2026, 11, 20, 18), [item('b', at(2026, 11, 20, 2, 31))])).toEqual(at(2026, 11, 23, 2, 30))
+        expect(schedule.nextRun(settings, at(2026, 11, 20, 1), [])).toEqual(at(2026, 11, 20, 2, 30))
+        expect(schedule.nextRun({...settings, enabled: false}, friday, [])).toBeNull()
+        expect(schedule.nextRun({...settings, private: {...DEFAULTS, days: []}}, friday, [])).toBeNull()
+      })
+
+      it('Invalid settings are refused', async () => {
+        for (var backups of [{private: {time: '25:00'}}, {private: {days: [7]}}, {private: {days: [1, 1]}}, {private: {keepDaily: 0}}, {private: {weeklyDay: 1.5}}])
+          expect((await setSchedule(backups)).status).toBe(422)
+      })
+
+      it('Automatic backup made when due, encrypted with BACKUP_PASSWORD, then rotation', async () => {
+        var dir = path.join(__dirname, '..', 'backup')
+        // Tomorrow at noon: the check of every minute (time of the test) never runs it
+        var tomorrow = new Date()
+        var now = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate() + 1, 12)
+        var daysBefore = (days) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - days, 2, 5)
+        // Previous backups: automatic ones of this week and of the previous weeks, one made by a user
+        var previous = {a2: 2, a3: 3, a4: 4, a8: 8, a9: 9, a15: 15, user20: 20}
+        var ids = {}
+        Object.entries(previous).forEach(([name, days], index) => {
+          var date = daysBefore(days)
+          var id = `${date.toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15)}-0000000${index}`
+          ids[name] = id
+          fs.writeFileSync(path.join(dir, `${id}.backup`), 'x')
+          fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify({name, createdAt: date.toISOString(), type: 'full', categories: [], collections: {}, encrypted: false, origin: name.startsWith('user') ? 'created' : 'scheduled'}))
+        })
+        process.env.BACKUP_PASSWORD = 'Automatic-Backup-2026'
+        try {
+          expect((await setSchedule({enabled: true, private: {time: '00:00', days: [now.getDay()], keepDaily: 3, keepWeekly: 1, weeklyDay: now.getDay()}})).status).toBe(200)
+          var status = (await request(app).get('/api/backups/schedule').set('Cookie', adminCookie)).body.datas
+          expect(status).toMatchObject({enabled: true, encrypted: true})
+          expect(new Date(status.nextRun)).toEqual(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0))
+
+          schedule.resetFailure()
+          var result = await schedule.runScheduledBackup(now)
+          expect(result.created).toMatchObject({name: 'Automatic backup', type: 'full', encrypted: true, origin: 'scheduled'})
+          // Kept: the 3 most recent automatic backups (the new one, 2 and 3 days before) and the most recent one of the
+          // previous week (8 days before); the backup of the user is never deleted
+          expect(result.deleted.sort()).toEqual([ids.a4, ids.a9, ids.a15].sort())
+          var listed = (await listBackups()).body.datas.map(b => b.id)
+          expect(listed).toEqual(expect.arrayContaining([result.created.id, ids.a2, ids.a3, ids.a8, ids.user20]))
+          expect(listed).not.toEqual(expect.arrayContaining([ids.a4]))
+          // Encrypted with the password of the environment
+          expect((await restore(result.created.id, {mode: 'merge', categories: ['languages'], password: 'Automatic-Backup-2026'})).status).toBe(200)
+          await deleteBackup(result.created.id)
+        }
+        finally {
+          delete process.env.BACKUP_PASSWORD
+          await setSchedule({enabled: false, private: DEFAULTS})
+          Object.values(ids).forEach(id => ['backup', 'json'].forEach(ext => fs.rmSync(path.join(dir, `${id}.${ext}`), {force: true})))
+        }
+        expect((await request(app).get('/api/backups/schedule').set('Cookie', adminCookie)).body.datas).toEqual({enabled: false, encrypted: false, nextRun: null})
+      }, 60000)
+    })
+
     it('Deleted backups are removed from the server', async () => {
       var id = (await createBackup({name: 'To delete', categories: ['settings']})).body.datas.id
       expect((await deleteBackup(id)).status).toBe(200)

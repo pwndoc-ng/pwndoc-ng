@@ -10,6 +10,7 @@ import BackupsManager from 'components/backups-manager'
 import BackupService from '@/services/backup'
 import UserService from '@/services/user'
 import { mockDialog, mockNotify, lastNotification } from '../../helpers/quasar'
+import { i18n } from 'boot/i18n'
 
 const BACKUPS = [
   { id: '20240131-130500-aaaaaaaa', name: 'Weekly', type: 'full', createdAt: '2024-01-31T13:05:00', size: 3 * 1048576 + 104858, encrypted: false, origin: 'created',
@@ -45,6 +46,8 @@ function buttonByLabel(label) {
 beforeEach(() => {
   setRoles('*')
   vi.spyOn(BackupService, 'getBackups').mockResolvedValue({ data: { datas: BACKUPS } })
+  vi.spyOn(BackupService, 'getSchedule').mockResolvedValue({ data: { datas: { enabled: false, encrypted: false, nextRun: null } } })
+  vi.spyOn(BackupService, 'getProgress').mockResolvedValue({ data: { datas: null } }) // No operation on the server
 })
 
 afterEach(() => {
@@ -328,38 +331,31 @@ describe('upload and download', () => {
     expect(wrapper.vm.upload.running).toBe(false)
   })
 
-  it('downloads a backup with the file name of the server', async () => {
-    const blob = new Blob(['PK'])
-    vi.spyOn(BackupService, 'downloadBackup').mockResolvedValue({ data: blob, headers: { 'content-disposition': `attachment; filename="${encodeURIComponent('sauvegarde été.zip')}"` } })
-    URL.createObjectURL = vi.fn(() => 'blob:backup')
-    URL.revokeObjectURL = vi.fn()
+  it('downloads a backup with a link of the browser, after renewing the list (file written to the disk)', async () => {
     let link
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () { link = { href: this.getAttribute('href'), download: this.download, inDocument: document.body.contains(this) } })
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () { link = { href: this.getAttribute('href'), download: this.getAttribute('download'), inDocument: document.body.contains(this) } })
     await mountManager()
+    BackupService.getBackups.mockClear()
     await wrapper.vm.downloadBackup(BACKUPS[0])
-    expect(BackupService.downloadBackup).toHaveBeenCalledWith(BACKUPS[0].id)
-    expect(URL.createObjectURL).toHaveBeenCalledWith(blob)
-    expect(link).toEqual({ href: 'blob:backup', download: 'sauvegarde été.zip', inDocument: true })
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:backup')
+    expect(BackupService.getBackups).toHaveBeenCalledTimes(1)
+    expect(link).toEqual({ href: `https://pwndoc.test/api/backups/${BACKUPS[0].id}/download`, download: '', inDocument: true })
     expect(document.querySelector('a[download]')).toBeNull()
     expect(wrapper.vm.downloading).toBeNull()
   })
 
-  it('uses a default file name and notifies the download errors (Blob body)', async () => {
+  it('does not download a backup deleted meanwhile and notifies the errors', async () => {
     const notify = mockNotify()
-    URL.createObjectURL = vi.fn(() => 'blob:x')
-    URL.revokeObjectURL = vi.fn()
-    let downloadName
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () { downloadName = this.download })
-    vi.spyOn(BackupService, 'downloadBackup').mockResolvedValueOnce({ data: new Blob(['x']), headers: {} })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
     await mountManager()
+    BackupService.getBackups.mockResolvedValueOnce({ data: { datas: [BACKUPS[0]] } })
     await wrapper.vm.downloadBackup(BACKUPS[1])
-    expect(downloadName).toBe('pwndoc-ng-backup.zip')
-    const data = new Blob([JSON.stringify({ datas: 'Backup not found' })])
-    BackupService.downloadBackup.mockRejectedValueOnce({ message: 'Request failed', response: { data } })
-    await wrapper.vm.downloadBackup(BACKUPS[1])
+    expect(click).not.toHaveBeenCalled()
+    expect(wrapper.findAll('tbody tr')).toHaveLength(1) // List refreshed
+    BackupService.getBackups.mockRejectedValueOnce({ message: 'Request failed', response: { data: { datas: 'Not Authorized' } } })
+    await wrapper.vm.downloadBackup(BACKUPS[0])
     await flushPromises()
-    expect(lastNotification(notify)).toMatchObject({ message: 'Backup not found', color: 'negative' })
+    expect(click).not.toHaveBeenCalled()
+    expect(lastNotification(notify)).toMatchObject({ message: 'Not Authorized', color: 'negative' })
     expect(wrapper.vm.downloading).toBeNull()
   })
 })
@@ -498,5 +494,161 @@ describe('restore', () => {
     await flushPromises()
     expect(wrapper.vm.restore).toMatchObject({ show: true, running: false, password: '' })
     expect(lastNotification(notify)).toMatchObject({ message: 'Wrong password', color: 'negative' })
+  })
+})
+
+describe('automatic backups', () => {
+  const SCHEDULED = { id: '20240203-020000-dddddddd', name: 'Automatic backup', type: 'full', createdAt: '2024-02-03T02:00:00', size: 2048, encrypted: true,
+    origin: 'scheduled', categories: BACKUPS[0].categories, collections: {} }
+
+  it('shows the next automatic backup, encrypted, and marks the automatic backups', async () => {
+    BackupService.getSchedule.mockResolvedValue({ data: { datas: { enabled: true, encrypted: true, nextRun: '2024-02-05T02:00:00' } } })
+    BackupService.getBackups.mockResolvedValue({ data: { datas: [SCHEDULED, ...BACKUPS] } })
+    await mountManager()
+    expect(wrapper.find('.backup-schedule').text()).toBe('Next automatic backup: 2024-02-05 02:00 · encrypted')
+    const rows = wrapper.findAll('tbody tr')
+    expect(rows[0].find('.q-chip .mdi-calendar-clock').exists()).toBe(true)
+    expect(rows[0].find('.q-chip').text()).toContain('Automatic')
+    expect(rows.slice(1).every((row) => !row.find('.mdi-calendar-clock').exists())).toBe(true)
+  })
+
+  it('says when the automatic backups are disabled or not encrypted, and hides an unreadable schedule', async () => {
+    await mountManager()
+    expect(wrapper.find('.backup-schedule').text()).toBe('Automatic backups disabled (Settings)')
+    wrapper.unmount()
+    BackupService.getSchedule.mockResolvedValue({ data: { datas: { enabled: true, encrypted: false, nextRun: '2024-02-05T02:00:00' } } })
+    await mountManager()
+    expect(wrapper.find('.backup-schedule').text()).toContain('not encrypted (BACKUP_PASSWORD not set)')
+    wrapper.unmount()
+    BackupService.getSchedule.mockRejectedValue({ message: 'Request failed' })
+    await mountManager()
+    expect(wrapper.find('.backup-schedule').exists()).toBe(false)
+  })
+})
+
+describe('progress of the creation and the restore', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('reads the progress of the creation every second, shows it, then stops reading it', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    mockNotify()
+    let finish
+    vi.spyOn(BackupService, 'createBackup').mockReturnValue(new Promise((resolve) => { finish = resolve }))
+    await mountManager()
+    BackupService.getProgress.mockClear()
+    BackupService.getProgress.mockResolvedValue({ data: { datas: { type: 'creation', step: 'data', done: 50, total: 200 } } })
+    wrapper.vm.openCreate()
+    const creating = wrapper.vm.createBackup()
+    await flushPromises()
+    expect(wrapper.vm.progressLabel).toBe('Starting')
+    expect(wrapper.vm.progressValue).toBeNull() // Indeterminate until the first progress
+    await vi.advanceTimersByTimeAsync(1000)
+    await flushPromises()
+    expect(BackupService.getProgress).toHaveBeenCalledTimes(1)
+    expect(wrapper.vm.progressValue).toBe(0.25)
+    expect(wrapper.vm.progressLabel).toBe('Data: 50 / 200 documents (25 %)')
+    expect(document.body.textContent).toContain('Data: 50 / 200 documents (25 %)')
+    finish({ data: { datas: {} } })
+    await creating
+    expect(wrapper.vm.progress).toBeNull()
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(BackupService.getProgress).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the steps of the restore: decryption, then a step without known total (indeterminate)', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    mockNotify()
+    let finish
+    vi.spyOn(BackupService, 'restoreBackup').mockReturnValue(new Promise((resolve) => { finish = resolve }))
+    await mountManager()
+    BackupService.getProgress
+      .mockResolvedValueOnce({ data: { datas: { type: 'restore', step: 'decrypt', done: 40, total: 100 } } })
+      .mockResolvedValue({ data: { datas: { type: 'restore', step: 'replace', done: 0, total: 0 } } })
+    wrapper.vm.openRestore(BACKUPS[1])
+    const restoring = wrapper.vm.restoreBackup()
+    await vi.advanceTimersByTimeAsync(1000)
+    await flushPromises()
+    expect(wrapper.vm.progressLabel).toBe('Decryption (40 %)')
+    await vi.advanceTimersByTimeAsync(1000)
+    await flushPromises()
+    expect(wrapper.vm.progressValue).toBeNull()
+    expect(wrapper.vm.progressLabel).toBe('Replacement of the data')
+    finish({ data: { datas: { collections: { Company: 2 }, categories: ['companies'], templates: 0 } } })
+    await restoring
+    expect(wrapper.vm.progress).toBeNull()
+    expect(wrapper.vm.progressTimer).toBeNull()
+  })
+
+  it('stops reading the progress when the page is left', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    vi.spyOn(BackupService, 'createBackup').mockReturnValue(new Promise(() => {}))
+    await mountManager()
+    BackupService.getProgress.mockClear()
+    wrapper.vm.createBackup()
+    wrapper.unmount()
+    wrapper = null
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(BackupService.getProgress).not.toHaveBeenCalled()
+  })
+})
+
+describe('operations of the server and automatic backups names', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    i18n.global.locale.value = 'en-US'
+  })
+
+  it('shows an operation of the server with its progress, disables the creation and the restore, refreshes the list at its end', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    BackupService.getProgress
+      .mockResolvedValueOnce({ data: { datas: { type: 'creation', step: 'data', done: 30, total: 120 } } })
+      .mockResolvedValueOnce({ data: { datas: { type: 'creation', step: 'encrypt', done: 0, total: 0 } } })
+      .mockResolvedValue({ data: { datas: null } })
+    await mountManager()
+    const banner = () => wrapper.find('.backup-server-operation')
+    expect(banner().text()).toContain('Backup being created on the server (automatic backup or another user) · Data: 30 / 120 documents (25 %)')
+    expect(buttonByLabel('Create a backup').props('disable')).toBe(true)
+    expect(wrapper.findAllComponents(QBtn).filter((button) => button.props('icon') === 'mdi-backup-restore').every((button) => button.props('disable'))).toBe(true)
+    // Every second while it runs
+    await vi.advanceTimersByTimeAsync(1000)
+    await flushPromises()
+    expect(banner().text()).toContain('Encryption')
+    expect(BackupService.getBackups).toHaveBeenCalledTimes(1)
+    // End: list refreshed, banner hidden, actions enabled
+    await vi.advanceTimersByTimeAsync(1000)
+    await flushPromises()
+    expect(banner().exists()).toBe(false)
+    expect(BackupService.getBackups).toHaveBeenCalledTimes(2)
+    expect(buttonByLabel('Create a backup').props('disable')).toBe(false)
+    // Then checked every 15 seconds
+    const calls = BackupService.getProgress.mock.calls.length
+    await vi.advanceTimersByTimeAsync(14000)
+    expect(BackupService.getProgress.mock.calls.length).toBe(calls)
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(BackupService.getProgress.mock.calls.length).toBe(calls + 1)
+  })
+
+  it('stops checking the operations of the server once the page is left', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    await mountManager()
+    wrapper.unmount()
+    wrapper = null
+    BackupService.getProgress.mockClear()
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(BackupService.getProgress).not.toHaveBeenCalled()
+  })
+
+  it('shows the name of the automatic backups in the language of the interface', async () => {
+    const scheduled = { ...BACKUPS[0], id: '20240203-020000-dddddddd', name: 'Automatic backup', origin: 'scheduled' }
+    const renamed = { ...scheduled, id: '20240204-020000-eeeeeeee', name: 'Kept before the migration' }
+    BackupService.getBackups.mockResolvedValue({ data: { datas: [scheduled, renamed, { ...BACKUPS[1], name: 'Automatic backup' }] } })
+    i18n.global.locale.value = 'fr-FR'
+    await mountManager()
+    const names = wrapper.findAll('tbody tr').map((row) => row.find('td').text())
+    expect(names[0]).toContain('Sauvegarde automatique')
+    expect(names[1]).toContain('Kept before the migration') // Name given to an automatic backup: kept
+    expect(names[2]).toContain('Automatic backup') // Backup of a user with this name: not translated
   })
 })

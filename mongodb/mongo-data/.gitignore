@@ -1,0 +1,4 @@
+# MongoDB data (data of the instance): never in git. This file only keeps the folder, mounted by the mongodb container
+# (docker-compose.yml); it is ignored by the image (empty folder: copy of the previous Docker volume)
+*
+!.gitignore

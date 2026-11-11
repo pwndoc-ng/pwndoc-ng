@@ -14,6 +14,10 @@ function cronJobs() {
   cron.schedule('0 12 * * *', () => {
     deleteOutdatedReportAutomation();
   });
+  // Automatic backups: due backup made at the next minute (settings: backups)
+  cron.schedule('* * * * *', () => {
+    require('./backup-schedule').runScheduledBackup().catch(err => console.error('Automatic backup check failed:', err.message || err));
+  });
 }
 
 exports.cronJobs = cronJobs;

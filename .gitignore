@@ -6,6 +6,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 mongo-data*
+# MongoDB data folder (bind mount of the mongodb container): the folder is in git, it must exist for the mount (some Docker
+# hosts do not create it); its content (data of the instance) never
+!mongodb/mongo-data/
+mongodb/mongo-data/*
+!mongodb/mongo-data/.gitignore
 .quasar
 report-templates
 custom-generator.js
@@ -28,4 +33,7 @@ docker-compose.override.yml
 
 # Version managers
 .tool-versions
-backend/backup
+# Backups stored by the application (bind mount of the backend container): the folder is in git, it must exist for the
+# mount (some Docker hosts do not create it); its content (data of the instance) never
+backend/backup/*
+!backend/backup/.gitignore
