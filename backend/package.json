@@ -25,7 +25,7 @@
     "swagger-autogen": "^2.23.7"
   },
   "dependencies": {
-    "@hocuspocus/server": "^4.7.1",
+    "@hocuspocus/server": "^4.8.0",
     "angular-expressions": "^1.7.1",
     "bcrypt": "^6.0.0",
     "body-parser": "^1.20.9",
