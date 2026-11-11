@@ -3,8 +3,10 @@
 #
 # Volume /data/db (same volume as the previous installations):
 #   <MongoDB 4.x data files>    data of the previous installation, never modified: kept as a backup
-#   mongodb/                    MongoDB 8 data (dbpath), usable once mongodb/.pwndoc-ready exists
+#   mongodb-v8/                 MongoDB 8 data (dbpath), usable once mongodb-v8/.pwndoc-ready exists
+#                               (mongodb/ before: renamed at startup)
 #   .pwndoc-migration/          dump and logs of the migration
+# The files of the volume are given to the user mongodb at startup (as the official image does)
 #
 # Migration: the 4.x data is exported by MongoDB 4.4 (mongodump) and imported in MongoDB 8 (mongorestore),
 # then the number of documents of every collection is compared. No intermediate version is needed
@@ -20,8 +22,9 @@ set -uo pipefail
 
 PREVIOUS_VOLUME=/data/previous-volume
 VOLUME=/data/db
-DBPATH=$VOLUME/mongodb
+DBPATH=$VOLUME/mongodb-v8
 READY=$DBPATH/.pwndoc-ready
+PREVIOUS_DBPATH=$VOLUME/mongodb # Folder of the MongoDB 8 data in the first versions of this image
 WORK=$VOLUME/.pwndoc-migration
 OFFICIAL_MONGOD=/usr/bin/mongod
 NOAVX_MONGOD=/opt/mongodb-noavx/bin/mongod
@@ -40,6 +43,20 @@ if [ "${1:-}" = "mongod" ]; then shift; fi
 legacy_mongod() { gosu mongodb env LD_LIBRARY_PATH=/opt/mongodb-legacy/lib "$LEGACY_MONGOD" "$@"; }
 
 has_legacy_data() { [ -f "$VOLUME/WiredTiger" ] || [ -f "$VOLUME/storage.bson" ]; }
+
+# Major version of the format of the data files of a folder (WiredTiger.turtle), empty if none: MongoDB 4.2: 3, MongoDB 4.4
+# to 6.0: 10, MongoDB 7.0 and 8.0: 11 and later
+wiredtiger_major() {
+    sed -n '/^WiredTiger version$/{n;s/^major=\([0-9]*\).*/\1/p;q}' "$1/WiredTiger.turtle" 2>/dev/null
+}
+
+# Data of MongoDB 7.0 or later at the root of a folder (official image used before): opened as is by MongoDB 8, MongoDB 4.4
+# cannot open it (no migration)
+has_recent_data() {
+    local major
+    major=$(wiredtiger_major "$1")
+    [ -n "$major" ] && [ "$major" -ge 11 ]
+}
 
 # CPU able to run the official MongoDB 8 binaries (PWNDOC_MONGODB_CPU=legacy forces the fallback, for tests)
 cpu_supports_official() {
@@ -99,7 +116,7 @@ migrate() { # mongod8 binary
     chown mongodb:mongodb "$DBPATH" "$WORK"
 
     local used available
-    used=$(du -sk --exclude=mongodb --exclude=.pwndoc-migration "$VOLUME" | cut -f1)
+    used=$(du -sk --exclude="$(basename "$DBPATH")" --exclude=.pwndoc-migration "$VOLUME" | cut -f1)
     available=$(df -Pk "$VOLUME" | awk 'NR == 2 { print $4 }')
     if [ "$available" -lt $((used + 102400)) ]; then
         log "Not enough disk space for the migration: ${used} KB of data, ${available} KB available"
@@ -160,6 +177,10 @@ serve_mongod8() { # binary, args
 # (no complete marker) is removed and done again at the next start, an interrupted move is finished.
 COPY=$VOLUME/.pwndoc-volume-copy
 COPY_COMPLETE=$COPY/.pwndoc-copy-complete
+GIT_FILE=$VOLUME/.gitignore # File of the repository keeping the folder in git: not data
+
+# Data folder without data (empty, or only the file of the repository)
+data_folder_empty() { [ -z "$(ls -A "$VOLUME" | grep -vxF "$(basename "$GIT_FILE")")" ]; }
 
 finish_volume_copy() {
     find "$COPY" -mindepth 1 -maxdepth 1 ! -name "$(basename "$COPY_COMPLETE")" -exec mv -t "$VOLUME" {} + \
@@ -179,21 +200,73 @@ copy_previous_volume() {
         rm -rf "$COPY"
     fi
     [ -d "$PREVIOUS_VOLUME" ] && [ -n "$(ls -A "$PREVIOUS_VOLUME")" ] || return 0
-    [ -z "$(ls -A "$VOLUME")" ] || return 0 # Data folder already in use: the volume is ignored
-    log "Data folder empty, previous Docker volume with data: copy into the data folder"
-    mkdir "$COPY"
-    if ! cp -a "$PREVIOUS_VOLUME/." "$COPY/"; then
+    data_folder_empty || return 0 # Data folder already in use: the volume is ignored
+    local source="$PREVIOUS_VOLUME/." target="$COPY" ready=""
+    if [ -f "$PREVIOUS_VOLUME/mongodb/.pwndoc-ready" ]; then
+        # Volume migrated to MongoDB 8 by the previous versions of this image (MongoDB 8 data in mongodb/): only this data is
+        # copied, into mongodb-v8/; the MongoDB 4.x files and the files of the migration stay in the volume (backup)
+        log "Data folder empty, previous Docker volume with MongoDB 8 data (migrated): copy of this data into the data folder"
+        source="$PREVIOUS_VOLUME/mongodb/."
+        target="$COPY/$(basename "$DBPATH")"
+    elif has_recent_data "$PREVIOUS_VOLUME"; then
+        log "Data folder empty, previous Docker volume with data of MongoDB 7.0 or later: copy into the data folder (no migration)"
+        target="$COPY/$(basename "$DBPATH")"
+        ready="Data of MongoDB 7.0 or later copied from the previous Docker volume on $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    else
+        log "Data folder empty, previous Docker volume with data: copy into the data folder"
+    fi
+    mkdir -p "$target"
+    if ! cp -a "$source" "$target/"; then
         rm -rf "$COPY"
         log "Copy of the previous Docker volume failed (disk space?): nothing started, retried at the next start"
         exit 1
     fi
+    [ -z "$ready" ] || echo "$ready" > "$target/.pwndoc-ready"
     touch "$COPY_COMPLETE"
     finish_volume_copy
 }
 
 copy_previous_volume
-# Folder of the host created by Docker (root): MongoDB 4.4 uses it as dbpath, the migration writes in it
+
+# MongoDB 8 data of the first versions of this image (mongodb/): renamed mongodb-v8/. An incomplete mongodb-v8/ (no ready
+# marker: interrupted migration) is replaced, it would be done again anyway
+if [ ! -f "$READY" ] && [ -f "$PREVIOUS_DBPATH/.pwndoc-ready" ]; then
+    rm -rf "$DBPATH"
+    mv "$PREVIOUS_DBPATH" "$DBPATH" || { log "Renaming of $PREVIOUS_DBPATH to $DBPATH failed"; exit 1; }
+    log "MongoDB 8 data folder renamed: $PREVIOUS_DBPATH -> $DBPATH"
+fi
+# Incomplete MongoDB 8 data of a migration of the first versions of this image interrupted (mongodb/ without ready marker):
+# removed, the migration is done again
+if [ -d "$PREVIOUS_DBPATH" ] && [ ! -f "$PREVIOUS_DBPATH/.pwndoc-ready" ]; then
+    rm -rf "$PREVIOUS_DBPATH"
+    log "Incomplete MongoDB 8 data of an interrupted migration removed ($PREVIOUS_DBPATH): the migration is done again"
+fi
+
+# Data of MongoDB 7.0 or later at the root of the data folder (official image used before): moved into mongodb-v8/ and used
+# as is by MongoDB 8 (no migration: MongoDB 4.4 cannot open it). Moved into a folder renamed at the end: an interrupted
+# move is finished at the next start
+MOVE=$VOLUME/.pwndoc-move
+if [ ! -f "$READY" ] && { [ -d "$MOVE" ] || has_recent_data "$VOLUME"; }; then
+    rm -rf "$DBPATH"
+    mkdir -p "$MOVE"
+    find "$VOLUME" -mindepth 1 -maxdepth 1 ! -name "$(basename "$MOVE")" ! -name "$(basename "$WORK")" \
+        ! -name "$(basename "$GIT_FILE")" ! -name "$(basename "$PREVIOUS_DBPATH")" -exec mv -t "$MOVE" {} + \
+        && mv "$MOVE" "$DBPATH" \
+        || { log "Data of MongoDB 7.0 or later: move into $DBPATH failed"; exit 1; }
+    echo "Data of MongoDB 7.0 or later found at the root of the data folder, moved on $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$READY"
+    log "Data of MongoDB 7.0 or later at the root of the data folder: moved into $DBPATH, used without migration"
+fi
+
+# Files of the data folder owned by another user (files copied by another user, folder of the host created by Docker):
+# given to the user mongodb, as the official image does. mongod opens its data files with O_NOATIME, refused to a user who
+# is not the owner ("WiredTiger.wt: handle-open: open: Operation not permitted"), even with the permissions to write
+# (the entrypoint of the official image, starting MongoDB 8, does the same: .gitignore of the repository included)
 chown mongodb:mongodb "$VOLUME"
+if [ -n "$(find "$VOLUME" \! -user mongodb -print -quit)" ]; then
+    log "Files of the data folder not owned by the user mongodb (uid $(id -u mongodb)): owner changed"
+    find "$VOLUME" \! -user mongodb -exec chown mongodb '{}' + \
+        || log "Owner of some files not changed: MongoDB may not be able to open them (Operation not permitted)"
+fi
 
 MONGOD8=$(select_mongod8)
 
