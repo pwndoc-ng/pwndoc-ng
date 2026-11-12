@@ -43,6 +43,11 @@ Backups (Data > Import/Export > Backups), stored on the server in `backend/backu
 - `backups:restore`: restore a backup. It replaces or merges data of the instance: give it to administrators only
 - `backups:delete`: delete a backup
 
+AI assistance (when enabled in the settings):
+
+- `ai:assist`: assisted writing in the editors
+- `ai:qa`: quality check of the findings by the AI
+
 Spell checker of the editors (LanguageTool, reached through the backend only):
 
 - `spellcheck:check`: check the texts of the editors (without it, the editors show no spelling mistake)
@@ -69,6 +74,7 @@ This role has following permissions:
 - languages:read, audit-types:read, vulnerability-types:read, vulnerability-categories:read, sections:read, custom-fields:read
 - settings:read-public
 - spellcheck:check, spellcheck-words:read, spellcheck-words:create
+- ai:assist, ai:qa
 
 ### admin
 

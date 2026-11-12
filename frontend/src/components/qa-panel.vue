@@ -11,6 +11,11 @@
       <q-btn flat round dense icon="close" class="qa-close" @click="$emit('close')" />
     </q-card-section>
     <q-card-section class="q-py-sm text-caption text-grey-8 qa-summary">{{ summary }}</q-card-section>
+    <!-- Quality check of the findings by the AI (AI enabled in the settings): last check stored with its date -->
+    <q-card-section v-if="aiCheck" class="q-py-xs row items-center no-wrap qa-ai">
+      <q-btn dense flat no-caps color="primary" icon="mdi-creation" class="qa-ai-run" :label="$t('qa.aiRun')" :loading="aiLoading" @click="runAi" />
+      <div class="text-caption text-grey-7 q-ml-sm qa-ai-date">{{ aiAt ? $t('qa.aiLast', { date: new Date(aiAt).toLocaleString() }) : $t('qa.aiNever') }}</div>
+    </q-card-section>
     <q-separator />
     <div class="col qa-panel__content">
       <div v-if="error" class="q-pa-md text-negative qa-error">{{ error }}</div>
@@ -59,6 +64,7 @@
 
 <script>
 import AuditService, { errorMessage } from '@/services/audit'
+import AiService, { aiAllowed } from '@/services/ai'
 import { SEVERITY_ICONS, issueMessage, issuePlace, issuePath, issueCounts } from '@/services/qa'
 import { $t } from '@/boot/i18n'
 
@@ -76,10 +82,16 @@ export default {
     loading: false,
     loaded: false,
     error: '',
-    request: 0 // Number of the last loading: only its answer is shown
+    request: 0, // Number of the last loading: only its answer is shown
+    aiAt: null, // Date of the last quality check by the AI
+    aiLoading: false
   }),
 
   computed: {
+    aiCheck: function() {
+      return aiAllowed(this.$settings, 'ai:qa')
+    },
+
     summary: function() {
       var counts = issueCounts(this.issues)
       return $t('qa.summary', counts)
@@ -99,6 +111,7 @@ export default {
         if (request !== this.request) return
         this.issues = data.data.datas.issues
         this.ignored = data.data.datas.ignored
+        this.aiAt = data.data.datas.ai ? data.data.datas.ai.at : null
         this.error = ''
         this.loaded = true
         this.$emit('update', issueCounts(this.issues))
@@ -109,6 +122,15 @@ export default {
       .finally(() => {
         if (request === this.request) this.loading = false
       })
+    },
+
+    // Quality check of the findings by the AI, then the issues listed with the others
+    runAi: function() {
+      this.aiLoading = true
+      return AiService.checkAudit(this.auditId)
+      .then(() => this.load())
+      .catch((err) => { this.error = errorMessage(err) })
+      .finally(() => { this.aiLoading = false })
     },
 
     setIgnored: function(issue, ignored) {

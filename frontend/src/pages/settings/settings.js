@@ -2,6 +2,7 @@ import { Notify, Dialog } from 'quasar'
 
 import SettingsService from '@/services/settings'
 import SpellcheckService from '@/services/spellcheck'
+import AiService from '@/services/ai'
 import UserService from '@/services/user'
 import DataService from '@/services/data'
 import Utils from '@/services/utils'
@@ -20,6 +21,8 @@ export default {
             // Number of the last loading of the settings (reloaded after a revert or an import)
             settingsRequest: 0,
             findingCustomFieldLabels: [], // Labels of findings custom fields usable in the sidebar template
+            // Test of the connection to the AI server
+            aiTest: {loading: false, result: null, error: ''},
             // Quality checks of the settings (backend lib/qa.js)
             qaChecks: ['completeness', 'comments', 'internalLinks', 'images', 'references', 'duplicates'],
             spellcheckWords: [], // Words ignored by the spell checker: proposed (pending) and approved
@@ -29,6 +32,20 @@ export default {
 
     computed: {
         // Variables of the findings sidebar template, including findings custom fields
+        // Types of AI server
+        aiProviderOptions: function() {
+            return ['openai', 'tfserving'].map(value => ({value: value, label: $t(`ai.providers.${value}`)}))
+        },
+
+        aiTokenOptions: function() {
+            return [{value: 'max_tokens', label: 'max_tokens'}, {value: 'max_completion_tokens', label: 'max_completion_tokens'}]
+        },
+
+        // Settings of the AI changed and not saved: the test uses the saved settings
+        aiUnsaved: function() {
+            return JSON.stringify(this.settings.ai) !== JSON.stringify(this.settingsOrig.ai)
+        },
+
         // Highlight colors of the editors for the warning of the highlighted texts, several can be chosen (same colors as
         // the editor menu)
         highlightColorOptions: function() {
@@ -151,6 +168,19 @@ export default {
         },
 
         // Message of the server (the message of axios only says the status code), or of the network error
+        /* AI assistance */
+
+        testAi: function() {
+            this.aiTest = {loading: true, result: null, error: ''}
+            return AiService.testConnection()
+            .then((data) => {
+                this.aiTest = {loading: false, result: data.data.datas, error: ''}
+            })
+            .catch((err) => {
+                this.aiTest = {loading: false, result: null, error: this.errorMessage(err)}
+            })
+        },
+
         /* Words ignored by the spell checker */
 
         getSpellcheckWords: function() {

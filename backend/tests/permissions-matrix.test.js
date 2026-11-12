@@ -29,7 +29,7 @@ module.exports = function(request, app) {
     'companies:create', 'companies:read', 'companies:update', 'companies:delete',
     'languages:read', 'audit-types:read', 'vulnerability-types:read', 'vulnerability-categories:read', 'sections:read',
     'templates:read', 'users:read', 'roles:read', 'vulnerabilities:read', 'vulnerability-updates:create',
-    'custom-fields:read', 'settings:read-public', 'spellcheck:check', 'spellcheck-words:read', 'spellcheck-words:create'
+    'custom-fields:read', 'settings:read-public', 'spellcheck:check', 'spellcheck-words:read', 'spellcheck-words:create', 'ai:assist', 'ai:qa'
   ]
   // Custom roles defined by this suite (same as roles of src/config/roles.json)
   var CUSTOM_ROLES = {
@@ -296,6 +296,11 @@ module.exports = function(request, app) {
         ['post', '/api/spellcheck/words', 'spellcheck-words:create', 422, {body: {}}],
         ['put', `/api/spellcheck/words/${FAKE_ID}`, 'spellcheck-words:update', 404, {body: {status: 'approved'}}],
         ['delete', `/api/spellcheck/words/${FAKE_ID}`, 'spellcheck-words:delete', 404],
+
+        // AI assistance (src/routes/ai.js): disabled during the matrix (403 answered by the route)
+        ['post', '/api/ai/assist', 'ai:assist', 422, {body: {}}],
+        ['post', `/api/audits/${FAKE_ID}/qa/ai`, 'ai:qa', 403],
+        ['post', '/api/ai/test', 'settings:update', 422],
 
         // Unknown route (src/app.js)
         ['get', '/api/perm-unknown-route', null, 404]

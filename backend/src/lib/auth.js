@@ -98,7 +98,10 @@ var builtInRoles = {
             // Spell checker: texts checked, approved ignored words read, words proposed
             'spellcheck:check',
             'spellcheck-words:read',
-            'spellcheck-words:create'
+            'spellcheck-words:create',
+            // AI assistance (when enabled in the settings): assisted writing, quality check by the AI
+            'ai:assist',
+            'ai:qa'
         ]
     },
     admin: {

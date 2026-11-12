@@ -13,6 +13,7 @@ import SettingsService from '@/services/settings'
 import DataService from '@/services/data'
 import UserService from '@/services/user'
 import SpellcheckService from '@/services/spellcheck'
+import AiService from '@/services/ai'
 import { mockDialog, mockNotify, lastNotification } from '../../helpers/quasar'
 import { trackFileReads } from '../../helpers/data-pages'
 
@@ -526,6 +527,50 @@ describe('highlighted texts warning', () => {
     wrapper.vm.updateSettings()
     await flushPromises()
     expect(update.mock.calls[0][0].report.public).toMatchObject({ highlightWarning: true, highlightWarningColors: ['#00ff00', '#fe0000'] })
+  })
+})
+
+describe('AI assistance', () => {
+  const AI = () => ({ enabled: false, private: { provider: 'openai', url: '', model: '', tokenParameter: 'max_tokens', maxTokens: 2000, timeout: 120, systemRole: true,
+    tfRequest: '{"instances": [{"prompt": "{{prompt}}"}]}', tfResponsePath: 'predictions.0', guidelines: '', pseudonymize: false } })
+  const withAi = () => { const settings = SETTINGS(); settings.ai = AI(); return settings }
+
+  it('shows the settings of the server of the selected type', async () => {
+    await mountPage({ settings: withAi() })
+    const card = wrapper.find('.ai-settings')
+    expect(card.text()).toContain('AI assistance')
+    expect(card.text()).toContain('AI_API_KEY')
+    expect(card.find('.ai-system-role').exists()).toBe(true)
+    expect(card.find('.ai-tf-request').exists()).toBe(false)
+    expect(wrapper.vm.aiProviderOptions.map((option) => option.value)).toEqual(['openai', 'tfserving'])
+    wrapper.vm.settings.ai.private.provider = 'tfserving'
+    await flushPromises()
+    expect(card.find('.ai-tf-request').exists()).toBe(true)
+    expect(card.find('.ai-tf-path').exists()).toBe(true)
+    expect(card.find('.ai-system-role').exists()).toBe(false)
+    expect(card.text()).toContain('{{prompt}}, {{maxTokens}}, {{model}}')
+  })
+
+  it('tests the connection with the saved settings only', async () => {
+    await mountPage({ settings: withAi() })
+    const test = vi.spyOn(AiService, 'testConnection').mockResolvedValue({ data: { datas: { provider: 'openai', models: ['llama', 'mistral'], answer: 'OK' } } })
+    expect(wrapper.vm.aiUnsaved).toBe(false)
+    await wrapper.vm.testAi()
+    await flushPromises()
+    expect(test).toHaveBeenCalled()
+    expect(wrapper.find('.ai-test-result').text()).toBe('Connection working · Answer: OK · Models: llama, mistral')
+    wrapper.vm.settings.ai.private.url = 'http://ai.local/v1'
+    await flushPromises()
+    expect(wrapper.vm.aiUnsaved).toBe(true)
+    expect(wrapper.find('.ai-settings').text()).toContain('Save the settings before testing')
+  })
+
+  it('shows the error of the test', async () => {
+    await mountPage({ settings: withAi() })
+    vi.spyOn(AiService, 'testConnection').mockRejectedValue({ response: { data: { datas: 'The AI server is not available' } } })
+    await wrapper.vm.testAi()
+    await flushPromises()
+    expect(wrapper.find('.ai-test-error').text()).toBe('The AI server is not available')
   })
 })
 

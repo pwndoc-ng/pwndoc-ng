@@ -81,6 +81,24 @@ const SettingSchema = new Schema({
             }
         }
     },
+    // AI assistance (lib/ai.js), disabled by default: inference server of the local network designated here. API key:
+    // environment variable AI_API_KEY of the backend, never stored
+    ai: {
+        enabled: { type: Boolean, default: false },
+        private: {
+            provider: { type: String, enum: ['openai', 'tfserving'], default: 'openai' },
+            url: { type: String, default: '', maxlength: 500, validate: [url => url === '' || /^https?:\/\/\S+$/i.test(url), 'Invalid URL'] },
+            model: { type: String, default: '', maxlength: 200 },
+            tokenParameter: { type: String, enum: ['max_tokens', 'max_completion_tokens'], default: 'max_tokens' },
+            maxTokens: { type: Number, default: 2000, min: 16, max: 200000, validate: [Number.isInteger, 'Invalid integer'] },
+            timeout: { type: Number, default: 120, min: 5, max: 3600, validate: [Number.isInteger, 'Invalid integer'] }, // Seconds
+            systemRole: { type: Boolean, default: true }, // Models refusing the system role: instructions in the user message
+            tfRequest: { type: String, default: '{"instances": [{"prompt": "{{prompt}}", "max_tokens": {{maxTokens}}}]}', maxlength: 5000 },
+            tfResponsePath: { type: String, default: 'predictions.0', maxlength: 200 },
+            guidelines: { type: String, default: '', maxlength: 20000 }, // Writing guidelines of the company
+            pseudonymize: { type: Boolean, default: false } // Client, company and scope names replaced by tokens before sending
+        }
+    },
     danger: {
       enabled: { type: Boolean, default: false },
       public: {
@@ -124,7 +142,7 @@ SettingSchema.statics.getAll = () => {
 SettingSchema.statics.getPublic = () => {
     return new Promise((resolve, reject) => {
         const query = Settings.findOne({});
-        query.select('-_id report.enabled report.public reviews.enabled reviews.public danger.enabled danger.public qa.public');
+        query.select('-_id report.enabled report.public reviews.enabled reviews.public danger.enabled danger.public qa.public ai.enabled');
         query.exec()
             .then(settings => resolve(settings))
             .catch(err => reject(err));

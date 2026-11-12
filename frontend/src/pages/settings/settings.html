@@ -423,6 +423,55 @@
             </div>
         </q-card>
 
+<!-- AI assistance START -->
+        <q-card v-if="UserService.isAllowed('settings:read') && settings.ai" class="q-my-md ai-settings">
+            <q-card-section class="q-py-none bg-blue-grey-5 text-white">
+                <q-item style="padding:0px;">
+                    <q-item-section class="col-11">
+                        <div class="text-h6">{{$t('ai.title')}}</div>
+                    </q-item-section>
+                    <q-item-section class="col-md-1 items-center">
+                        <q-toggle class="ai-enabled" v-model="settings.ai.enabled" :disable="!canEdit" color="light-green-5" />
+                    </q-item-section>
+                </q-item>
+            </q-card-section>
+            <q-card-section>
+                <div class="text-grey-8">{{$t('ai.settingsDescription')}}</div>
+                <div class="text-caption text-grey-7 q-mt-xs">{{$t('ai.keyInfo')}}</div>
+            </q-card-section>
+            <q-card-section v-if="settings.ai.private" class="q-pt-none">
+                <div class="row q-col-gutter-md">
+                    <q-select class="col-12 col-md-4 ai-provider" outlined dense emit-value map-options :options="aiProviderOptions" v-model="settings.ai.private.provider" :label="$t('ai.provider')" :readonly="!canEdit" />
+                    <q-input class="col-12 col-md-5 ai-url" outlined dense v-model="settings.ai.private.url" :label="$t('ai.url')" :hint="$t('ai.urlHint')" :readonly="!canEdit" />
+                    <q-input class="col-12 col-md-3 ai-model" outlined dense v-model="settings.ai.private.model" :label="$t('ai.model')" :readonly="!canEdit" />
+                    <template v-if="settings.ai.private.provider === 'tfserving'">
+                        <div class="col-12 col-md-8">
+                            <q-input class="ai-tf-request" outlined dense type="textarea" autogrow v-model="settings.ai.private.tfRequest" :label="$t('ai.tfRequest')" :readonly="!canEdit" />
+                            <div class="text-caption text-grey-7" v-pre>{{prompt}}, {{maxTokens}}, {{model}}</div>
+                        </div>
+                        <q-input class="col-12 col-md-4 ai-tf-path" outlined dense v-model="settings.ai.private.tfResponsePath" :label="$t('ai.tfResponsePath')" :readonly="!canEdit" />
+                    </template>
+                    <template v-else>
+                        <q-select class="col-12 col-md-4" outlined dense emit-value map-options :options="aiTokenOptions" v-model="settings.ai.private.tokenParameter" :label="$t('ai.tokenParameter')" :readonly="!canEdit" />
+                        <q-toggle class="col-12 col-md-8 ai-system-role" v-model="settings.ai.private.systemRole" :label="$t('ai.systemRole')" :disable="!canEdit" />
+                    </template>
+                    <q-input class="col-6 col-md-3" outlined dense type="number" v-model.number="settings.ai.private.maxTokens" :label="$t('ai.maxTokens')" :readonly="!canEdit" />
+                    <q-input class="col-6 col-md-3" outlined dense type="number" v-model.number="settings.ai.private.timeout" :label="$t('ai.timeout')" :readonly="!canEdit" />
+                    <q-input class="col-12 ai-guidelines" outlined dense type="textarea" autogrow v-model="settings.ai.private.guidelines" :label="$t('ai.guidelines')" :hint="$t('ai.guidelinesHint')" :readonly="!canEdit" />
+                    <q-toggle class="col-12 ai-pseudonymize" v-model="settings.ai.private.pseudonymize" :label="$t('ai.pseudonymize')" :disable="!canEdit" />
+                </div>
+                <div class="row items-center q-mt-md q-gutter-sm">
+                    <q-btn unelevated no-caps color="secondary" icon="mdi-connection" class="ai-test" :label="$t('ai.test')" :loading="aiTest.loading" :disable="!canEdit || aiUnsaved" @click="testAi" />
+                    <div v-if="aiUnsaved" class="text-caption text-grey-7">{{$t('ai.testSaveFirst')}}</div>
+                    <div v-else-if="aiTest.error" class="text-negative ai-test-error">{{aiTest.error}}</div>
+                    <div v-else-if="aiTest.result" class="text-positive ai-test-result">
+                        {{$t('ai.testOk')}} · {{$t('ai.testAnswer', {answer: aiTest.result.answer})}}<span v-if="aiTest.result.models && aiTest.result.models.length"> · {{$t('ai.testModels', {models: aiTest.result.models.join(', ')})}}</span>
+                    </div>
+                </div>
+            </q-card-section>
+        </q-card>
+<!-- AI assistance END -->
+
 <!-- Quality checks START -->
         <q-card v-if="UserService.isAllowed('settings:read') && settings.qa" class="q-my-md qa-settings">
             <q-card-section class="q-py-none bg-blue-grey-5 text-white">

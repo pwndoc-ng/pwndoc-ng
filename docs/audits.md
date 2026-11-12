@@ -64,6 +64,14 @@ The ![Propose Creation / Update in Vulnerability Database](/_images/finding_upd
 
 Saving can be done with the upper right button or by the most acclaimed feature: <kbd>Ctrl</kbd>+<kbd>S</kbd> or <kbd>&#8984;</kbd>+<kbd>S</kbd>
 
+### AI assistance
+
+When the AI assistance is enabled (*Settings > AI assistance*, see the installation), the button of the toolbar of the editors proposes an action on the selected text, or on the whole field: correct the spelling and grammar, rephrase, make shorter, translate into French or English, write from notes, or a custom instruction. The writing guidelines of the company (settings) are sent with each request.
+
+The proposal is shown next to the current text: it replaces it only when *Replace* is clicked, and the change can be undone (Ctrl+Z). The images are never sent.
+
+The quality check panel also offers *Check with the AI*: the findings are reviewed by the AI (severity not matching the description, remediation not addressing the vulnerability, unclear wording, writing guidelines). Its issues are listed with the other checks and can be ignored; the last check is kept with its date.
+
 ### Quality check
 
 The *Quality check* button of the audit (count of the errors and warnings on it) lists the issues found in the audit, without AI and without opening any link (the references of a report can contain payloads):

@@ -116,6 +116,8 @@ var AuditSchema = new Schema({
     comments:           [CommentSchema],
     // Issues of the quality checks ignored by the users (lib/qa.js): fingerprint of the issue and of its content
     qaIgnored:          [{_id: false, fingerprint: String, by: {type: Schema.Types.ObjectId, ref: 'User'}, at: Date}],
+    // Last quality check by the AI (lib/ai.js): date, user and issues
+    qaAi:               {at: Date, by: {type: Schema.Types.ObjectId, ref: 'User'}, issues: Schema.Types.Mixed},
 }, {timestamps: true});
 
 /*
@@ -741,6 +743,11 @@ AuditSchema.statics.setReviewState = (isAdmin, auditId, userId, state) => {
 */
 
 var COMMENT_USERS = 'username firstname lastname'
+
+// Last quality check by the AI stored (shown to the users of the audit until checked again)
+AuditSchema.statics.setQaAi = async (auditId, userId, issues) => {
+    await Audit.updateOne({_id: auditId}, {$set: {qaAi: {at: new Date(), by: userId, issues: issues}}}, {timestamps: false})
+}
 
 // Issue of the quality checks ignored (ignored true) or no longer ignored, by a user allowed to update the audit
 AuditSchema.statics.setQaIgnored = async (isAdmin, auditId, userId, fingerprint, ignored) => {

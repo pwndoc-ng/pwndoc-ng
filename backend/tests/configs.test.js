@@ -90,7 +90,8 @@ module.exports = function(request, app) {
       it('Public settings do not contain the private settings', async () => {
         var response = await request(app).get('/api/settings/public').set('Cookie', creatorCookie)
         expect(response.status).toBe(200)
-        expect(Object.keys(response.body.datas).sort()).toEqual(['danger', 'qa', 'report', 'reviews'])
+        expect(Object.keys(response.body.datas).sort()).toEqual(['ai', 'danger', 'qa', 'report', 'reviews'])
+        expect(response.body.datas.ai).toEqual({enabled: false}) // Settings of the AI server private
         expect(Object.keys(response.body.datas.qa)).toEqual(['public']) // Checks enabled only
         expect(response.body.datas.report.private).toBeUndefined()
         expect(response.body.datas.reviews.private).toBeUndefined()

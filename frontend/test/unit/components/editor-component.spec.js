@@ -816,6 +816,26 @@ describe('review comments', () => {
   })
 })
 
+describe('assisted writing (AI)', () => {
+  const AI = { report: { public: { captions: ['Figure'] } }, ai: { enabled: true } }
+  const aiButton = () => wrapper.findComponent({ name: 'AiAssistButton' })
+
+  it('offers the AI in the toolbar when it is enabled in the settings and allowed to the user', async () => {
+    wrapper = await mountEditor({ modelValue: '<p>Texte</p>' }, { settings: AI, route: { params: { auditId: 'a1' } } })
+    expect(aiButton().exists()).toBe(true)
+    expect(aiButton().props('auditId')).toBe('a1')
+    expect(aiButton().props('editor')).toBe(editor())
+  })
+
+  it('does not offer the AI when it is disabled or not allowed', async () => {
+    wrapper = await mountEditor({ modelValue: '<p>Texte</p>' })
+    expect(aiButton().exists()).toBe(false)
+    wrapper.unmount()
+    wrapper = await mountEditor({ modelValue: '<p>Texte</p>' }, { settings: AI, user: { username: 'viewer', id: 'u2', roles: ['audits:read'] } })
+    expect(aiButton().exists()).toBe(false)
+  })
+})
+
 describe('languagetool suggestions', () => {
   beforeEach(() => resetApi()) // Calls of the spell check counted per test
 

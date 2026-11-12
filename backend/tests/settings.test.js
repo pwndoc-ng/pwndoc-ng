@@ -46,6 +46,9 @@ module.exports = function(request, app) {
             "blockApprovalWithOpenComments": false,
           },
         },
+        "ai": {
+          "enabled": false,
+        },
         "qa": {
           "public": {
             "checks": {"completeness": true, "comments": true, "internalLinks": true, "images": true, "references": true, "duplicates": true},
@@ -104,6 +107,13 @@ module.exports = function(request, app) {
             "mandatoryReview": false,
             "minReviewers": 1,
             "blockApprovalWithOpenComments": false,
+          },
+        },
+        "ai": {
+          "enabled": false,
+          "private": {
+            "provider": "openai", "url": "", "model": "", "tokenParameter": "max_tokens", "maxTokens": 2000, "timeout": 120, "systemRole": true,
+            "tfRequest": "{\"instances\": [{\"prompt\": \"{{prompt}}\", \"max_tokens\": {{maxTokens}}}]}", "tfResponsePath": "predictions.0", "guidelines": "", "pseudonymize": false,
           },
         },
         "qa": {
@@ -195,6 +205,13 @@ module.exports = function(request, app) {
               "mandatoryReview": true,
               "minReviewers": 2,
               "blockApprovalWithOpenComments": true,
+            },
+          },
+          "ai": {
+            "enabled": true,
+            "private": {
+              "provider": "tfserving", "url": "https://ai.example.test:8501", "model": "writer", "tokenParameter": "max_completion_tokens", "maxTokens": 800, "timeout": 300, "systemRole": false,
+              "tfRequest": "{\"inputs\": \"{{prompt}}\"}", "tfResponsePath": "outputs.0", "guidelines": "Formal tone", "pseudonymize": true,
             },
           },
           "qa": {

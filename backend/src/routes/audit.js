@@ -169,7 +169,15 @@ module.exports = function(app, io) {
             var existingImages = new Set((await Image.find({_id: {$in: ids}}).select('_id').lean()).map(image => String(image._id)));
             var issues = qa.auditIssues(data, {settings: settings, comments: comments, existingImages: existingImages});
             var ignored = new Set((audit.qaIgnored || []).map(item => item.fingerprint));
-            Response.Ok(res, {issues: issues.filter(item => !ignored.has(item.fingerprint)), ignored: issues.filter(item => ignored.has(item.fingerprint))});
+            // Last quality check by the AI (issues of the findings still in the audit)
+            var findingIds = new Set(data.findings.map(finding => String(finding._id)));
+            var aiIssues = ((audit.qaAi && audit.qaAi.issues) || []).filter(item => item && item.location && findingIds.has(String(item.location.id)));
+            issues.push(...aiIssues);
+            Response.Ok(res, {
+                issues: issues.filter(item => !ignored.has(item.fingerprint)),
+                ignored: issues.filter(item => ignored.has(item.fingerprint)),
+                ai: audit.qaAi && audit.qaAi.at ? {at: audit.qaAi.at} : null
+            });
         }
         catch (err) {
             Response.Internal(res, err);

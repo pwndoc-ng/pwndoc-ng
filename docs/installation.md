@@ -64,6 +64,20 @@ docker-compose up -d --build
 Application is accessible through https://localhost:8443
 API is accessible through https://localhost:8443/api
 
+### AI assistance
+
+The assisted writing in the editors and the quality check of the findings by an AI are disabled by default. They use an inference server of your network, designated in *Settings > AI assistance*:
+
+- **API compatible with OpenAI** (OpenAI, and the local servers exposing it: Ollama, vLLM, LM Studio, LocalAI...): address such as `http://ai.local:8000/v1`, model, name of the parameter of the maximum length (`max_tokens` or `max_completion_tokens`), and whether the model accepts system instructions;
+- **TensorFlow Serving**: address such as `http://ai.local:8501`, model, JSON template of the body of the `:predict` request (`{{prompt}}`, `{{maxTokens}}`, `{{model}}`) and path of the text in the answer (e.g. `predictions.0`).
+
+*Test the connection* checks the saved settings. Environment variables of the backend container (see `docker-compose.yml`):
+
+- `AI_API_KEY`: API key of the server, sent as `Authorization: Bearer <key>` (or in the header named by `AI_AUTH_HEADER`). It is never stored in the database nor sent to the browsers;
+- `NODE_EXTRA_CA_CERTS`: certificate authority of your network, for a server with a certificate of an internal authority (file mounted in the container).
+
+Only the text of the field or of the selection is sent, without the images. The names of the client, of the company and of the scope of the audit can be replaced by tokens before sending (option of the settings). The proposals of the AI are always shown before being applied, and sanitized.
+
 ### Spell checker
 
 The editors are checked by LanguageTool (container `languagetool` of `docker-compose.yml`). The texts are sent to the

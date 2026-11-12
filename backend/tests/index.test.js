@@ -38,6 +38,7 @@ require('./scenario.test')(request, app)
 require('./spellcheck.test')(request, app)
 require('./highlights.test')(request, app)
 require('./qa.test')(request, app)
+require('./ai.test')(request, app)
 require('./permissions-matrix.test')(request, app)
 require('./robustness.test')(request, app)
 require('./backup.test')(request, app) // Last: a restore replaces the whole database
