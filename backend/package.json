@@ -33,7 +33,7 @@
     "docx": "^9.15.3",
     "docxtemplater": "^3.71.1",
     "docxtemplater-image-module-pwndoc": "github:pwndoc-ng/docxtemplater-image-module-pwndoc",
-    "express": "^4.22.3",
+    "express": "^5.3.0",
     "full-icu": "^1.6.0",
     "htmlparser2": "^8.0.2",
     "image-size": "^2.1.0",
