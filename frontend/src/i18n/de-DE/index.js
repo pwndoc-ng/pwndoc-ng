@@ -18,6 +18,13 @@ export default {
     highlightWarningDialogMessage: 'Diese Texte sind noch in einer Warnfarbe markiert: Es könnten zu ersetzende Standardtexte sein. Klicken Sie auf einen Text, um ihn zu öffnen, oder erstellen Sie den Bericht trotzdem.',
     highlightWarningGenerate: 'Trotzdem erstellen',
     highlightWarningTooltip: 'Zu ersetzender markierter Text',
+    settingsTabs: {
+        general: 'Allgemein',
+        quality: 'Qualität und Rechtschreibprüfung',
+        reportImages: 'Bilder und Beschriftungen',
+        reportColors: 'Farben',
+        unsaved: 'Nicht gespeicherte Änderungen',
+    },
     ai: {
         title: 'KI-Unterstützung',
         onSelection: 'Auf den markierten Text',

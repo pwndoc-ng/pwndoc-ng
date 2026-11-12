@@ -22,6 +22,13 @@ export default {
     highlightWarningDialogMessage: 'Ces textes sont encore surlignés d\'une couleur d\'avertissement : ce sont peut-être des textes génériques à remplacer. Cliquez sur un texte pour l\'ouvrir, ou générez quand même le rapport.',
     highlightWarningGenerate: 'Générer quand même',
     highlightWarningTooltip: 'Texte surligné à remplacer',
+    settingsTabs: {
+        general: 'Général',
+        quality: 'Qualité et correcteur',
+        reportImages: 'Images et légendes',
+        reportColors: 'Couleurs',
+        unsaved: 'Modifications non enregistrées',
+    },
     ai: {
         title: 'Assistance IA',
         onSelection: 'Sur le texte sélectionné',

@@ -140,7 +140,7 @@ test.describe('Spell checker', () => {
 
     // Approved by an administrator in the settings
     const { context, page: adminPage } = await newUserContext(browser, D.USERS.admin)
-    await adminPage.goto('/settings')
+    await adminPage.goto('/settings?tab=quality')
     const row = adminPage.locator('.spellcheck-word').filter({ hasText: TYPO })
     await expect(row).toContainText('Pending')
     await expect(row).toContainText('Proposed by Paul Pentester')

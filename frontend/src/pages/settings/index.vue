@@ -3,6 +3,10 @@
 <script src='./settings.js'></script>
 
 <style>
+.settings-tabs .q-tab {
+    justify-content: flex-start;
+}
+
 #toggle {
     padding-bottom: 20px;
     padding-left: 0px;

@@ -18,6 +18,13 @@ export default {
     highlightWarningDialogMessage: '这些文本仍以某种提醒颜色高亮：可能是待替换的通用文本。点击文本将其打开，或仍然生成报告。',
     highlightWarningGenerate: '仍然生成',
     highlightWarningTooltip: '待替换的高亮文本',
+    settingsTabs: {
+        general: '常规',
+        quality: '质量与拼写检查',
+        reportImages: '图片与题注',
+        reportColors: '颜色',
+        unsaved: '未保存的更改',
+    },
     ai: {
         title: 'AI 辅助',
         onSelection: '作用于所选文本',

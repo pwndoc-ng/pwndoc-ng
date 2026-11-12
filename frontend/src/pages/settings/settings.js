@@ -14,6 +14,8 @@ export default {
     data: () => {
         return {
             loading: true,
+            // Section of the settings shown (tab), also given by the address: /settings?tab=ai
+            tab: 'general',
             UserService: UserService,
             settings: {danger:{enabled:false,public:{nbdaydelete: 0}},reviews:{enabled:false}},
             settingsOrig : {danger:{enabled:false},reviews:{enabled:false}},
@@ -31,6 +33,21 @@ export default {
     },
 
     computed: {
+        // Sections of the settings allowed to the user (tabs), with the number of words of the spell checker to approve
+        settingsTabs: function() {
+            var read = UserService.isAllowed('settings:read')
+            var pending = this.spellcheckWords.filter(word => word.status === 'pending').length
+            return [
+                {name: 'general', icon: 'mdi-tune', label: $t('settingsTabs.general'), show: true},
+                {name: 'reports', icon: 'mdi-file-document-outline', label: $t('reports'), show: read},
+                {name: 'reviews', icon: 'mdi-account-check-outline', label: $t('reviews'), show: read},
+                {name: 'quality', icon: 'mdi-clipboard-check-outline', label: $t('settingsTabs.quality'), show: read || UserService.isAllowed('spellcheck-words:update'), badge: pending},
+                {name: 'ai', icon: 'mdi-creation', label: $t('ai.title'), show: read},
+                {name: 'backups', icon: 'mdi-backup-restore', label: $t('backupSettings'), show: read},
+                {name: 'danger', icon: 'mdi-alert-outline', label: $t('dangerSettings'), show: read}
+            ].filter(item => item.show)
+        },
+
         // Variables of the findings sidebar template, including findings custom fields
         // Types of AI server
         aiProviderOptions: function() {
@@ -103,7 +120,18 @@ export default {
             next()
     },
 
+    watch: {
+        // Section kept in the address (link to a section, back after a reload)
+        tab: function(tab) {
+            if (this.$router && this.$route && this.$route.query.tab !== tab)
+                Promise.resolve(this.$router.replace({query: {...this.$route.query, tab: tab}})).catch(() => {})
+        }
+    },
+
     mounted: function() {
+        var requested = this.$route && this.$route.query && this.$route.query.tab
+        if (requested && this.settingsTabs.some(item => item.name === requested))
+            this.tab = requested
         if (UserService.isAllowed('settings:read')) {
             this.getSettings()
             this.getFindingCustomFieldLabels()

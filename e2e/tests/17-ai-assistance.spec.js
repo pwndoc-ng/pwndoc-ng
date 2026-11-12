@@ -58,7 +58,7 @@ test.afterAll(async () => {
 
 test('settings: test of the connection to the AI server', async ({ page }) => {
   await loginUI(page, D.USERS.admin)
-  await page.goto('/settings')
+  await page.goto('/settings?tab=ai')
   const card = page.locator('.ai-settings')
   await expect(card.locator('.ai-url input')).toHaveValue(`${STUB}/v1`)
   await card.locator('.ai-test').click()

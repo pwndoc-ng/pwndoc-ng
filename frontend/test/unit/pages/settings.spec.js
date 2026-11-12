@@ -48,10 +48,11 @@ const CUSTOM_FIELDS = [
 
 let wrapper
 let $settings
+let $router
 let errors
 let fileReadsDone
 
-async function mountPage({ roles = '*', settings = SETTINGS(), customFields = CUSTOM_FIELDS } = {}) {
+async function mountPage({ roles = '*', settings = SETTINGS(), customFields = CUSTOM_FIELDS, query = {} } = {}) {
   UserService.user = { username: 'admin', roles }
   $settings = { refresh: vi.fn(() => Promise.resolve()), reviews: { enabled: false } }
   errors = []
@@ -60,7 +61,7 @@ async function mountPage({ roles = '*', settings = SETTINGS(), customFields = CU
   wrapper = mount(SettingsPage, {
     attachTo: document.body,
     global: {
-      mocks: { $_: _, $settings },
+      mocks: { $_: _, $settings, $route: { query }, $router: ($router = { replace: vi.fn(() => Promise.resolve()) }) },
       stubs: { LanguageSelector: { name: 'LanguageSelector', template: '<div class="language-selector-stub" />' } },
       config: { errorHandler: (err) => errors.push(err) }
     }
@@ -95,6 +96,77 @@ afterEach(() => {
   wrapper && wrapper.unmount()
   wrapper = null
   keydownListeners.splice(0).forEach((listener) => EventTarget.prototype.removeEventListener.call(document, 'keydown', listener, false))
+})
+
+describe('settings sections (tabs) and actions', () => {
+  const tabNames = () => wrapper.vm.settingsTabs.map((item) => item.name)
+  const shown = () => wrapper.findAll('.settings-section').filter((section) => section.element.style.display !== 'none').map((section) => section.classes().find((name) => name.startsWith('settings-section--')))
+
+  it('shows the sections allowed to the administrators as tabs, the general section first', async () => {
+    await mountPage()
+    expect(tabNames()).toEqual(['general', 'reports', 'reviews', 'quality', 'ai', 'backups', 'danger'])
+    expect(wrapper.findAll('.settings-tabs .q-tab')).toHaveLength(7)
+    expect(shown()).toEqual(['settings-section--general'])
+    expect(wrapper.find('.settings-section--general').text()).toContain('Display Language')
+  })
+
+  it('shows one section at a time and keeps it in the address', async () => {
+    await mountPage()
+    wrapper.vm.tab = 'ai'
+    await flushPromises()
+    expect(shown()).toEqual(['settings-section--ai'])
+    expect($router.replace).toHaveBeenCalledWith({ query: { tab: 'ai' } })
+    wrapper.vm.tab = 'reports'
+    await flushPromises()
+    expect(shown()).toEqual(['settings-section--reports'])
+    expect(wrapper.find('.settings-section--reports').findAll('.q-card').map((card) => card.classes().find((name) => name.endsWith('-settings'))))
+      .toEqual(['report-images-settings', 'report-colors-settings', 'report-highlight-settings'])
+  })
+
+  it('opens the section given by the address, ignores an unknown section', async () => {
+    await mountPage({ query: { tab: 'backups' } })
+    expect(wrapper.vm.tab).toBe('backups')
+    expect(shown()).toEqual(['settings-section--backups'])
+    wrapper.unmount()
+    await mountPage({ query: { tab: 'unknown' } })
+    expect(wrapper.vm.tab).toBe('general')
+    wrapper.unmount()
+    await mountPage({ roles: [], query: { tab: 'danger' } }) // Not allowed
+    expect(wrapper.vm.tab).toBe('general')
+  })
+
+  it('shows the general section only, without tabs, to the users who cannot read the settings', async () => {
+    await mountPage({ roles: [] })
+    expect(tabNames()).toEqual(['general'])
+    expect(wrapper.find('.settings-tabs').exists()).toBe(false)
+    expect(wrapper.find('.settings-actions').exists()).toBe(false)
+    wrapper.unmount()
+    vi.spyOn(SpellcheckService, 'getAllWords').mockResolvedValue({ data: { datas: [] } })
+    await mountPage({ roles: ['spellcheck-words:update'] })
+    expect(tabNames()).toEqual(['general', 'quality'])
+  })
+
+  it('counts the words of the spell checker to approve on the quality section', async () => {
+    vi.spyOn(SpellcheckService, 'getAllWords').mockResolvedValue({ data: { datas: [{ _id: 'w1', word: 'a', status: 'pending' }, { _id: 'w2', word: 'b', status: 'pending' }, { _id: 'w3', word: 'c', status: 'approved' }] } })
+    await mountPage()
+    expect(wrapper.vm.settingsTabs.find((item) => item.name === 'quality').badge).toBe(2)
+    expect(wrapper.find('.settings-tab--quality .q-badge').text()).toBe('2')
+  })
+
+  it('shows the actions at the top, and the unsaved changes until saved', async () => {
+    await mountPage()
+    const actions = wrapper.find('.settings-actions')
+    expect(wrapper.find('.settings-page').element.querySelector('.q-card')).toBe(actions.element) // First card of the page
+    expect(actions.text()).toContain('Save')
+    expect(actions.find('.settings-unsaved').exists()).toBe(false)
+    wrapper.vm.settings.reviews.enabled = true
+    await flushPromises()
+    expect(actions.find('.settings-unsaved').text()).toContain('Unsaved changes')
+    vi.spyOn(SettingsService, 'updateSettings').mockResolvedValue({})
+    await actions.find('.settings-save').trigger('click')
+    await flushPromises()
+    expect(actions.find('.settings-unsaved').exists()).toBe(false)
+  })
 })
 
 describe('settings loading and permissions', () => {

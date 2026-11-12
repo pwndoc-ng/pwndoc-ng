@@ -265,6 +265,11 @@ test.describe('Administration', () => {
   test('settings: reviews enabled with one approval', async ({ page }) => {
     await page.locator('.q-header').getByText('Settings').click()
     await expect(page).toHaveURL(/\/settings$/)
+    // One section at a time (tabs), the section kept in the address
+    await expect(page.getByText('General Settings')).toBeVisible()
+    await page.locator('.settings-tabs .settings-tab--reviews').click()
+    await expect(page).toHaveURL(/\/settings\?tab=reviews$/)
+    await expect(page.getByText('General Settings')).toBeHidden()
     const reviews = page.locator('.q-card').filter({ has: page.locator('.text-h6', { hasText: /^Reviews$/ }) })
     const enable = reviews.getByRole('switch').first()
     await expect(enable).toHaveAttribute('aria-checked', 'false')
@@ -276,8 +281,9 @@ test.describe('Administration', () => {
     await button(page, 'Save settings').click()
     await expectNotification(page, 'Settings updated successfully')
 
-    // Kept after a reload
+    // Kept after a reload, on the same section
     await page.reload()
+    await expect(reviews.getByRole('switch').first()).toBeVisible()
     await expect(reviews.getByRole('switch').first()).toHaveAttribute('aria-checked', 'true')
     await expect(minReviewers).toHaveValue('1')
     const api = await apiAs(D.USERS.admin)

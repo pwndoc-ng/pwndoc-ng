@@ -22,6 +22,13 @@ export default {
     highlightWarningDialogMessage: 'Estes textos ainda estão destacados com uma cor de aviso: podem ser textos genéricos a substituir. Clique em um texto para abri-lo, ou gere o relatório mesmo assim.',
     highlightWarningGenerate: 'Gerar mesmo assim',
     highlightWarningTooltip: 'Texto destacado a substituir',
+    settingsTabs: {
+        general: 'Geral',
+        quality: 'Qualidade e corretor',
+        reportImages: 'Imagens e legendas',
+        reportColors: 'Cores',
+        unsaved: 'Alterações não salvas',
+    },
     ai: {
         title: 'Assistência de IA',
         onSelection: 'No texto selecionado',

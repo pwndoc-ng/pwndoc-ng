@@ -22,6 +22,13 @@ export default {
     highlightWarningDialogMessage: 'These texts are still highlighted with a warning color: they may be generic texts to replace. Click a text to open it, or generate the report anyway.',
     highlightWarningGenerate: 'Generate anyway',
     highlightWarningTooltip: 'Highlighted text to replace',
+    settingsTabs: {
+        general: 'General',
+        quality: 'Quality and spell check',
+        reportImages: 'Images and captions',
+        reportColors: 'Colors',
+        unsaved: 'Unsaved changes',
+    },
     ai: {
         title: 'AI assistance',
         onSelection: 'On the selected text',
