@@ -10,10 +10,9 @@ export const decodeOption = (value) => new TextDecoder().decode(Uint8Array.from(
 // Style of the menu, added once to the page for all the editors
 const MENU_STYLE_ID = 'tiptap-trigger-menu-style';
 
-// The menu is opened after "::" by a key which types nothing (arrow, Tab...): the characters typed after "::" stay in the
-// text (IPv6 addresses, std::string...), as the modifier and editing keys
-const NOT_OPENING_KEYS = ['Shift', 'Control', 'Alt', 'AltGraph', 'Meta', 'CapsLock', 'Backspace', 'Delete', 'Enter', 'Escape'];
-const opensMenu = (event) => event.key.length > 1 && !NOT_OPENING_KEYS.includes(event.key);
+// The menu is opened by ":::" (README): a third ":" typed after "::" opens it and is not typed. The other characters
+// typed after "::" stay in the text (IPv6 addresses, std::string...), as the arrows and the editing keys
+const opensMenu = (event) => event.key === ':';
 
 export const TriggerMenuExtension = Extension.create({
   name: 'triggerMenu',

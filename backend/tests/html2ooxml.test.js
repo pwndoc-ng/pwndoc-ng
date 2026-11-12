@@ -527,6 +527,17 @@ module.exports = function () {
         // " and \ escaped with \ in the field instruction, then escaped for XML
         expect(ooxml).toContain('HYPERLINK "https://e.com/\\&quot;&gt;&lt;w:r&gt;\\\\x" ')
       })
+
+      it('Internal link (":::" menu of the editors): link to the bookmark of the finding in the document', () => {
+        var ooxml = html2ooxml('<p>See <a target="_blank" rel="noopener noreferrer nofollow" href="#6af573f15a4b2128f82dfede">SQL injection</a> </p>')
+        expectValidOoxml(ooxml)
+        expect(ooxml).toContain('<w:instrText xml:space="preserve"> HYPERLINK \\l "B_6af573f15a4b2128f82dfede" </w:instrText>')
+        expect(text(ooxml)).toBe('See SQL injection ')
+        // Bookmark names as created by bookmarkCreate: characters replaced, letter first, 40 characters at most
+        expect(html2ooxml('<p><a href="#VULN-1">v</a></p>')).toContain('HYPERLINK \\l "VULN_1"')
+        expect(html2ooxml('<p><a href="#a&quot;&gt;b">v</a></p>')).toContain('HYPERLINK \\l "a__b"')
+        expect(html2ooxml(`<p><a href="#${'x'.repeat(50)}">v</a></p>`)).toContain(`HYPERLINK \\l "${'x'.repeat(40)}"`)
+      })
     })
 
     describe('Characters', () => {

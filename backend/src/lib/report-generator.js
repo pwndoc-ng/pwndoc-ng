@@ -256,16 +256,19 @@ expressions.filters.uniqFindings = function (findings) {
 // Creates a text block or simple location bookmark:
 // - Text block: {@name | bookmarkCreate: identifier | p}
 // - Location: {@identifier | bookmarkCreate | p}
-// Identifiers are sanitized as follow:
+// - Finding targeted by the internal links of the editors (":::" menu): {@unique_id | bookmarkCreate | p}
+// Identifiers are sanitized as follow (html2ooxml.bookmarkName):
 // - Invalid characters replaced by underscores.
+// - "B_" added before identifiers not beginning with a letter (MS-Word requirement).
 // - Identifiers longer than 40 chars are truncated (MS-Word limitation).
 expressions.filters.bookmarkCreate = function(input, refid = null) {
     let rand_id = Math.floor(Math.random() * 1000000 + 1000);
-    let parsed_id = (refid ? refid : input).replace(/[^a-zA-Z0-9_]/g, '_').substring(0,40);
+    let parsed_id = html2ooxml.bookmarkName(refid ? refid : input);
 
-    // Accept both text and OO-XML as input.
+    // Accept both text (escaped) and OO-XML as input.
+    input = String(input);
     if (input.indexOf('<w:r') !== 0) {
-        input = '<w:r><w:t>' + input + '</w:t></w:r>';
+        input = '<w:r><w:t xml:space="preserve">' + utils.escapeXMLEntities(input) + '</w:t></w:r>';
     }
 
     return '<w:bookmarkStart w:id="' + rand_id + '" '
@@ -276,26 +279,22 @@ expressions.filters.bookmarkCreate = function(input, refid = null) {
 
 // Creates a hyperlink to a text block or location bookmark:
 // {@input | bookmarkLink: identifier | p}
-// Identifiers are sanitized as follow:
-// - Invalid characters replaced by underscores.
-// - Identifiers longer than 40 chars are truncated (MS-Word limitation).
+// Identifiers are sanitized as by bookmarkCreate
 expressions.filters.bookmarkLink = function(input, identifier) {
-    identifier = identifier.replace(/[^a-zA-Z0-9_]/g, '_').substring(0,40);
+    identifier = html2ooxml.bookmarkName(identifier);
     return '<w:hyperlink w:anchor="' + identifier + '">'
         + '<w:r><w:rPr><w:rStyle w:val="Hyperlink"/></w:rPr>'
-        + '<w:t>' + input + '</w:t>'
+        + '<w:t xml:space="preserve">' + utils.escapeXMLEntities(String(input)) + '</w:t>'
         + '</w:r></w:hyperlink>';
 }
 
 // Creates a clickable dynamic field referencing a text block bookmark:
-// Identifiers are sanitized as follow:
-// - Invalid characters replaced by underscores.
-// - Identifiers longer than 40 chars are truncated (MS-Word limitation).
+// Identifiers are sanitized as by bookmarkCreate
 expressions.filters.bookmarkRef = function(input) {
     return '<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve">'
-        + ' REF ' + input.replace(/[^a-zA-Z0-9_]/g, '_').substring(0,40) + ' \\h </w:instrText></w:r>'
-        + '<w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>'
-        + input + '</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>';
+        + ' REF ' + html2ooxml.bookmarkName(input) + ' \\h </w:instrText></w:r>'
+        + '<w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t xml:space="preserve">'
+        + utils.escapeXMLEntities(String(input)) + '</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>';
 }
 
 // Capitalizes input first letter: {input | capfirst}

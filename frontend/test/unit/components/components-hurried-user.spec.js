@@ -149,7 +149,7 @@ describe('internal links menu with a hurried user', () => {
   it('shows nothing when the menu was closed before the findings answered', async () => {
     const editor = editorWith()
     const errors = await catchWindowErrors(async () => {
-      keydown(editor, 'ArrowRight')
+      keydown(editor, ':')
       keydown(editor, 'Escape')
       await vi.advanceTimersByTimeAsync(1000)
       await flushPromises()
@@ -161,7 +161,7 @@ describe('internal links menu with a hurried user', () => {
 
   it('removes the menu when the editor is destroyed', async () => {
     const editor = editorWith()
-    keydown(editor, 'ArrowRight')
+    keydown(editor, ':')
     destroy(editor)
     await vi.advanceTimersByTimeAsync(1000)
     await flushPromises()
@@ -170,9 +170,9 @@ describe('internal links menu with a hurried user', () => {
 
   it('inserts the clicked finding once after the menu was reopened quickly', async () => {
     const editor = editorWith()
-    keydown(editor, 'ArrowRight')
+    keydown(editor, ':')
     keydown(editor, 'Escape')
-    keydown(editor, 'ArrowRight')
+    keydown(editor, ':')
     await vi.advanceTimersByTimeAsync(1000)
     await flushPromises()
     const errors = await catchWindowErrors(() => {
@@ -184,7 +184,7 @@ describe('internal links menu with a hurried user', () => {
 
   it('inserts the finding selected with the keyboard once the findings answered', async () => {
     const editor = editorWith()
-    keydown(editor, 'ArrowRight')
+    keydown(editor, ':')
     await vi.advanceTimersByTimeAsync(1000)
     await flushPromises()
     keydown(editor, 'ArrowDown')

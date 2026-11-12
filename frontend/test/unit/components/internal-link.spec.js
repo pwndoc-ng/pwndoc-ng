@@ -42,9 +42,9 @@ const options = () => [...document.querySelectorAll('.tiptap-trigger-menu .menu-
 const selectedTitle = () => decodeOption(document.querySelector('.menu-option.selected').getAttribute('data-value'))
 const answer = (findings) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ datas: { findings } }) })
 
-// Menu opened and options loaded (the menu waits 1 s before requesting the findings)
+// Menu opened by the third ":" of ":::" and options loaded
 async function openMenu(editor) {
-  const handled = keydown(editor, 'ArrowRight')
+  const handled = keydown(editor, ':')
   await vi.advanceTimersByTimeAsync(1000)
   await flushPromises()
   return handled
@@ -71,7 +71,7 @@ afterEach(() => {
 describe('internal link menu opening', () => {
   it('opens the menu after "::" with a loading state, then lists the findings of the audit', async () => {
     const editor = editorWith()
-    expect(keydown(editor, 'ArrowRight')).toBe(true)
+    expect(keydown(editor, ':')).toBe(true)
     expect(menu()).not.toBeNull()
     expect(menu().style.top).toBe('10px')
     expect(menu().style.left).toBe('20px')
@@ -98,10 +98,17 @@ describe('internal link menu opening', () => {
     expect(menu()).toBeNull()
   })
 
+  it('does not open the menu with another key after "::" (arrows, Tab, letters)', () => {
+    const editor = editorWith()
+    for (const key of ['ArrowRight', 'ArrowLeft', 'Tab', 'a', '1'])
+      expect(keydown(editor, key)).toBe(false)
+    expect(menu()).toBeNull()
+  })
+
   it('does not open the menu outside the audits (vulnerabilities)', async () => {
     window.history.replaceState({}, '', '/vulnerabilities')
     const editor = editorWith()
-    expect(keydown(editor, 'ArrowRight')).toBe(false)
+    expect(keydown(editor, ':')).toBe(false)
     await vi.advanceTimersByTimeAsync(1000)
     expect(menu()).toBeNull()
     expect(fetchMock).not.toHaveBeenCalled()
@@ -124,7 +131,7 @@ describe('internal link menu opening', () => {
 
   it('lists the findings as soon as they are loaded', async () => {
     const editor = editorWith()
-    keydown(editor, 'ArrowRight')
+    keydown(editor, ':')
     await flushPromises()
     expect(fetchMock).toHaveBeenCalled()
     expect(options()).toHaveLength(4)
@@ -218,5 +225,29 @@ describe('internal link menu navigation and insertion', () => {
     type(editor, ':')
     expect(editor.state.doc.textContent).toBe('fe80::')
     expect(menu()).toBeNull()
+  })
+})
+
+// Shortcut documented in the README: ":::" typed in the editor opens the menu of the findings
+describe('internal link ":::" shortcut (README)', () => {
+  it('opens the menu when a third ":" is typed after "::"', async () => {
+    const editor = editorWith('<p>Voir</p>')
+    type(editor, ':')
+    type(editor, ':')
+    expect(type(editor, ':')).toBe(true) // Third ":" handled by the menu, not typed
+    expect(menu()).not.toBeNull()
+    await vi.advanceTimersByTimeAsync(1000)
+    await flushPromises()
+    expect(options()).toHaveLength(4)
+    expect(editor.state.doc.textContent).toBe('Voir::')
+  })
+
+  it('inserts the link in place of ":::" (no ":" left in the text)', async () => {
+    const editor = editorWith('<p>Voir</p>')
+    for (const key of [':', ':', ':']) type(editor, key)
+    await vi.advanceTimersByTimeAsync(1000)
+    await flushPromises()
+    keydown(editor, 'Enter')
+    expect(editor.getHTML()).toBe('<p>Voir<a target="_blank" rel="noopener noreferrer nofollow" href="#f1">Injection SQL</a> </p>')
   })
 })

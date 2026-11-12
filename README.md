@@ -16,7 +16,7 @@ PwnDoc was originally maintained by its creator. After months of absence, with i
 ## Features
 
 - **Collaborative editing**: several users write the same audit in real time (TipTap 3, Hocuspocus/Yjs), WYSIWYG editor with tables, images with captions, bar and pie charts, spellchecker (LanguageTool) and code blocks with syntax highlighting (css, js, http, ts, html, bash, sql, json: choose the language in the menu of the code block)
-- **Links between findings**: with `{@identifier | bookmarkCreate | p}` in the template, type `:::` in the editor to link another finding with a hyperlink
+- **Links between findings**: with `{@unique_id | bookmarkCreate | p}` in the loop of the findings of the template, type `:::` in the editor to link another finding with a hyperlink
 
   ![image](https://github.com/user-attachments/assets/7b4ab540-0044-414c-af70-9a6ae4c4c6da)
 - **Audits**: audit types, custom sections and custom fields, Nmap/Nessus scan import, CVSS v3.1 scores, audit cloning

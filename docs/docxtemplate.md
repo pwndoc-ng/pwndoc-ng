@@ -334,8 +334,10 @@ Creates a text block or a location bookmark:
   These bookmarks can also be used as a hyperlink target using the `bookmarkLink` filter.
 - *Location bookmark* simply allow to point to a location within the document which cas be used as a hyperlink target using the `bookmarkLink` filter.
 
-Bookmark identifiers need to begin with a letter and contain only letters, numbers, and underscore characters: non-conforming characters are automatically replaced by underscores.
+Bookmark identifiers need to begin with a letter and contain only letters, numbers, and underscore characters: non-conforming characters are automatically replaced by underscores, and `B_` is added before identifiers not beginning with a letter (e.g. `unique_id`).
 Moreover, due to a limitation in MS-Word, identifiers longer than 40 characters are truncated.
+
+Links between findings: in the editors, typing `:::` opens the list of the findings of the audit and inserts a link to the chosen finding. In the report, this link targets the location bookmark of the finding, created in the loop of the findings with `{@unique_id | bookmarkCreate | p}`.
 
 > Use in template document
 >```
@@ -345,13 +347,15 @@ Moreover, due to a limitation in MS-Word, identifiers longer than 40 characters 
 {@'Some text: ' + (name | bookmarkCreate: identifier) | p: 'Heading 1'}
 // Example of location bookmark:
 {@identifier | bookmarkCreate | p}
+// Location bookmark of a finding, target of the links between findings of the editors (in the loop of the findings):
+{@unique_id | bookmarkCreate | p}
 >```
 
 ### bookmarkLink
 
 Creates a hyperlink to a text block or location bookmark usually created using the `bookmarkCreate` filter.
 
-Bookmark identifiers need to begin with a letter and contain only letters, numbers, and underscore characters: non-conforming characters are automatically replaced by underscores.
+Bookmark identifiers need to begin with a letter and contain only letters, numbers, and underscore characters: non-conforming characters are automatically replaced by underscores, and `B_` is added before identifiers not beginning with a letter (e.g. `unique_id`).
 Moreover, due to a limitation in MS-Word, identifiers longer than 40 characters are truncated.
 
 > Use in template document
@@ -365,7 +369,7 @@ Moreover, due to a limitation in MS-Word, identifiers longer than 40 characters 
 
 Creates a clickable reference to a text block bookmark usually created using the `bookmarkCreate` filter.
 
-Bookmark identifiers need to begin with a letter and contain only letters, numbers, and underscore characters: non-conforming characters are automatically replaced by underscores.
+Bookmark identifiers need to begin with a letter and contain only letters, numbers, and underscore characters: non-conforming characters are automatically replaced by underscores, and `B_` is added before identifiers not beginning with a letter (e.g. `unique_id`).
 Moreover, due to a limitation in MS-Word, identifiers longer than 40 characters are truncated.
 
 > Use in template document
