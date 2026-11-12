@@ -29,7 +29,7 @@ module.exports = function(request, app) {
     'companies:create', 'companies:read', 'companies:update', 'companies:delete',
     'languages:read', 'audit-types:read', 'vulnerability-types:read', 'vulnerability-categories:read', 'sections:read',
     'templates:read', 'users:read', 'roles:read', 'vulnerabilities:read', 'vulnerability-updates:create',
-    'custom-fields:read', 'settings:read-public'
+    'custom-fields:read', 'settings:read-public', 'spellcheck-words:read', 'spellcheck-words:create'
   ]
   // Custom roles defined by this suite (same as roles of src/config/roles.json)
   var CUSTOM_ROLES = {
@@ -284,6 +284,13 @@ module.exports = function(request, app) {
         ['get', `/api/backups/${FAKE_BACKUP}/download`, 'backups:read', 404],
         ['delete', `/api/backups/${FAKE_BACKUP}`, 'backups:delete', 404],
         ['post', `/api/backups/${FAKE_BACKUP}/restore`, 'backups:restore', 404, {body: {}}],
+
+        // Words ignored by the spell checker (src/routes/spellcheck.js)
+        ['get', '/api/spellcheck/words', 'spellcheck-words:read', 200],
+        ['get', '/api/spellcheck/words/all', 'spellcheck-words:update', 200],
+        ['post', '/api/spellcheck/words', 'spellcheck-words:create', 422, {body: {}}],
+        ['put', `/api/spellcheck/words/${FAKE_ID}`, 'spellcheck-words:update', 404, {body: {status: 'approved'}}],
+        ['delete', `/api/spellcheck/words/${FAKE_ID}`, 'spellcheck-words:delete', 404],
 
         // Unknown route (src/app.js)
         ['get', '/api/perm-unknown-route', null, 404]

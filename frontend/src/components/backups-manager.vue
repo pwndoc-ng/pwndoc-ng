@@ -372,7 +372,7 @@ export default {
     countOf: function(backup, category) {
       var collections = { audits: 'Audit', images: 'Image', vulnerabilities: 'Vulnerability', users: 'User', companies: 'Company', clients: 'Client',
         templates: 'Template', languages: 'Language', auditTypes: 'AuditType', vulnerabilityTypes: 'VulnerabilityType',
-        vulnerabilityCategories: 'VulnerabilityCategory', customFields: 'CustomField', customSections: 'CustomSection', settings: null }
+        vulnerabilityCategories: 'VulnerabilityCategory', customFields: 'CustomField', customSections: 'CustomSection', spellcheckWords: 'SpellcheckWord', settings: null }
       var count = collections[category] && backup.collections ? backup.collections[collections[category]] : undefined
       return count === undefined ? '' : ` (${count})`
     },

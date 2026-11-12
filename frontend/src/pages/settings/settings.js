@@ -1,6 +1,7 @@
 import { Notify, Dialog } from 'quasar'
 
 import SettingsService from '@/services/settings'
+import SpellcheckService from '@/services/spellcheck'
 import UserService from '@/services/user'
 import DataService from '@/services/data'
 import Utils from '@/services/utils'
@@ -18,7 +19,9 @@ export default {
             canEdit: false,
             // Number of the last loading of the settings (reloaded after a revert or an import)
             settingsRequest: 0,
-            findingCustomFieldLabels: [] // Labels of findings custom fields usable in the sidebar template
+            findingCustomFieldLabels: [], // Labels of findings custom fields usable in the sidebar template
+            spellcheckWords: [], // Words ignored by the spell checker: proposed (pending) and approved
+            spellcheckNewWord: ''
         }
     },
 
@@ -84,6 +87,8 @@ export default {
         else {
             this.loading = false
         }
+        if (UserService.isAllowed('spellcheck-words:update'))
+            this.getSpellcheckWords()
     },
 
     unmounted: function() {
@@ -137,6 +142,64 @@ export default {
         },
 
         // Message of the server (the message of axios only says the status code), or of the network error
+        /* Words ignored by the spell checker */
+
+        getSpellcheckWords: function() {
+            return SpellcheckService.getAllWords()
+            .then((data) => {
+                this.spellcheckWords = data.data.datas
+            })
+            .catch((err) => this.notifyError(err))
+        },
+
+        // Proposed by, approved by
+        spellcheckWordInfo: function(word) {
+            var name = (user) => user ? `${user.firstname || ''} ${user.lastname || ''}`.trim() || user.username : '?'
+            var info = $t('spellcheck.proposedBy', [name(word.proposedBy)])
+            return word.approvedBy ? `${info} · ${$t('spellcheck.approvedBy', [name(word.approvedBy)])}` : info
+        },
+
+        // Word added by the administrator: approved at once
+        addSpellcheckWord: function() {
+            var word = this.spellcheckNewWord.trim()
+            if (!word)
+                return
+            SpellcheckService.proposeWord(word)
+            .then(() => {
+                this.spellcheckNewWord = ''
+                SpellcheckService.clearCache()
+                return this.getSpellcheckWords()
+            })
+            .catch((err) => this.notifyError(err))
+        },
+
+        approveSpellcheckWord: function(word) {
+            SpellcheckService.approveWord(word._id)
+            .then(() => {
+                SpellcheckService.clearCache()
+                return this.getSpellcheckWords()
+            })
+            .catch((err) => this.notifyError(err))
+        },
+
+        deleteSpellcheckWord: function(word) {
+            SpellcheckService.deleteWord(word._id)
+            .then(() => {
+                SpellcheckService.clearCache()
+                return this.getSpellcheckWords()
+            })
+            .catch((err) => this.notifyError(err))
+        },
+
+        notifyError: function(err) {
+            Notify.create({
+                message: this.errorMessage(err),
+                color: 'negative',
+                textColor: 'white',
+                position: 'top-right'
+            })
+        },
+
         errorMessage: function(err) {
             return (err.response && err.response.data && err.response.data.datas) || err.message
         },

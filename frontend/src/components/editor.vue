@@ -578,10 +578,12 @@
     </bubble-menu>
     </div>
     <div class="editor-menu-wrapper">
+    <!-- LanguageTool suggestions: shown only while the text of a reported mistake is selected -->
     <bubble-menu
   class="bubble-menu"
   v-if="editor && !commentMode"
   :editor="editor"
+  :should-show="showLanguageToolMenu"
   :options="{ placement: 'bottom', offset: 6 }"
 >
   <section class="bubble-menu-section-container">
@@ -596,6 +598,12 @@
         class="suggestion"
       >
         {{ replacement.value }}
+      </article>
+    </section>
+    <!-- Word to ignore: proposed to the administrators, ignored for all the users once approved -->
+    <section v-if="ignorableWord" class="ignore-section">
+      <article class="suggestion suggestion--ignore" @mousedown.prevent @click="proposeIgnoredWord">
+        <q-icon name="mdi-book-plus-outline" class="q-mr-xs" />{{ $t('spellcheck.ignoreWord', [ignorableWord]) }}
       </article>
     </section>
   </section>
@@ -660,6 +668,7 @@ import { CommentHighlight, commentHighlightKey, quoteFromRange } from "./comment
 import { TriggerMenuExtension } from './internal-link';
 import {v4 as uuidv4} from 'uuid';
 import UserService from '@/services/user';
+import SpellcheckService from '@/services/spellcheck';
 import Collaboration from '@tiptap/extension-collaboration'
 import { fixPluginRegistration, keepUndoManagerTracking, setInitialCollaborativeContent, initialContentIds } from './editor-collaboration'
 import { uploadImageFile } from './editor-image'
@@ -897,6 +906,13 @@ export default defineComponent({
       //console.log('remplacements',this.match.replacements,this.match)
       return this.match?.replacements || [];
     },
+    // Selected word of a reported mistake that the user can propose to ignore (a single word)
+    ignorableWord() {
+      if (!this.match || !this.editor || !UserService.isAllowed('spellcheck-words:create')) return null;
+      const { from, to } = this.editor.state.selection;
+      const word = this.editor.state.doc.textBetween(from, to).trim();
+      return /^\S{1,100}$/.test(word) ? word : null;
+    },
     formatIcon: function () {
       if (this.editor.isActive("paragraph")) return "fa fa-paragraph";
       else return null;
@@ -984,6 +1000,7 @@ export default defineComponent({
             //apiUrl: `https://127.0.0.1:8443/v2/check`, 
             language: 'auto',   
             automaticMode: true, // 1 second delay before verification
+            ignoredWords: () => SpellcheckService.ignoredWords(), // Words approved by the administrators
           }),
         ]
        if(this.shared){
@@ -1173,6 +1190,28 @@ export default defineComponent({
     },
     acceptSuggestion(sug)  {
       this.editor.commands.insertContent(sug.value)
+    },
+    // LanguageTool menu: shown while the selected text is a reported mistake (not for any selected text)
+    showLanguageToolMenu() {
+      return Boolean(this.editor && this.editor.isEditable && this.editor.storage.languagetool.match.value);
+    },
+    // Proposes the selected word to ignore: ignored once approved by an administrator (at once for the administrators)
+    proposeIgnoredWord() {
+      const word = this.ignorableWord;
+      if (!word) return;
+      SpellcheckService.proposeWord(word)
+        .then((response) => {
+          const approved = response.data.datas.status === 'approved';
+          if (approved) {
+            SpellcheckService.clearCache();
+            this.editor.commands.proofread(); // Mistakes of this word removed
+          }
+          this.editor.commands.setTextSelection(this.editor.state.selection.to); // Menu closed
+          Notify.create({ message: this.$t(approved ? 'spellcheck.wordIgnored' : 'spellcheck.wordProposed', [word]), color: 'positive', textColor: 'white', position: 'top-right' });
+        })
+        .catch((err) => {
+          Notify.create({ message: err.response?.data?.datas || err.message, color: 'negative', textColor: 'white', position: 'top-right' });
+        });
     },
     updateMatch(editor) {
 
@@ -1820,6 +1859,18 @@ pre .diffadd {
       align-items: center;
       font-size: 1.1em;
       max-width: fit-content;
+    }
+  }
+
+  .ignore-section {
+    margin-top: 8px;
+
+    .suggestion--ignore {
+      background-color: transparent;
+      color: #455a64;
+      border: 1px solid #b0bec5;
+      font-size: 0.95em;
+      font-weight: 400;
     }
   }
 }

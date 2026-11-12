@@ -402,6 +402,54 @@
             </div>
         </q-card>
 
+<!-- Words ignored by the spell checker START -->
+        <q-card v-if="UserService.isAllowed('spellcheck-words:update')" class="q-my-md spellcheck-words">
+            <q-card-section class="q-py-none bg-blue-grey-5 text-white">
+                <q-item style="padding:0px;">
+                    <q-item-section>
+                        <div class="text-h6">{{$t('spellcheck.title')}}</div>
+                    </q-item-section>
+                </q-item>
+            </q-card-section>
+            <q-card-section>
+                <div class="text-grey-8">{{$t('spellcheck.description')}}</div>
+                <div class="row items-center q-gutter-sm q-mt-sm">
+                    <q-input
+                    class="col-md-4 col-grow"
+                    dense outlined
+                    v-model="spellcheckNewWord"
+                    :label="$t('spellcheck.addWord')"
+                    maxlength="100"
+                    @keyup.enter="addSpellcheckWord"
+                    />
+                    <q-btn unelevated color="secondary" icon="add" :label="$t('btn.create')" :disable="!spellcheckNewWord.trim()" @click="addSpellcheckWord" />
+                </div>
+            </q-card-section>
+            <q-card-section class="q-pt-none">
+                <div v-if="spellcheckWords.length === 0" class="text-grey-7">{{$t('spellcheck.noWords')}}</div>
+                <q-list v-else bordered separator dense>
+                    <q-item v-for="word in spellcheckWords" :key="word._id" class="spellcheck-word">
+                        <q-item-section>
+                            <q-item-label>{{word.word}}</q-item-label>
+                            <q-item-label caption>{{spellcheckWordInfo(word)}}</q-item-label>
+                        </q-item-section>
+                        <q-item-section side>
+                            <div class="row items-center no-wrap q-gutter-xs">
+                                <q-chip dense square :color="word.status === 'pending' ? 'orange-2' : 'green-2'" :label="$t(`spellcheck.status.${word.status}`)" />
+                                <q-btn v-if="word.status === 'pending'" flat round dense color="positive" icon="check" class="spellcheck-approve" @click="approveSpellcheckWord(word)">
+                                    <q-tooltip>{{$t('spellcheck.approve')}}</q-tooltip>
+                                </q-btn>
+                                <q-btn flat round dense color="negative" icon="delete" class="spellcheck-delete" @click="deleteSpellcheckWord(word)">
+                                    <q-tooltip>{{$t(word.status === 'pending' ? 'spellcheck.refuse' : 'spellcheck.remove')}}</q-tooltip>
+                                </q-btn>
+                            </div>
+                        </q-item-section>
+                    </q-item>
+                </q-list>
+            </q-card-section>
+        </q-card>
+<!-- Words ignored by the spell checker END -->
+
         <q-card v-if="UserService.isAllowed('settings:read')" class="q-my-lg">
             <q-card-section class="q-py-none bg-blue-grey-5 text-white">
                 <q-item style="padding:0px;">

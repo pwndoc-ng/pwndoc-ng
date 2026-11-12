@@ -11,7 +11,7 @@ export default {
     { key: 'users', categories: ['users'] },
     { key: 'customers', categories: ['companies', 'clients'] },
     { key: 'templates', categories: ['templates'] },
-    { key: 'customData', categories: ['languages', 'auditTypes', 'vulnerabilityTypes', 'vulnerabilityCategories', 'customFields', 'customSections'] },
+    { key: 'customData', categories: ['languages', 'auditTypes', 'vulnerabilityTypes', 'vulnerabilityCategories', 'customFields', 'customSections', 'spellcheckWords'] },
     { key: 'settings', categories: ['settings'] },
   ],
   // Categories always saved with another one (same rules as the server)

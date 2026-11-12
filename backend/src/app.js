@@ -59,6 +59,7 @@ require('./models/custom-section');
 require('./models/custom-field');
 require('./models/image');
 require('./models/settings');
+require('./models/spellcheck-word');
 
 var auth = require('./lib/auth');
 var acl = auth.acl;
@@ -180,6 +181,7 @@ require('./routes/data')(app);
 require('./routes/image')(app);
 require('./routes/settings')(app);
 require('./routes/backup')(app);
+require('./routes/spellcheck')(app);
 
 const { cronJobs } = require('./lib/cron');
 cronJobs();

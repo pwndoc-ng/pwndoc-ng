@@ -10,7 +10,7 @@ module.exports = function(request, app) {
   describe('Backup Suite Tests', () => {
     var adminCookie, userCookie
     var ALL_CATEGORIES = ['audits', 'images', 'vulnerabilities', 'users', 'companies', 'clients', 'templates', 'languages',
-      'auditTypes', 'vulnerabilityTypes', 'vulnerabilityCategories', 'customFields', 'customSections', 'settings']
+      'auditTypes', 'vulnerabilityTypes', 'vulnerabilityCategories', 'customFields', 'customSections', 'spellcheckWords', 'settings']
 
     // supertest: binary response body as a Buffer
     var binary = (res, callback) => {

@@ -94,7 +94,10 @@ var builtInRoles = {
             // Custom Fields
             'custom-fields:read',
             // Settings
-            'settings:read-public'
+            'settings:read-public',
+            // Words ignored by the spell checker: approved ones read, proposals
+            'spellcheck-words:read',
+            'spellcheck-words:create'
         ]
     },
     admin: {

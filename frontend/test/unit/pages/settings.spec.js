@@ -12,6 +12,7 @@ import SettingsPage from 'pages/settings'
 import SettingsService from '@/services/settings'
 import DataService from '@/services/data'
 import UserService from '@/services/user'
+import SpellcheckService from '@/services/spellcheck'
 import { mockDialog, mockNotify, lastNotification } from '../../helpers/quasar'
 import { trackFileReads } from '../../helpers/data-pages'
 
@@ -496,6 +497,76 @@ describe('findings sidebar template', () => {
     await flushPromises()
     expect(wrapper.find('img[src="x"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('<img src=x onerror=alert(1)> SQL Injection')
+  })
+})
+
+describe('words ignored by the spell checker', () => {
+  const WORDS = () => [
+    { _id: 'w1', word: 'Nmap', status: 'pending', proposedBy: { username: 'jdoe', firstname: 'John', lastname: 'Doe' } },
+    { _id: 'w2', word: 'Burp', status: 'approved', proposedBy: { username: 'pentester' }, approvedBy: { username: 'admin', firstname: 'Ad', lastname: 'Min' } }
+  ]
+  const items = () => wrapper.findAll('.spellcheck-word')
+
+  it('lists the proposed words first, then the approved ones, with who proposed and approved them', async () => {
+    vi.spyOn(SpellcheckService, 'getAllWords').mockResolvedValue({ data: { datas: WORDS() } })
+    await mountPage()
+    expect(items()).toHaveLength(2)
+    expect(items()[0].text()).toContain('Nmap')
+    expect(items()[0].text()).toContain('Proposed by John Doe')
+    expect(items()[0].text()).toContain('Pending')
+    expect(items()[1].text()).toContain('Proposed by pentester · approved by Ad Min')
+    expect(items()[0].find('.spellcheck-approve').exists()).toBe(true)
+    expect(items()[1].find('.spellcheck-approve').exists()).toBe(false) // Already approved
+  })
+
+  it('is not shown to the users who cannot approve the words', async () => {
+    const getAll = vi.spyOn(SpellcheckService, 'getAllWords')
+    await mountPage({ roles: ['settings:read', 'settings:update', 'spellcheck-words:create'] })
+    expect(getAll).not.toHaveBeenCalled()
+    expect(wrapper.find('.spellcheck-words').exists()).toBe(false)
+  })
+
+  it('approves a proposed word, removes a word, then reloads the list and the words of the editors', async () => {
+    const getAll = vi.spyOn(SpellcheckService, 'getAllWords').mockResolvedValue({ data: { datas: WORDS() } })
+    const approve = vi.spyOn(SpellcheckService, 'approveWord').mockResolvedValue({})
+    const remove = vi.spyOn(SpellcheckService, 'deleteWord').mockResolvedValue({})
+    const clear = vi.spyOn(SpellcheckService, 'clearCache')
+    await mountPage()
+    await items()[0].find('.spellcheck-approve').trigger('click')
+    await flushPromises()
+    expect(approve).toHaveBeenCalledWith('w1')
+    expect(getAll).toHaveBeenCalledTimes(2)
+    await items()[1].find('.spellcheck-delete').trigger('click')
+    await flushPromises()
+    expect(remove).toHaveBeenCalledWith('w2')
+    expect(getAll).toHaveBeenCalledTimes(3)
+    expect(clear).toHaveBeenCalledTimes(2)
+  })
+
+  it('adds a word (approved at once) with Enter, not an empty word', async () => {
+    vi.spyOn(SpellcheckService, 'getAllWords').mockResolvedValue({ data: { datas: [] } })
+    const propose = vi.spyOn(SpellcheckService, 'proposeWord').mockResolvedValue({ data: { datas: { word: 'Wireshark', status: 'approved' } } })
+    await mountPage()
+    expect(wrapper.find('.spellcheck-words').text()).toContain('No word')
+    const input = wrapper.find('.spellcheck-words input')
+    await input.setValue('   ')
+    await input.trigger('keyup', { key: 'Enter' })
+    expect(propose).not.toHaveBeenCalled()
+    await input.setValue(' Wireshark ')
+    await input.trigger('keyup', { key: 'Enter' })
+    await flushPromises()
+    expect(propose).toHaveBeenCalledWith('Wireshark')
+    expect(wrapper.vm.spellcheckNewWord).toBe('')
+  })
+
+  it('notifies the errors of the server', async () => {
+    const notify = mockNotify()
+    vi.spyOn(SpellcheckService, 'getAllWords').mockResolvedValue({ data: { datas: WORDS() } })
+    vi.spyOn(SpellcheckService, 'approveWord').mockRejectedValue({ response: { data: { datas: 'Word not found' } } })
+    await mountPage()
+    await items()[0].find('.spellcheck-approve').trigger('click')
+    await flushPromises()
+    expect(lastNotification(notify)).toMatchObject({ message: 'Word not found', color: 'negative' })
   })
 })
 

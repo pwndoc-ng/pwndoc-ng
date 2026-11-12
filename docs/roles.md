@@ -43,6 +43,13 @@ Backups (Data > Import/Export > Backups), stored on the server in `backend/backu
 - `backups:restore`: restore a backup. It replaces or merges data of the instance: give it to administrators only
 - `backups:delete`: delete a backup
 
+Words ignored by the spell checker of the editors (LanguageTool), shared by all the users:
+
+- `spellcheck-words:read`: read the approved words (ignored by the spell checker of the editors)
+- `spellcheck-words:create`: propose a word to ignore (from the suggestion menu of a spelling mistake)
+- `spellcheck-words:update`: list the proposed words and approve them (Settings > Words ignored by the spell checker); the words proposed by a user with this permission are approved at once
+- `spellcheck-words:delete`: refuse a proposed word, or remove an approved word
+
 ## Built-In Roles
 
 ### user
@@ -57,6 +64,7 @@ This role has following permissions:
 - templates:read
 - languages:read, audit-types:read, vulnerability-types:read, vulnerability-categories:read, sections:read, custom-fields:read
 - settings:read-public
+- spellcheck-words:read, spellcheck-words:create
 
 ### admin
 
