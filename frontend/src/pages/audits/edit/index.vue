@@ -306,7 +306,7 @@ import draggable from 'vuedraggable'
 import AuditService, { errorMessage, highlightWarningEnabled } from '@/services/audit';
 import ReportCheckDialog from '@/components/report-check-dialog';
 import QaPanel from '@/components/qa-panel';
-import { qaEnabled, issueCounts } from '@/services/qa';
+import { qaEnabled, issueCounts, qaFocus, issueTarget } from '@/services/qa';
 import UserService from '@/services/user';
 import DataService from '@/services/data';
 import Utils from '@/services/utils';
@@ -351,6 +351,7 @@ export default defineComponent({
         // Next attempt to show the element of a review comment (page and editors loaded asynchronously)
         commentFocusTimer: null,
         // Review comments of the audit, provided to the pages, fields and editors
+        qaFocus: qaFocus,
         commentsStore: createCommentsStore(this.$route.params.auditId, {
           getAudit: () => this.audit,
           getCustomFields: () => this.customFields,
@@ -396,6 +397,16 @@ export default defineComponent({
   },
 
   watch: {
+    // Issue of the quality checks opened (panel, check before the generation, audits list): its field and passage shown
+    'qaFocus.request': {
+      handler(request) {
+        // Also run before created (auditId not set yet): audit of the address
+        if (!request || request.auditId !== this.$route.params.auditId) return
+        qaFocus.request = null
+        this.showIssue(request.issue)
+      },
+      immediate: true,
+    },
     'audit.findings': {
       handler(newVal, oldVal) {
         var result = _.chain(this.audit.findings)
@@ -579,12 +590,22 @@ export default defineComponent({
       this.showCommentFocus(this.commentsStore.focus)
     },
 
+    // Field of an issue of the quality checks (page opened by openIssue), with its passage highlighted by the editor
+    showIssue: function(issue) {
+      var target = issueTarget(issue)
+      var passage = issue.location && issue.location.passage
+      this.commentsStore.focus = {...target, key: targetKey(target), commentId: null, passage: passage || null, at: Date.now()}
+      this.showCommentFocus(this.commentsStore.focus)
+    },
+
     showCommentFocus: function(focus, attempt = 0) {
       clearTimeout(this.commentFocusTimer)
       // Audit left, or another comment selected meanwhile
       if (this.left || this.commentsStore.focus !== focus) return
+      // Commented passage or passage of an issue (decorations of the editors, once loaded), else the field
       var element = (focus.commentId && document.querySelector(`[data-comment-id="${focus.commentId}"]`)) ||
-        (attempt > 10 || !focus.commentId ? document.querySelector(`[data-comment-field="${focus.key}"]`) : null)
+        (focus.passage && document.querySelector(`[data-qa-passage="${focus.at}"]`)) ||
+        (attempt > 10 || (!focus.commentId && !focus.passage) ? document.querySelector(`[data-comment-field="${focus.key}"]`) : null)
       if (!element) {
         // Attempts stopped when the audit is left (unmounted)
         if (attempt < 30) this.commentFocusTimer = setTimeout(() => this.showCommentFocus(focus, attempt + 1), 200)
@@ -1013,7 +1034,7 @@ export default defineComponent({
   
 /* Comments panel open: the page content uses the whole width left between the two drawers */
 @media (min-width: 1024px) {
-  .comments-panel-open .col-md-8.offset-md-2 {
+  .comments-panel-open .col-md-10.offset-md-1 {
     width: 100%;
     margin-left: 0;
   }

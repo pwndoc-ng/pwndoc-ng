@@ -34,7 +34,7 @@
 
 <script>
 import AuditService from '@/services/audit'
-import { qaEnabled, SEVERITY_ICONS, issueMessage, issuePlace, issuePath, issueCounts } from '@/services/qa'
+import { qaEnabled, SEVERITY_ICONS, issueMessage, issuePlace, issueCounts, openIssue } from '@/services/qa'
 
 export default {
   name: 'ReportCheckDialog',
@@ -70,11 +70,11 @@ export default {
       }))
     },
 
-    // Opens the place of an issue (the report is not generated)
+    // Opens the place of an issue: page, field and passage (the report is not generated)
     open: function(issue) {
       var auditId = this.auditId
       this.close(false)
-      this.$router.push(issuePath(auditId, issue))
+      return openIssue(this.$router, auditId, issue)
     },
 
     close: function(generate) {

@@ -3,7 +3,7 @@
 // duplicated titles of the vulnerability database. Own audit and vulnerabilities (unique names, deleted at the end).
 const { test, expect } = require('@playwright/test')
 const D = require('./support/data')
-const { qInput, loginUI, apiAs, datas, ensureBaseData, ensureAudit, setQaChecks } = require('./support/helpers')
+const { qInput, loginUI, apiAs, datas, ensureBaseData, ensureAudit, setQaChecks, editorContent } = require('./support/helpers')
 
 test.describe.configure({ mode: 'serial' })
 
@@ -13,7 +13,9 @@ const AUDIT_NAME = `E2E QA Audit ${RUN}`
 const CRITICAL = 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H'
 const FINDINGS = {
   incomplete: { title: 'E2E QA Incomplete', description: '', references: ['htps://typo.example.com'] },
-  complete: { title: 'E2E QA Complete', description: '<p>Text</p>', remediation: '<p>Fix</p>', cvssv3: CRITICAL, status: 0, references: ['https://owasp.org/'] }
+  complete: { title: 'E2E QA Complete', description: '<p>Text</p>', remediation: '<p>Fix</p>', cvssv3: CRITICAL, status: 0, references: ['https://owasp.org/'] },
+  // Link to a deleted finding in a long description: the passage is shown when the issue is opened
+  link: { title: 'E2E QA Passage', description: `<p>${'Context of the vulnerability. '.repeat(40)}</p><p>See <a href="#6af573f15a4b2128f82d9999">Deleted finding</a> for the details.</p>`, remediation: '<p>Fix</p>', cvssv3: CRITICAL, references: [] }
 }
 const VULNS = [`E2E QA Cookie Flag ${RUN}`, `e2e qa cookie-flag ${RUN}`]
 
@@ -38,8 +40,9 @@ test.beforeAll(async () => {
   const findings = (await datas(await api.get(`/api/audits/${auditId}`))).findings
   for (const [key, finding] of Object.entries(FINDINGS))
     ids[key] = findings.find(f => f.title === finding.title)._id
-  // The complete finding is done (created in redaction)
+  // The complete findings are done (created in redaction)
   await api.put(`/api/audits/${auditId}/findings/${ids.complete}`, { data: { status: 0 } })
+  await api.put(`/api/audits/${auditId}/findings/${ids.link}`, { data: { status: 0 } })
   const issues = (await datas(await api.get(`/api/audits/${auditId}/qa`))).issues
   expected = { error: issues.filter(i => i.severity === 'error').length, warning: issues.filter(i => i.severity === 'warning').length }
   expect(issues.filter(i => i.location.id === ids.incomplete).map(i => i.code)).toEqual(['findingNoDescription', 'findingNoRemediation', 'findingNoCvss', 'findingRedacting', 'referenceInvalid'])
@@ -74,6 +77,25 @@ test('issues of the audit: count on the button, listed in the panel, place opene
   await expect(page).toHaveURL(new RegExp(`/audits/${auditId}/findings/${ids.incomplete}$`))
   await expect(qInput(page, 'Title *')).toHaveValue(FINDINGS.incomplete.title)
   await expect(panel(page)).toHaveCount(0)
+})
+
+test('issue opened: tab and field of the finding, passage highlighted until the user clicks in the field', async ({ page }) => {
+  await loginUI(page, pentester)
+  await page.goto(`/audits/${auditId}/general`)
+  await qaButton(page).click()
+  await issue(page, 'Link to a deleted finding').filter({ hasText: FINDINGS.link.title }).locator('.qa-open').click()
+  await expect(page).toHaveURL(new RegExp(`/audits/${auditId}/findings/${ids.link}$`))
+  const passage = page.locator('.qa-passage')
+  await expect(passage).toHaveText('Deleted finding')
+  await expect(passage).toBeInViewport() // Scrolled to the passage (end of a long description)
+  await editorContent(page, 'Description').click({ position: { x: 5, y: 5 } }) // Not on the link (opens the finding)
+  await expect(passage).toHaveCount(0)
+
+  // Issue of another tab (Details: CVSS of the incomplete finding): tab opened, field shown
+  await qaButton(page).click()
+  await issue(page, 'No CVSS').locator('.qa-open').click()
+  await expect(page).toHaveURL(new RegExp(`/audits/${auditId}/findings/${ids.incomplete}$`))
+  await expect(page.getByRole('tab', { name: 'Details', selected: true })).toBeVisible()
 })
 
 test('issue ignored for the audit, then restored', async ({ page }) => {

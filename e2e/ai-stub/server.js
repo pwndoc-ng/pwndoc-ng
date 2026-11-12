@@ -34,7 +34,8 @@ http.createServer(async (req, res) => {
   if (req.url === '/v1/chat/completions' && req.method === 'POST') {
     const json = JSON.parse(body)
     requests.push(json)
-    return res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: answer(json.messages) } }] }))
+    // Tokens of the reasoning of the model given like the reasoning models (shown by the test of the connection)
+    return res.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: answer(json.messages) }, finish_reason: 'stop' }], usage: { completion_tokens_details: { reasoning_tokens: 7 } } }))
   }
   res.statusCode = 404
   res.end(JSON.stringify({ error: 'not found' }))

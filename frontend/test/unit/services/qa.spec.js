@@ -1,6 +1,6 @@
 // services/qa.js: quality checks enabled, messages, places and pages of the issues, counts
-import { describe, it, expect } from 'vitest'
-import { qaEnabled, issueMessage, issuePlace, issuePath, issueCounts } from '@/services/qa'
+import { describe, it, expect, vi } from 'vitest'
+import { qaEnabled, issueMessage, issuePlace, issuePath, issueCounts, issueTarget, openIssue, qaFocus } from '@/services/qa'
 
 const location = (extra) => ({ kind: 'finding', id: 'f1', name: 'SQLi', field: null, label: null, ...extra })
 
@@ -35,6 +35,27 @@ describe('quality checks service', () => {
     expect(issuePath('a1', { location: { kind: 'section', id: 's1' } })).toBe('/audits/a1/sections/s1')
     expect(issuePath('a1', { location: { kind: 'network' } })).toBe('/audits/a1/network')
     expect(issuePath('a1', { location: { kind: 'general' } })).toBe('/audits/a1/general')
+  })
+
+  it('gives the field of an issue as a target of the audit page (same as the review comments)', () => {
+    expect(issueTarget({ location: location({ field: 'description' }) })).toEqual({ kind: 'finding', findingId: 'f1', field: 'description' })
+    expect(issueTarget({ location: location({ field: 'cvss' }) })).toEqual({ kind: 'finding', findingId: 'f1', field: 'cvssv3' })
+    expect(issueTarget({ location: location({ field: null }) })).toEqual({ kind: 'finding', findingId: 'f1', field: undefined })
+    expect(issueTarget({ location: { kind: 'section', id: 's1', field: 'customFields.c1' } })).toEqual({ kind: 'section', sectionId: 's1', field: 'customFields.c1' })
+    expect(issueTarget({ location: { kind: 'general', field: 'customFields.c2' } })).toEqual({ kind: 'general', field: 'customFields.c2' })
+    expect(issueTarget({ location: { kind: 'network' } })).toEqual({ kind: 'network' })
+  })
+
+  it('opens an issue: requested to the audit page, page of the issue opened unless already shown', async () => {
+    const issue = { location: location({ field: 'description', passage: { text: 'q' } }) }
+    const router = { push: vi.fn(() => Promise.resolve()), currentRoute: { value: { path: '/audits/a1/general' } } }
+    await openIssue(router, 'a1', issue)
+    expect(qaFocus.request).toEqual({ auditId: 'a1', issue })
+    expect(router.push).toHaveBeenCalledWith('/audits/a1/findings/f1')
+    router.currentRoute.value.path = '/audits/a1/findings/f1'
+    await openIssue(router, 'a1', issue)
+    expect(router.push).toHaveBeenCalledTimes(1)
+    qaFocus.request = null
   })
 
   it('counts the issues by severity', () => {

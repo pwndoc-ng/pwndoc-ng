@@ -688,6 +688,28 @@ describe('review comments', () => {
   // Menus of the selection (TipTap moves their element out of the editor until they are shown)
   const bubbleMenus = () => wrapper.findAllComponents({ name: 'BubbleMenu' })
 
+  it('shows the passage of an opened quality issue in its field only, until the user clicks in the field', async () => {
+    wrapper = await mountCommented()
+    await settle()
+    store.focus = { ...TARGET, key: 'finding:f1:observation', passage: { text: 'renvoyé' }, at: 1 } // Other field
+    await settle()
+    expect(wrapper.findAll('.qa-passage')).toHaveLength(0)
+    store.focus = { ...TARGET, key: 'finding:f1:description', passage: { text: 'RENVOYÉ sans' }, at: 2 }
+    await settle()
+    const passage = wrapper.find('.qa-passage')
+    expect(passage.text()).toBe('renvoyé sans')
+    expect(passage.attributes('data-qa-passage')).toBe('2')
+    await wrapper.find('.editor__content').trigger('mousedown')
+    await settle()
+    expect(wrapper.findAll('.qa-passage')).toHaveLength(0)
+    store.focus = { ...TARGET, key: 'finding:f1:description', passage: { text: 'paramètre' }, at: 3 } // Opened again
+    await settle()
+    expect(wrapper.find('.qa-passage').text()).toBe('paramètre')
+    store.focus = { ...TARGET, key: 'finding:f1:description', commentId: 'c1', at: 4 } // Comment shown
+    await settle()
+    expect(wrapper.findAll('.qa-passage')).toHaveLength(0)
+  })
+
   it('highlights the open comments on passages of the field only', async () => {
     wrapper = await mountCommented({}, 'EDIT', [
       comment('c1'),

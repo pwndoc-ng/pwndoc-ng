@@ -1,5 +1,6 @@
 // pages/audits/edit/index.vue: menu of the audit (sections, findings, review state and buttons, sort of the findings,
 // users connected with the socket, review comments counts, report). Mounted in a real router (child pages stubbed).
+import { qaFocus } from '@/services/qa'
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
@@ -719,6 +720,23 @@ describe('review comments in the menu', () => {
   it('shows no badge without open comment', async () => {
     await mountEdit({ comments: [] })
     expect(page().findAllComponents(QBadge)).toHaveLength(0)
+  })
+
+  it('shows the field and the passage of an opened quality issue (requested before the navigation, e.g. audits list)', async () => {
+    const issue = { location: { kind: 'finding', id: 'f1', field: 'cvss', passage: null } }
+    qaFocus.request = { auditId: 'a1', issue }
+    await mountEdit({ path: '/audits/a1/findings/f1' })
+    expect(qaFocus.request).toBeNull()
+    expect(vm().commentsStore.focus).toMatchObject({ kind: 'finding', findingId: 'f1', field: 'cvssv3', key: 'finding:f1:cvssv3', commentId: null, passage: null })
+    // Issue of the panel of the audit: passage of the field
+    qaFocus.request = { auditId: 'a1', issue: { location: { kind: 'section', id: 's2', field: 'text', passage: { text: 'Lorem' } } } }
+    await flushPromises()
+    expect(vm().commentsStore.focus).toMatchObject({ kind: 'section', sectionId: 's2', field: 'text', key: 'section:s2:text', passage: { text: 'Lorem' } })
+    // Issue of another audit: not shown
+    qaFocus.request = { auditId: 'other', issue }
+    await flushPromises()
+    expect(vm().commentsStore.focus.key).toBe('section:s2:text')
+    qaFocus.request = null
   })
 
   it('opens the page of a commented element', async () => {

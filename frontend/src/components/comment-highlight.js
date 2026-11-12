@@ -73,6 +73,43 @@ export function findQuote(index, quote) {
   return { from: startPos, to: endPos + 1 }
 }
 
+// Text compared to find a passage: whitespace and case ignored. Returns the text and, for each of its characters, its index
+// in the original text
+function comparableText(text) {
+  let result = ''
+  const map = []
+  for (let i = 0; i < text.length; i++) {
+    if (/\s/.test(text[i])) {
+      if (result.length && result[result.length - 1] !== ' ') {
+        result += ' '
+        map.push(i)
+      }
+      continue
+    }
+    for (const char of text[i].toLowerCase()) {
+      result += char
+      map.push(i)
+    }
+  }
+  return { text: result, map }
+}
+
+// Document range of a text (passage reported by the quality checks), whitespace and case ignored, null if not found
+export function findText(index, text) {
+  const wanted = comparableText(String(text || '')).text.trim()
+  if (!wanted) return null
+  const doc = comparableText(index.text)
+  const start = doc.text.indexOf(wanted)
+  if (start < 0) return null
+  const first = doc.map[start]
+  const last = doc.map[start + wanted.length - 1]
+  const positions = index.positions.slice(first, last + 1)
+  const startPos = positions.find(pos => pos !== null)
+  const endPos = [...positions].reverse().find(pos => pos !== null)
+  if (startPos === undefined || endPos === undefined) return null
+  return { from: startPos, to: endPos + 1 }
+}
+
 // Anchor of a commented image: its source (image id or URL), a hash for long sources (data URIs)
 export function imageAnchorKey(src) {
   if (typeof src !== 'string') return ''
@@ -119,11 +156,22 @@ export function findImage(doc, image) {
 
 export const commentHighlightKey = new PluginKey('commentHighlight')
 
-function buildDecorations(doc, comments, activeId) {
-  if (!comments || comments.length === 0) return DecorationSet.empty
+// passage: part of the field shown after opening an issue of the quality checks, {text} or {image: {src, alt}}, with its id
+function buildDecorations(doc, comments, activeId, passage) {
+  if ((!comments || comments.length === 0) && !passage) return DecorationSet.empty
   const index = docTextIndex(doc)
   const decorations = []
-  comments.forEach(comment => {
+  if (passage && passage.image) {
+    const node = findImage(doc, passage.image)
+    if (node)
+      decorations.push(Decoration.node(node.from, node.to, { class: 'qa-passage-image', 'data-qa-passage': String(passage.id) }))
+  }
+  else if (passage && passage.text) {
+    const range = findText(index, passage.text)
+    if (range)
+      decorations.push(Decoration.inline(range.from, range.to, { class: 'qa-passage', 'data-qa-passage': String(passage.id) }))
+  }
+  ;(comments || []).forEach(comment => {
     const active = comment._id === activeId
     if (comment.image) {
       const node = findImage(doc, comment.image)
@@ -144,7 +192,7 @@ function buildDecorations(doc, comments, activeId) {
   return DecorationSet.create(doc, decorations)
 }
 
-// Update highlighted comments: editor.view.dispatch(editor.state.tr.setMeta(commentHighlightKey, {comments, activeId}))
+// Update highlighted comments and passage: editor.view.dispatch(editor.state.tr.setMeta(commentHighlightKey, {comments, activeId, passage}))
 export const CommentHighlight = Extension.create({
   name: 'commentHighlight',
 
@@ -158,14 +206,14 @@ export const CommentHighlight = Extension.create({
       new Plugin({
         key: commentHighlightKey,
         state: {
-          init: () => ({ comments: [], activeId: null, decorations: DecorationSet.empty }),
+          init: () => ({ comments: [], activeId: null, passage: null, decorations: DecorationSet.empty }),
           apply(tr, value, oldState, newState) {
             const meta = tr.getMeta(commentHighlightKey)
             if (meta) {
-              return { ...meta, decorations: buildDecorations(newState.doc, meta.comments, meta.activeId) }
+              return { ...meta, decorations: buildDecorations(newState.doc, meta.comments, meta.activeId, meta.passage) }
             }
             if (tr.docChanged)
-              return { ...value, decorations: buildDecorations(newState.doc, value.comments, value.activeId) }
+              return { ...value, decorations: buildDecorations(newState.doc, value.comments, value.activeId, value.passage) }
             return value
           }
         },

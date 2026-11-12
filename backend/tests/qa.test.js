@@ -54,6 +54,24 @@ module.exports = function(request, app) {
       expect(qa.imageIds({findings: [{poc: `<p>${poc}</p>`}]}).sort()).toEqual([ID(20), ID(21)])
     })
 
+    it('Passage of the field shown when an issue is opened: link text, image, reference, highlighted text', () => {
+      var data = 'data:image/png;base64,' + 'A'.repeat(500)
+      var html = `<p><a href="#${ID(9)}">Deleted link</a> <mark data-color="#ffff00">[CLIENT]</mark></p>` +
+        `<img class="custom-image" src="${ID(21)}" alt="IMG_1234.png"><img class="custom-image" src="${data}" alt="">`
+      var settings = {report: {enabled: true, public: {highlightWarning: true, highlightWarningColors: ['#ffff00']}}}
+      var issues = qa.auditIssues({name: 'A', findings: [finding({description: html, references: ['htps://typo.example.com']})]}, {settings, existingImages: new Set([ID(21)])})
+      expect(issues.map(issue => [issue.code, issue.location.passage])).toEqual([
+        ['internalLinkBroken', {text: 'Deleted link'}],
+        ['captionFileName', {image: {src: ID(21), alt: 'IMG_1234.png'}}],
+        ['captionEmpty', {image: {src: 'hash:522:33a1db9c', alt: ''}}], // Long source: same anchor as the editors
+        ['referenceInvalid', {text: 'htps://typo.example.com'}],
+        ['highlightedText', {text: '[CLIENT]'}]
+      ])
+      expect(qa.imageAnchorKey(ID(21))).toBe(ID(21))
+      // Fields without passage: the field is shown
+      expect(qa.auditIssues({name: 'A', findings: [finding({description: ''})]}).find(issue => issue.code === 'findingNoDescription').location.passage).toBeUndefined()
+    })
+
     it('References: empty, or written as links but invalid (offline: never requested)', () => {
       var references = ['https://owasp.org/www-community/attacks/SQL_Injection', 'CWE-89', 'OWASP A03:2021', 'www.example.com/advisory', '  ',
         'htps://typo.example.com', 'https://', 'https://exa mple.com', 'javascript://alert(1)', 'ftp://files.example.com', 'http://localhost']

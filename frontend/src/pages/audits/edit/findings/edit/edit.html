@@ -14,7 +14,9 @@
             :loading="proposing"
             no-caps
             @click="backupFinding()"
-          />
+          >
+            <q-tooltip :delay="500">{{ $t('btn.backupFindingTooltip') }}</q-tooltip>
+          </q-btn>
           <!-- Review status of the last proposal made from this finding -->
           <q-chip
             v-if="findingProposal"
@@ -81,7 +83,7 @@
         <q-tab-panels
           v-model="selectedTab"
           animated
-          class="bg-transparent col-md-8 col-12 offset-md-2 q-mt-md"
+          class="bg-transparent col-md-10 col-12 offset-md-1 q-mt-md"
           @before-transition="syncEditors"
           @transition="updateOrig"
         >

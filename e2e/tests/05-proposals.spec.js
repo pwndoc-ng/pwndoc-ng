@@ -45,7 +45,7 @@ async function openFinding (page, title) {
   await expect(editorContent(page, 'Description')).toHaveAttribute('contenteditable', 'true')
 }
 
-const proposeButton = page => page.getByRole('button', { name: 'Propose Creation / Update in Vulnerability Database' })
+const proposeButton = page => page.getByRole('button', { name: 'Create / Update', exact: true })
 
 test.describe('Vulnerability proposals', () => {
   test('pentester: update of an existing vulnerability and creation of a new one proposed from findings', async ({ page }) => {

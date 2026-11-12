@@ -7,7 +7,7 @@ vi.mock('boot/axios', () => import('../../helpers/api-mock'))
 
 import { contentExtensions } from 'components/editor-extensions'
 import { encodeOption, decodeOption } from 'components/internal-link'
-import { docTextIndex, quoteFromRange, findQuote, imageAnchorKey, imageAnchorAt, findImage } from 'components/comment-highlight'
+import { docTextIndex, quoteFromRange, findQuote, findText, imageAnchorKey, imageAnchorAt, findImage, CommentHighlight, commentHighlightKey } from 'components/comment-highlight'
 
 // HTML of the editors for a corpus of contents: reference output of TipTap v3, identical to TipTap v2 except the
 // default colspan="1" rowspan="1" of the table cells, no longer written (ignored by the report generator), and the
@@ -147,5 +147,41 @@ describe('Anchors of the review comments', () => {
     expect(imageAnchorKey(data)).toBe(imageAnchorKey(data))
     expect(imageAnchorKey('6aef2c3a3b1d4e5f60718293')).toBe('6aef2c3a3b1d4e5f60718293')
     expect(imageAnchorKey(null)).toBe('')
+  })
+})
+
+describe('Passages of the quality issues', () => {
+  const HTML = '<p>Le paramètre q est renvoyé</p><p>SANS encodage.</p><img src="6aef2c3a3b1d4e5f60718293" alt="IMG_1234.png">'
+  const doc = docOf(HTML)
+
+  it('finds a text whitespace and case ignored, also across paragraphs', () => {
+    const index = docTextIndex(doc)
+    const range = findText(index, ' paramètre   Q\n EST ')
+    expect(doc.textBetween(range.from, range.to)).toBe('paramètre q est')
+    const across = findText(index, 'renvoyé sans encodage')
+    expect(doc.textBetween(across.from, across.to, ' ')).toBe('renvoyé SANS encodage')
+    expect(findText(index, 'absent du texte')).toBeNull()
+    expect(findText(index, '  ')).toBeNull()
+    expect(findText(index, null)).toBeNull()
+  })
+
+  it('decorates the passage (text or image) with its id, mapped with the changes of the document', () => {
+    const editor = new Editor({ element: document.createElement('div'), extensions: [...contentExtensions(), CommentHighlight], content: HTML })
+    const show = (passage) => editor.view.dispatch(editor.state.tr.setMeta(commentHighlightKey, { comments: [], activeId: null, passage }))
+    const decorations = () => commentHighlightKey.getState(editor.state).decorations.find()
+    show({ text: 'Q est renvoyé', id: 7 })
+    expect(decorations()).toHaveLength(1)
+    const [text] = decorations()
+    expect(editor.state.doc.textBetween(text.from, text.to)).toBe('q est renvoyé')
+    expect(text.type.attrs).toEqual({ class: 'qa-passage', 'data-qa-passage': '7' })
+    editor.commands.insertContentAt(1, 'Note : ')
+    expect(editor.state.doc.textBetween(decorations()[0].from, decorations()[0].to)).toBe('q est renvoyé')
+    show({ image: { src: '6aef2c3a3b1d4e5f60718293', alt: 'IMG_1234.png' }, id: 8 })
+    expect(decorations()[0].type.attrs).toEqual({ class: 'qa-passage-image', 'data-qa-passage': '8' })
+    show({ text: 'absent', id: 9 })
+    expect(decorations()).toHaveLength(0)
+    show(null)
+    expect(decorations()).toHaveLength(0)
+    editor.destroy()
   })
 })
