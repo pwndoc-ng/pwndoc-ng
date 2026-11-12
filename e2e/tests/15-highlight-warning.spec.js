@@ -1,9 +1,10 @@
 // Highlighted texts to replace (setting of the reports, warning only, several colors): finding marked in the menu of the audit, texts
 // listed before the generation of the report (audit page and audits list): cancelled, place opened, generated anyway.
-// Own audit (unique name, deleted at the end), setting restored at the end.
+// Quality checks disabled during this spec: the check before the generation lists the highlighted texts only.
+// Own audit (unique name, deleted at the end), settings restored at the end.
 const { test, expect } = require('@playwright/test')
 const D = require('./support/data')
-const { qInput, loginUI, apiAs, datas, ensureBaseData, ensureAudit } = require('./support/helpers')
+const { qInput, loginUI, apiAs, datas, ensureBaseData, ensureAudit, setQaChecks } = require('./support/helpers')
 
 test.describe.configure({ mode: 'serial' })
 
@@ -24,7 +25,7 @@ const ids = {}
 
 const drawer = page => page.locator('.q-drawer--left')
 const findingItem = (page, title) => drawer(page).locator('.q-item').filter({ hasText: title })
-const dialog = page => page.locator('.highlight-dialog')
+const dialog = page => page.locator('.report-check-dialog')
 
 // Warning enabled for the yellow and green highlights (red ones not reported)
 async function setWarning (enabled) {
@@ -38,6 +39,7 @@ async function setWarning (enabled) {
 test.beforeAll(async () => {
   await ensureBaseData()
   await setWarning(true)
+  await setQaChecks(false)
   const api = await apiAs(pentester)
   auditId = await ensureAudit(api, AUDIT_NAME)
   for (const finding of Object.values(FINDINGS)) {
@@ -52,6 +54,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await setWarning(false)
+  await setQaChecks(true)
   const api = await apiAs(pentester)
   await api.delete(`/api/audits/${auditId}`)
   await api.dispose()
@@ -88,7 +91,7 @@ test('generation from the audit: texts listed, cancelled, place opened, then gen
 
   // Place of the text opened from the list
   await download()
-  await dialog(page).locator('.highlight-item').filter({ hasText: '[CLIENT NAME]' }).click()
+  await dialog(page).locator('.report-check-item').filter({ hasText: '[CLIENT NAME]' }).click()
   await expect(page).toHaveURL(new RegExp(`/audits/${auditId}/findings/${ids.highlighted}$`))
   await expect(qInput(page, 'Title *')).toHaveValue(FINDINGS.highlighted.title)
   expect(generations).toHaveLength(0)

@@ -20,6 +20,8 @@ export default {
             // Number of the last loading of the settings (reloaded after a revert or an import)
             settingsRequest: 0,
             findingCustomFieldLabels: [], // Labels of findings custom fields usable in the sidebar template
+            // Quality checks of the settings (backend lib/qa.js)
+            qaChecks: ['completeness', 'comments', 'internalLinks', 'images', 'references', 'duplicates'],
             spellcheckWords: [], // Words ignored by the spell checker: proposed (pending) and approved
             spellcheckNewWord: ''
         }

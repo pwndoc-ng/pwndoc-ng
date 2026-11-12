@@ -100,3 +100,13 @@ The left side is the current Vulnerability
 The right side has multiple tabs, each representing change requests made by users. There is syntax highlighting to make it easier to spot differences.
 
 The admin user must manually make changes in the left side with what he wants from the right side. When clicking the Update button the left side will be saved and all update requests from the right side will be deleted.
+
+## Quality check
+
+The *Database quality check* button (users with the `vulnerabilities:update` permission) lists the issues of the vulnerability database, without AI and without opening any link:
+
+- same titles in a language, case, accents and punctuation ignored (`SQL Injection` and `sql-injection`), and very similar titles;
+- images not found, captions empty or left as file names;
+- references written as links but invalid (never requested).
+
+A click opens the vulnerability. The checks are chosen in *Settings > Quality check*.

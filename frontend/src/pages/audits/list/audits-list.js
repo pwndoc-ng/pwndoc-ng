@@ -3,8 +3,9 @@ import { Dialog, Notify, QSpinnerGears } from 'quasar';
 import AuditStateIcon from 'components/audit-state-icon'
 import Breadcrumb from 'components/breadcrumb'
 
-import AuditService, { errorMessage, highlightWarningEnabled } from '@/services/audit'
-import HighlightWarningDialog from 'components/highlight-warning-dialog'
+import AuditService, { errorMessage } from '@/services/audit'
+import ReportCheckDialog from 'components/report-check-dialog'
+import { qaEnabled } from '@/services/qa'
 import DataService from '@/services/data'
 import CompanyService from '@/services/company'
 import UserService from '@/services/user'
@@ -83,7 +84,7 @@ export default {
     components: {
         AuditStateIcon,
         Breadcrumb,
-        HighlightWarningDialog
+        ReportCheckDialog
     },
 
     mounted: function() {
@@ -316,9 +317,9 @@ export default {
             if (this.reportsPending.includes(auditId) || (event && event.detail > 1))
                 return
             this.reportsPending.push(auditId)
-            // Texts highlighted in the warning color (generic texts to replace), when enabled: listed, the report generated
-            // if confirmed. Generated at once otherwise
-            var generation = !highlightWarningEnabled(this.$settings) ? this.downloadReport(auditId) : this.$refs.highlightWarning.confirm(auditId)
+            // Errors and warnings of the quality checks (highlighted texts included), when enabled: listed, the report
+            // generated if confirmed. Generated at once otherwise
+            var generation = !qaEnabled(this.$settings) ? this.downloadReport(auditId) : this.$refs.reportCheck.confirm(auditId)
                 .then((generate) => generate ? this.downloadReport(auditId) : null)
             generation.finally(() => {
                 this.reportsPending = this.reportsPending.filter(id => id !== auditId)

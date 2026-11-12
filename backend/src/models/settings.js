@@ -68,6 +68,19 @@ const SettingSchema = new Schema({
             removeApprovalsUponUpdate: { type: Boolean, default: false }
         }
     },
+    // Quality checks of the audits and of the vulnerability database, without AI and without network request (lib/qa.js)
+    qa: {
+        public: {
+            checks: {
+                completeness: { type: Boolean, default: true }, // Findings without description, remediation, CVSS, still in redaction; empty sections
+                comments: { type: Boolean, default: true }, // Review comments not resolved
+                internalLinks: { type: Boolean, default: true }, // Links to deleted findings
+                images: { type: Boolean, default: true }, // Images not found, captions empty or left as file names
+                references: { type: Boolean, default: true }, // References written as links but invalid (never requested)
+                duplicates: { type: Boolean, default: true } // Duplicated or similar titles in the vulnerability database
+            }
+        }
+    },
     danger: {
       enabled: { type: Boolean, default: false },
       public: {
@@ -111,7 +124,7 @@ SettingSchema.statics.getAll = () => {
 SettingSchema.statics.getPublic = () => {
     return new Promise((resolve, reject) => {
         const query = Settings.findOne({});
-        query.select('-_id report.enabled report.public reviews.enabled reviews.public danger.enabled danger.public');
+        query.select('-_id report.enabled report.public reviews.enabled reviews.public danger.enabled danger.public qa.public');
         query.exec()
             .then(settings => resolve(settings))
             .catch(err => reject(err));

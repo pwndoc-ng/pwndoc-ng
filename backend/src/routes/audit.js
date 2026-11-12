@@ -9,6 +9,7 @@ module.exports = function(app, io) {
     var Settings = require('mongoose').model('Settings');
     var Image = require('mongoose').model('Image');
     var highlights = require('../lib/highlights');
+    var qa = require('../lib/qa');
 
     // Images of the content written to the audit (copied from another audit the user can read) readable by its users
     var grantImages = (req) => Image.grantReferenced(req.body, req.params.auditId, req.decodedToken.id, acl.isAllowed(req.decodedToken.role, 'audits:read-all'));
@@ -153,6 +154,39 @@ module.exports = function(app, io) {
         catch (err) {
             Response.Internal(res, err);
         }
+    });
+
+    // Quality checks of the audit (lib/qa.js, without network request): {issues, ignored (issues ignored by the users)}
+    app.get("/api/audits/:auditId/qa", acl.hasPermission('audits:read'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+
+        try {
+            var audit = await Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id);
+            var settings = await Settings.getAll();
+            var comments = await Audit.getComments(req.params.auditId);
+            var data = audit.toObject();
+            var ids = qa.imageIds(data);
+            var existingImages = new Set((await Image.find({_id: {$in: ids}}).select('_id').lean()).map(image => String(image._id)));
+            var issues = qa.auditIssues(data, {settings: settings, comments: comments, existingImages: existingImages});
+            var ignored = new Set((audit.qaIgnored || []).map(item => item.fingerprint));
+            Response.Ok(res, {issues: issues.filter(item => !ignored.has(item.fingerprint)), ignored: issues.filter(item => ignored.has(item.fingerprint))});
+        }
+        catch (err) {
+            Response.Internal(res, err);
+        }
+    });
+
+    // Issue of the quality checks ignored or no longer ignored: {fingerprint, ignored}
+    app.put("/api/audits/:auditId/qa/ignored", acl.hasPermission('audits:update'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
+        if (typeof req.body.fingerprint !== 'string' || !/^[a-f0-9]{20}$/.test(req.body.fingerprint) || typeof req.body.ignored !== 'boolean') {
+            Response.BadParameters(res, 'Required parameters: fingerprint, ignored (boolean)');
+            return;
+        }
+        Audit.setQaIgnored(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, req.body.fingerprint, req.body.ignored)
+        .then(msg => Response.Ok(res, msg))
+        .catch(err => Response.Internal(res, err));
     });
 
     // Get audit general information

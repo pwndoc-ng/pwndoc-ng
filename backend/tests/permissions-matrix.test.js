@@ -231,6 +231,7 @@ module.exports = function(request, app) {
         // Vulnerabilities and proposals (src/routes/vulnerability.js)
         ['get', '/api/vulnerabilities', 'vulnerabilities:read', 200],
         ['get', '/api/vulnerabilities/export', 'vulnerabilities:read', 200],
+        ['get', '/api/vulnerabilities/qa', 'vulnerabilities:update', 200],
         ['post', '/api/vulnerabilities', 'vulnerabilities:create', 422, {body: [{}]}],
         ['put', `/api/vulnerabilities/${FAKE_ID}`, 'vulnerabilities:update', 404, {body: {details: [{locale: 'en', title: 'perm-unknown'}]}}],
         ['put', `/api/vulnerabilities/${FAKE_ID}/archive`, 'vulnerabilities:update', 404, {body: {archived: true}}],
@@ -275,6 +276,8 @@ module.exports = function(request, app) {
         ['put', `/api/audits/${FAKE_ID}/comments/${FAKE_ID}`, 'audits:read', 404, {body: {resolved: true}}],
         ['delete', `/api/audits/${FAKE_ID}/comments/${FAKE_ID}`, 'audits:read', 404],
         ['get', `/api/audits/${FAKE_ID}/highlights`, 'audits:read', 404],
+        ['get', `/api/audits/${FAKE_ID}/qa`, 'audits:read', 404],
+        ['put', `/api/audits/${FAKE_ID}/qa/ignored`, 'audits:update', 404, {body: {fingerprint: 'a'.repeat(20), ignored: true}}],
 
         // Backups (src/routes/backup.js)
         ['get', '/api/backups', 'backups:read', 200],

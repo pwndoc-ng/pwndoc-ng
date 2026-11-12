@@ -46,6 +46,11 @@ module.exports = function(request, app) {
             "blockApprovalWithOpenComments": false,
           },
         },
+        "qa": {
+          "public": {
+            "checks": {"completeness": true, "comments": true, "internalLinks": true, "images": true, "references": true, "duplicates": true},
+          },
+        },
         "danger": { 
           "enabled": false,
           "public": {
@@ -99,6 +104,11 @@ module.exports = function(request, app) {
             "mandatoryReview": false,
             "minReviewers": 1,
             "blockApprovalWithOpenComments": false,
+          },
+        },
+        "qa": {
+          "public": {
+            "checks": {"completeness": true, "comments": true, "internalLinks": true, "images": true, "references": true, "duplicates": true},
           },
         },
         "danger": { 
@@ -185,6 +195,11 @@ module.exports = function(request, app) {
               "mandatoryReview": true,
               "minReviewers": 2,
               "blockApprovalWithOpenComments": true,
+            },
+          },
+          "qa": {
+            "public": {
+              "checks": {"completeness": false, "comments": true, "internalLinks": false, "images": true, "references": true, "duplicates": false},
             },
           },
           "danger": { 

@@ -529,6 +529,35 @@ describe('highlighted texts warning', () => {
   })
 })
 
+describe('quality checks', () => {
+  const CHECKS = { completeness: true, comments: true, internalLinks: true, images: true, references: true, duplicates: true }
+
+  it('enables and disables each check of the quality checks', async () => {
+    const settings = SETTINGS()
+    settings.qa = { public: { checks: { ...CHECKS } } }
+    await mountPage({ settings })
+    const items = wrapper.findAll('.qa-settings .qa-check')
+    expect(items.map((item) => item.text())).toEqual([
+      expect.stringContaining('Completeness'), expect.stringContaining('Review comments'), expect.stringContaining('Links between findings'),
+      expect.stringContaining('Images'), expect.stringContaining('References'), expect.stringContaining('Duplicated vulnerabilities')
+    ])
+    expect(wrapper.find('.qa-settings').text()).toContain('Links are never opened')
+    await items[2].findComponent(QToggle).trigger('click')
+    expect(wrapper.vm.settings.qa.public.checks.internalLinks).toBe(false)
+    const update = vi.spyOn(SettingsService, 'updateSettings').mockResolvedValue({})
+    wrapper.vm.updateSettings()
+    await flushPromises()
+    expect(update.mock.calls[0][0].qa.public.checks).toEqual({ ...CHECKS, internalLinks: false })
+  })
+
+  it('is read only for the users allowed to read the settings only', async () => {
+    const settings = SETTINGS()
+    settings.qa = { public: { checks: { ...CHECKS } } }
+    await mountPage({ settings, roles: ['settings:read'] })
+    expect(wrapper.findAll('.qa-settings .qa-check').every((item) => item.findComponent(QToggle).props('disable'))).toBe(true)
+  })
+})
+
 describe('words ignored by the spell checker', () => {
   const WORDS = () => [
     { _id: 'w1', word: 'Nmap', status: 'pending', proposedBy: { username: 'jdoe', firstname: 'John', lastname: 'Doe' } },

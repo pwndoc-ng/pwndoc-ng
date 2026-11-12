@@ -423,6 +423,32 @@
             </div>
         </q-card>
 
+<!-- Quality checks START -->
+        <q-card v-if="UserService.isAllowed('settings:read') && settings.qa" class="q-my-md qa-settings">
+            <q-card-section class="q-py-none bg-blue-grey-5 text-white">
+                <q-item style="padding:0px;">
+                    <q-item-section>
+                        <div class="text-h6">{{$t('qa.title')}}</div>
+                    </q-item-section>
+                </q-item>
+            </q-card-section>
+            <q-card-section>
+                <div class="text-grey-8">{{$t('qa.settingsDescription')}}</div>
+                <q-list>
+                    <q-item v-for="check in qaChecks" :key="check" tag="label" class="qa-check">
+                        <q-item-section side>
+                            <q-toggle v-model="settings.qa.public.checks[check]" :disable="!canEdit" />
+                        </q-item-section>
+                        <q-item-section>
+                            <q-item-label>{{$t(`qa.checks.${check}`)}}</q-item-label>
+                            <q-item-label caption>{{$t(`qa.checksDescription.${check}`)}}</q-item-label>
+                        </q-item-section>
+                    </q-item>
+                </q-list>
+            </q-card-section>
+        </q-card>
+<!-- Quality checks END -->
+
 <!-- Words ignored by the spell checker START -->
         <q-card v-if="UserService.isAllowed('spellcheck-words:update')" class="q-my-md spellcheck-words">
             <q-card-section class="q-py-none bg-blue-grey-5 text-white">

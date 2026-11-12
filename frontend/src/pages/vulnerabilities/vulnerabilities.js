@@ -8,6 +8,8 @@ import CustomFields from 'components/custom-fields'
 import ProposalsList from 'components/proposals-list'
 
 import VulnerabilityService from '@/services/vulnerability'
+import { SEVERITY_ICONS, issueMessage, issuePlace, issueCounts } from '@/services/qa'
+import { errorMessage } from '@/services/audit'
 import DataService from '@/services/data'
 import UserService from '@/services/user'
 import Utils from '@/services/utils'
@@ -20,6 +22,8 @@ export default {
             UserService: UserService,
             // Vulnerabilities list
             vulnerabilities: [],
+            // Quality checks of the vulnerability database (dialog)
+            qa: {show: false, loading: false, loaded: false, error: '', issues: []},
             currentDetailsIndex:0,
             // Loading state
             loading: true,
@@ -116,6 +120,10 @@ export default {
     },
 
     computed: {
+        // Errors, warnings and information of the quality checks of the vulnerability database
+        qaSummary: function() {
+            return $t('qa.summaryInfo', issueCounts(this.qa.issues))
+        },
         lenCurrentTitle: function() {
             return this.currentVulnerability.details[this.currentDetailsIndex].title.length
         },
@@ -368,6 +376,47 @@ export default {
             })
             .onOk(() => this.deleteVulnerability(row._id))
         },
+
+        /* Quality checks of the vulnerability database */
+
+        openQa: function() {
+            this.qa.show = true
+            this.loadQa()
+        },
+
+        loadQa: function() {
+            this.qa.loading = true
+            return VulnerabilityService.getVulnerabilitiesQa()
+            .then((data) => {
+                this.qa.issues = data.data.datas.issues
+                this.qa.error = ''
+                this.qa.loaded = true
+            })
+            .catch((err) => {
+                this.qa.error = errorMessage(err)
+            })
+            .finally(() => {
+                this.qa.loading = false
+            })
+        },
+
+        // Vulnerability of an issue opened (edition, or proposals of a vulnerability updated)
+        openQaIssue: function(issue) {
+            var row = this.vulnerabilities.find((vulnerability) => vulnerability._id === issue.location.id)
+            if (!row)
+                return
+            this.qa.show = false
+            if (row.status === 2)
+                this.openVulnerabilityProposals(row)
+            else {
+                this.clone(row)
+                this.$refs.editModal.show()
+            }
+        },
+
+        qaIcon: (issue) => SEVERITY_ICONS[issue.severity] || SEVERITY_ICONS.info,
+        qaMessage: (issue) => issueMessage(issue),
+        qaPlace: (issue) => issuePlace(issue),
 
         clone: function(row) {
             this.cleanCurrentVulnerability();

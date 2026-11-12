@@ -36,6 +36,16 @@ export default {
     return  api.delete(`audits/${auditId}`)
   },
 
+  // Quality checks of the audit: {issues, ignored}
+  getAuditQa: function(auditId) {
+    return  api.get(`audits/${auditId}/qa`)
+  },
+
+  // Issue of the quality checks ignored (for all the users of the audit) or restored
+  setAuditQaIgnored: function(auditId, fingerprint, ignored) {
+    return  api.put(`audits/${auditId}/qa/ignored`, {fingerprint: fingerprint, ignored: ignored})
+  },
+
   // Texts highlighted with the warning colors of the settings (generic texts to replace): {enabled, colors, items}
   getAuditHighlights: function(auditId) {
     return  api.get(`audits/${auditId}/highlights`)
