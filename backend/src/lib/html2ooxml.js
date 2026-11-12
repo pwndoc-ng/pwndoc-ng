@@ -62,6 +62,23 @@ const LINK_BEGIN_MARKER = /<w:r><w:t xml:space="preserve">\u0001L(\d+)\u0001<\/w
 const LINK_END_MARKER = /<w:r><w:t xml:space="preserve">\u0001E\u0001<\/w:t><\/w:r>/g;
 const escapeXml = (value) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
+// Name of a Word bookmark (filters bookmarkCreate, bookmarkLink, bookmarkRef of the templates and internal links of the
+// editors): letters, digits and underscores (other characters replaced by underscores), beginning with a letter as
+// required by Word ("B_" added otherwise, e.g. identifiers of the findings), 40 characters at most (limit of Word)
+const bookmarkName = (value) => {
+  let name = String(value).replace(/[^a-zA-Z0-9_]/g, '_');
+  if (!/^[a-zA-Z]/.test(name)) name = `B_${name}`;
+  return name.substring(0, 40);
+};
+
+// Instruction of the HYPERLINK field of a link: link to a place of the document (internal link "#<name>" of the editors,
+// e.g. to a finding: \l switch, bookmark name as created by bookmarkCreate) or to an address (quoted, \ and " escaped)
+function hyperlinkInstruction(href) {
+  if (href.startsWith('#'))
+    return `HYPERLINK \\l "${bookmarkName(href.substring(1))}"`;
+  return `HYPERLINK "${escapeXml(href.replace(/\\/g, '\\\\').replace(/"/g, '\\"'))}"`;
+}
+
 // Default width (px) of a column whose width was not chosen in the editor
 const DEFAULT_COLUMN_WIDTH = 250;
 // Width of the table grid in twips (text width of an A4 page with 2 cm margins): the table is at full width (100 %), the
@@ -477,10 +494,10 @@ let filteredXml = prepXml["w:body"].filter((e) => {
 
   let dataXml = xml(filteredXml);
   dataXml = dataXml.replace(/w:numId w:val="{(\d+)-0}"/g, 'w:numId w:val="$1"'); // Replace numbering to have correct value
-  // HYPERLINK fields: target quoted in the field instruction (\ and " escaped), then escaped for XML
+  // HYPERLINK fields
   dataXml = dataXml.replace(LINK_BEGIN_MARKER, (match, index) =>
     '<w:r><w:fldChar w:fldCharType="begin"/></w:r>' +
-    `<w:r><w:instrText xml:space="preserve"> HYPERLINK "${escapeXml(links[index].replace(/\\/g, '\\\\').replace(/"/g, '\\"'))}" </w:instrText></w:r>` +
+    `<w:r><w:instrText xml:space="preserve"> ${hyperlinkInstruction(links[index])} </w:instrText></w:r>` +
     '<w:r><w:fldChar w:fldCharType="separate"/></w:r>');
   dataXml = dataXml.replace(LINK_END_MARKER, '<w:r><w:fldChar w:fldCharType="end"/></w:r>');
   return dataXml;
@@ -488,3 +505,4 @@ let filteredXml = prepXml["w:body"].filter((e) => {
 
 module.exports = html2ooxml;
 module.exports.TABLE_STYLE = TABLE_STYLE;
+module.exports.bookmarkName = bookmarkName;

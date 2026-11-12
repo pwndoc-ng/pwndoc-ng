@@ -1,10 +1,9 @@
 import { Extension } from '@tiptap/core'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
-import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import { Mapping } from '@tiptap/pm/transform'
 import { debounce } from 'lodash'
 import { v4 as uuidv4 } from 'uuid'
-import { Dexie } from 'dexie'
 import { ref } from 'vue';
 //this pluguin is based on https://github.com/sereneinserenade/tiptap-languagetool/ integration
 export var LanguageToolHelpingWords
@@ -13,22 +12,6 @@ export var LanguageToolHelpingWords
   LanguageToolHelpingWords['MatchUpdatedTransactionName'] = 'matchUpdated'
   LanguageToolHelpingWords['LoadingTransactionName'] = 'languageToolLoading'
 })(LanguageToolHelpingWords || (LanguageToolHelpingWords = {}))
-
-// Singleton DB to avoid creating multiple instances
-let sharedDb = null;
-const getDb = (documentId) => {
-  if (sharedDb) return sharedDb;
-  
-  sharedDb = new Dexie('LanguageToolIgnoredSuggestions');
-  sharedDb.version(1).stores({
-    ignoredWords: `
-      ++id,
-      &value,
-      documentId
-    `,
-  });
-  return sharedDb;
-};
 
 // Utility function for text selection
 const selectElementText = (el) => {
@@ -78,13 +61,23 @@ export function changedDescendants(old, cur, offset, f) {
   }
 }
 
+// Decoration of a match: the match is kept in its spec (suggestion menu of the selected match)
 const gimmeDecoration = (from, to, match) =>
   Decoration.inline(from, to, {
     class: `lt lt-${match.rule.issueType}`,
     nodeName: 'span',
     'data-match': JSON.stringify(match),
     uuid: uuidv4(),
-  })
+  }, { match })
+
+// Match of a selection (suggestion menu): text selected inside a decorated match, null otherwise (empty selection, text
+// without match, selection larger than the match)
+export const selectionMatch = (decorationSet, selection) => {
+  if (!decorationSet || selection.empty) return null
+  const decoration = decorationSet.find(selection.from, selection.to)
+    .find((deco) => deco.spec.match && deco.from <= selection.from && deco.to >= selection.to)
+  return decoration ? decoration.spec.match : null
+}
 
 const moreThan500Words = (s) => s.trim().split(/\s+/).length >= 500
 
@@ -99,7 +92,9 @@ export const LanguageTool = Extension.create({
       language: 'auto',
       apiUrl:'http://127.0.0.1:8010/v2/check',
       automaticMode: true,
-      documentId: undefined,
+      // Words not reported (approved words ignored by the spell checker): function returning them in lower case (array, or
+      // promise of an array)
+      ignoredWords: () => [],
       // Parameters for optimization (reduced to ensure triggering)
       debounceDelay: 800,         // Shorter debounce delay
       minTextLengthForCheck: 3,   // Very low minimum text threshold
@@ -114,8 +109,6 @@ export const LanguageTool = Extension.create({
       editorView: null,
       apiUrl: null,
       decorationSet: null,
-      db: null,
-      extensionDocId: null,
       textNodesWithPosition: [],
       proofReadInitially: false,
       editorId: uuidv4(),          // Unique ID for each editor instance
@@ -136,27 +129,6 @@ export const LanguageTool = Extension.create({
         // TODO: implement toggling proofreading
         return false;
       },
-      ignoreLanguageToolSuggestion: () => ({ editor }) => {
-        const storage = this.storage;
-        
-        if (this.options.documentId === undefined)
-          throw new Error('Please provide a unique Document ID(number|string)')
-          
-        const { selection, doc } = editor.state
-        const { from, to } = selection
-        
-        storage.decorationSet = storage.decorationSet.remove(
-          storage.decorationSet.find(from, to)
-        )
-        
-        const content = doc.textBetween(from, to)
-        storage.db.ignoredWords.add({ 
-          value: content, 
-          documentId: `${storage.extensionDocId}` 
-        })
-        
-        return false;
-      },
     }
   },
   
@@ -164,12 +136,23 @@ export const LanguageTool = Extension.create({
     // Initialisation avec les valeurs des options
     const storage = this.storage;
     storage.apiUrl = this.options.apiUrl;
-    
-    // Initialize shared database
-    if (this.options.documentId) {
-      storage.extensionDocId = this.options.documentId;
-      storage.db = getDb(this.options.documentId);
-    }
+
+    // Ignored words in lower case (none if they cannot be loaded)
+    const ignoredWords = this.options.ignoredWords;
+    storage.ignoredWords = async () => {
+      try {
+        return new Set(await ignoredWords());
+      } catch (error) {
+        return new Set();
+      }
+    };
+    // Matches to show: matches whose text is not an ignored word
+    storage.reportedMatches = async (doc, matches, offset) => {
+      const ignored = await storage.ignoredWords();
+      return matches
+        .map((match) => ({ from: match.offset + offset, to: match.offset + offset + match.length, match }))
+        .filter(({ from, to }) => !ignored.has(doc.textBetween(from, to).toLowerCase()));
+    };
     
     // Move cleanupEventListeners to storage
     storage.cleanupEventListeners = () => {
@@ -177,9 +160,6 @@ export const LanguageTool = Extension.create({
         storage.currentDecoElements.forEach(el => {
           if (el._mouseEnterListener) {
             el.removeEventListener('click', el._mouseEnterListener);
-          }
-          if (el._mouseLeaveListener) {
-            el.removeEventListener('mouseleave', el._mouseLeaveListener);
           }
         });
         storage.currentDecoElements.clear();
@@ -199,7 +179,7 @@ export const LanguageTool = Extension.create({
   },
   
   addProseMirrorPlugins() {
-    const { apiUrl, documentId, automaticMode, debounceDelay, minTextLengthForCheck, checkThrottle } = this.options;
+    const { apiUrl, automaticMode, debounceDelay, minTextLengthForCheck, checkThrottle } = this.options;
     const storage = this.storage;
     
     // Add editor to active instances registry
@@ -231,18 +211,6 @@ export const LanguageTool = Extension.create({
       }
     };
     
-    // Update match
-    storage.updateMatch = (m) => {
-      if (!storage.editorView) return;
-      
-      storage.editorView.dispatch(
-        storage.editorView.state.tr.setMeta(
-          LanguageToolHelpingWords.MatchUpdatedTransactionName,
-          m
-        )
-      );
-    };
-    
     // Optimized event listener management
     storage.addEventListenersToDecorations = () => {
       if (!storage.editorView) return;
@@ -255,25 +223,21 @@ export const LanguageTool = Extension.create({
       if (!decos.length) return;
       
       decos.forEach((el) => {
-        // Create listeners only once per element
+        // Click on a match: its text selected in the editor, which shows the suggestion menu of the match
         const mouseEnterListener = (e) => {
-          if (!e.target) return;
+          if (!e.target || !storage.editorView) return;
           selectElementText(e.target);
-          const matchString = e.target.getAttribute('data-match');
-          if (matchString) storage.updateMatch(JSON.parse(matchString));
-          else storage.updateMatch(undefined);
-        };
-        
-        const mouseLeaveListener = () => {
-          storage.updateMatch(undefined);
+          const view = storage.editorView;
+          const from = view.posAtDOM(e.target, 0);
+          const to = from + e.target.textContent.length;
+          if (from >= 0 && to <= view.state.doc.content.size)
+            view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)));
         };
         
         // Store references to clean them up later
         el._mouseEnterListener = mouseEnterListener;
-        el._mouseLeaveListener = mouseLeaveListener;
         
         el.addEventListener('click', mouseEnterListener);
-        el.addEventListener('mouseleave', mouseLeaveListener);
         
         // Add to current elements set
         storage.currentDecoElements.add(el);
@@ -325,23 +289,7 @@ export const LanguageTool = Extension.create({
       
         if (!storage.editorView) return; // In case the editor was destroyed in the meantime
       
-        const nodeMatches = [];
-      
-        for (const match of ltRes.matches) {
-          const from = match.offset + offset;
-          const to = from + match.length;
-        
-          if (storage.extensionDocId) {
-            const content = requestDoc.textBetween(from, to);
-            const result = await storage.db.ignoredWords.get({ 
-              value: content, 
-              documentId: storage.extensionDocId 
-            });
-            if (!result) nodeMatches.push({ from, to, match });
-          } else {
-            nodeMatches.push({ from, to, match });
-          }
-        }
+        const nodeMatches = await storage.reportedMatches(requestDoc, ltRes.matches, offset);
       
         if (!storage.editorView) return; // Check again if the editor still exists
       
@@ -490,23 +438,7 @@ export const LanguageTool = Extension.create({
         
         if (!storage.editorView) return; // In case the editor was destroyed in the meantime
         
-        const { matches } = ltRes;
-        const chunkMatches = [];
-        
-        for (const match of matches) {
-          const from = match.offset + originalFrom;
-          const to = from + match.length;
-          
-          if (storage.extensionDocId) {
-            const content = doc.textBetween(from, to);
-            const result = await storage.db.ignoredWords.get({ 
-              value: content 
-            });
-            if (!result) chunkMatches.push({ from, to, match });
-          } else {
-            chunkMatches.push({ from, to, match });
-          }
-        }
+        const chunkMatches = await storage.reportedMatches(doc, ltRes.matches, originalFrom);
         
         if (!storage.editorView) return; // Check again if editor still exists
         
@@ -570,19 +502,17 @@ export const LanguageTool = Extension.create({
           },
           apply: (tr, oldPluginState, oldEditorState) => {
             if (tr.docChanged) storage.pendingMappings.forEach((mapping) => mapping.appendMapping(tr.mapping));
-            const matchUpdated = tr.getMeta(LanguageToolHelpingWords.MatchUpdatedTransactionName);
             const loading = tr.getMeta(LanguageToolHelpingWords.LoadingTransactionName);
             
             if (loading !== undefined) {
               storage.loading.value = loading;
             }
             
-            if (matchUpdated !== undefined) {
-              storage.match.value = matchUpdated;
-            }
-            
             const languageToolDecorations = tr.getMeta(LanguageToolHelpingWords.LanguageToolTransactionName);
-            if (languageToolDecorations) return storage.decorationSet;
+            if (languageToolDecorations) {
+              storage.match.value = selectionMatch(storage.decorationSet, tr.selection);
+              return storage.decorationSet;
+            }
             
             // Check document changes
             if (tr.docChanged && automaticMode && storage.editorView) {
@@ -601,6 +531,8 @@ export const LanguageTool = Extension.create({
             
             // Update decorations based on document changes
             storage.decorationSet = storage.decorationSet.map(tr.mapping, tr.doc);
+            // Match of the selection: suggestion menu shown while text of a match is selected
+            storage.match.value = selectionMatch(storage.decorationSet, tr.selection);
             
             return storage.decorationSet;
           },

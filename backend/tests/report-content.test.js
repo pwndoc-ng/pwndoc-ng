@@ -675,6 +675,50 @@ module.exports = function(request, app) {
         expect((await generateTemplate(['{findings | unknownFilter}'])).body.datas).toMatch(/findings \| unknownFilter/)
       })
 
+      // Internal links inserted by the ":::" menu of the editors (<a href="#<id of the finding>">) to the bookmark created
+      // by the template for each finding (README): {@unique_id | bookmarkCreate | p}
+      describe('Internal links between findings', () => {
+        var source, target, description
+        var bookmarks = (xml) => [...xml.matchAll(/<w:bookmarkStart w:id="\d+" w:name="([^"]+)"\/>/g)].map(m => m[1])
+        // Bookmarks targeted by the links to a place in the document (the critical finding also links to OWASP)
+        var linkTargets = (xml) => [...xml.matchAll(/<w:instrText[^>]*> HYPERLINK \\l "([^"]*)" <\/w:instrText>/g)].map(m => m[1])
+        var template = (bookmark) => ['START', '{#findings}', `{@${bookmark} | bookmarkCreate | p}`, '{-w:p description}{@text | convertHTML}{/description}', '{/findings}', 'END']
+
+        beforeAll(async () => {
+          var findings = (await request(app).get(`/api/audits/${auditId}`).set('Cookie', creatorCookie)).body.datas.findings
+          target = findings.find(f => f.title === findingTitles.low)
+          source = findings.find(f => f.title === findingTitles.high)
+          description = source.description
+          // Description as written by the editor after the choice of a finding in the menu
+          var response = await request(app).put(`/api/audits/${auditId}/findings/${source._id}`).set('Cookie', creatorCookie)
+            .send({description: `<p>See <a target="_blank" rel="noopener noreferrer nofollow" href="#${target._id}">${target.title}</a> </p>`})
+          expect(response.status).toBe(200)
+        })
+        afterAll(async () => {
+          await request(app).put(`/api/audits/${auditId}/findings/${source._id}`).set('Cookie', creatorCookie).send({description: description})
+        })
+
+        it('The link targets the bookmark of the linked finding, a place in the document (\\l switch, as written by Word)', async () => {
+          var {xml} = await generateWith(template('unique_id'))
+          expect(linkTargets(xml)).toEqual([`B_${target._id}`])
+          expect(bookmarks(xml)).toContain(`B_${target._id}`)
+          expect(xml).not.toContain(`HYPERLINK "#`)
+        })
+
+        it('The bookmark names begin with a letter (rule of Word, docs/docxtemplate.md)', async () => {
+          var {xml} = await generateWith(template('unique_id'))
+          expect(bookmarks(xml)).toHaveLength(5)
+          expect(bookmarks(xml).filter(name => !/^[A-Za-z]/.test(name))).toEqual([])
+        })
+
+        it('Links of a bookmarkLink filter of the template reach the same bookmarks', async () => {
+          var {xml} = await generateWith(['START', '{#findings}', '{@title | bookmarkLink: unique_id | p}', '{/findings}', '{#findings}', '{@unique_id | bookmarkCreate | p}', '{/findings}', 'END'])
+          var anchors = [...xml.matchAll(/<w:hyperlink w:anchor="([^"]+)">/g)].map(m => m[1])
+          expect(anchors).toHaveLength(5)
+          expect(bookmarks(xml)).toEqual(anchors)
+        })
+      })
+
       // Last test: deletes custom fields used by the audit, the findings and the section
       it('Custom fields deleted: report generated, their values left out', async () => {
         var template = ['START', '{-w:p rptnotes}{@text | convertHTML}{/rptnotes}', '{#findings | where: \'cvss.baseSeverity == "Critical"\'}',

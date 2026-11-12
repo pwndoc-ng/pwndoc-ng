@@ -344,6 +344,23 @@ module.exports = function() {
         expect(bookmark).toMatch(/^<w:bookmarkStart w:id="\d+" w:name="VULN_1__"\/><w:bookmarkEnd w:id="\d+"\/>$/)
         expect(evaluate("t | bookmarkLink: id", {t: 'See', id: 'VULN-1 ' + 'x'.repeat(50)})).toContain(`w:anchor="VULN_1_${'x'.repeat(33)}"`)
       })
+
+      it('Bookmark names begin with a letter (Word): identifiers of the findings prefixed, the same for the three filters', () => {
+        var id = '6af573f15a4b2128f82dfede'
+        expect(evaluate("t | bookmarkCreate", {t: id})).toContain(`w:name="B_${id}"`)
+        expect(evaluate("t | bookmarkLink: id", {t: 'See', id: id})).toContain(`w:anchor="B_${id}"`)
+        expect(evaluate("t | bookmarkRef", {t: id})).toContain(` REF B_${id} \\h `)
+        expect(evaluate("t | bookmarkCreate", {t: '_Toc1'})).toContain('w:name="B__Toc1"')
+        expect(evaluate("t | bookmarkCreate", {t: '1'.repeat(50)})).toContain(`w:name="B_${'1'.repeat(38)}"`) // 40 characters
+      })
+
+      it('Texts of the bookmark filters escaped (titles with XML characters)', () => {
+        var title = 'SQL <login> & "search"'
+        expect(evaluate("t | bookmarkCreate: id", {t: title, id: 'x'})).toContain('<w:t xml:space="preserve">SQL &lt;login&gt; &amp; "search"</w:t>')
+        expect(evaluate("t | bookmarkLink: id", {t: title, id: 'x'})).toContain('<w:t xml:space="preserve">SQL &lt;login&gt; &amp; "search"</w:t>')
+        expect(evaluate("t | bookmarkRef", {t: title})).toContain('<w:t xml:space="preserve">SQL &lt;login&gt; &amp; "search"</w:t>')
+        expect(evaluate("t | bookmarkCreate", {t: 7})).toContain('w:name="B_7"') // Number
+      })
     })
   })
 }

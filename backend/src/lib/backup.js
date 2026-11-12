@@ -55,7 +55,7 @@ var BATCH_SIZE = 16 * 1024 * 1024; // ... or less: total size of their text
 
 // Collections of the backups, in restore order
 var MODELS = [
-    'Settings', 'Language', 'AuditType', 'VulnerabilityType', 'VulnerabilityCategory', 'CustomField', 'CustomSection',
+    'Settings', 'Language', 'AuditType', 'VulnerabilityType', 'VulnerabilityCategory', 'CustomField', 'CustomSection', 'SpellcheckWord',
     'User', 'Company', 'Client', 'Template', 'Image', 'Vulnerability', 'VulnerabilityUpdate', 'Audit'
 ];
 
@@ -74,6 +74,7 @@ var CATEGORIES = {
     vulnerabilityCategories: ['VulnerabilityCategory'],
     customFields: ['CustomField'],
     customSections: ['CustomSection'],
+    spellcheckWords: ['SpellcheckWord'],
     settings: ['Settings']
 };
 var CATEGORY_NAMES = Object.keys(CATEGORIES);

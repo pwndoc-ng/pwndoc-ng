@@ -150,7 +150,7 @@ describe('creation of a backup', () => {
       'Audits (findings, sections, comments)', 'Vulnerabilities and proposals', 'Images', 'Users (password hashes and 2FA secrets)',
       'Customers', 'Companies', 'Clients', 'Report templates',
       'Custom data', 'Languages', 'Audit types', 'Vulnerability types', 'Vulnerability categories', 'Custom fields', 'Custom sections',
-      'Settings'
+      'Words ignored by the spell checker', 'Settings'
     ])
   })
 
@@ -214,7 +214,7 @@ describe('creation of a backup', () => {
   it('selects a whole group, also when it is partially selected', async () => {
     await openCreate()
     await checkboxes()['Custom data'].trigger('click')
-    expect(wrapper.vm.create.categories).toEqual(['languages', 'auditTypes', 'vulnerabilityTypes', 'vulnerabilityCategories', 'customFields', 'customSections'])
+    expect(wrapper.vm.create.categories).toEqual(['languages', 'auditTypes', 'vulnerabilityTypes', 'vulnerabilityCategories', 'customFields', 'customSections', 'spellcheckWords'])
     await checkboxes()['Custom data'].trigger('click')
     expect(wrapper.vm.create.categories).toEqual([])
     wrapper.vm.toggleCategory(wrapper.vm.create, 'companies', true, true)

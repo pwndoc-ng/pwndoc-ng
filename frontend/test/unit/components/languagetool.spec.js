@@ -6,7 +6,7 @@ import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { Schema } from '@tiptap/pm/model'
 
-import { LanguageTool, changedDescendants } from 'components/languagetool'
+import { LanguageTool, changedDescendants, selectionMatch } from 'components/languagetool'
 
 const API = 'https://pwndoc.test/v2/check'
 const editors = []
@@ -216,9 +216,67 @@ describe('languagetool decorations', () => {
     expect(storage(second).match.value).toBeNull()
   })
 
+  it('gives the match of the selection only for a selection inside a mistake (suggestion menu)', async () => {
+    fetchMock.mockImplementation(() => answer([match(0, 6)]))
+    const editor = editorWith(`<p>${unique('Exmple de texte')}</p>`)
+    await proofread(editor)
+    editor.commands.setTextSelection({ from: 1, to: 7 }) // The mistake
+    expect(storage(editor).match.value).toMatchObject({ offset: 0, length: 6 })
+    editor.commands.setTextSelection({ from: 2, to: 4 }) // Part of the mistake
+    expect(storage(editor).match.value).toMatchObject({ offset: 0 })
+    editor.commands.setTextSelection({ from: 8, to: 13 }) // Text without mistake
+    expect(storage(editor).match.value).toBeNull()
+    editor.commands.setTextSelection({ from: 1, to: 10 }) // Larger than the mistake
+    expect(storage(editor).match.value).toBeNull()
+    editor.commands.setTextSelection(3) // Cursor in the mistake, nothing selected
+    expect(storage(editor).match.value).toBeNull()
+    expect(selectionMatch(null, editor.state.selection)).toBeNull()
+  })
+
+  it('keeps the match when the mouse leaves the mistake (suggestion menu reached with the mouse)', async () => {
+    fetchMock.mockImplementation(() => answer([match(0, 6)]))
+    const editor = editorWith(`<p>${unique('Exmple quitté')}</p>`)
+    await proofread(editor)
+    const [span] = decorations(editor)
+    span.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    span.dispatchEvent(new MouseEvent('mouseleave'))
+    expect(storage(editor).match.value).toMatchObject({ offset: 0 })
+  })
+
   it('disables the spell check of the browser in the editor', () => {
     const editor = editorWith('<p>x</p>')
     expect(editor.view.dom.getAttribute('spellcheck')).toBe('false')
+  })
+})
+
+describe('ignored words (approved by the administrators)', () => {
+  it('does not report the ignored words, whatever their case', async () => {
+    fetchMock.mockImplementation(() => answer([match(0, 4), match(5, 6)]))
+    const editor = editorWith(`<p>${unique('Nmap Exmple')}</p>`, { ignoredWords: () => ['nmap'] })
+    await proofread(editor)
+    expect(decorations(editor).map((span) => span.textContent)).toEqual(['Exmple'])
+  })
+
+  it('reads the ignored words given as a promise', async () => {
+    fetchMock.mockImplementation(() => answer([match(0, 4)]))
+    const editor = editorWith(`<p>${unique('Burp suite')}</p>`, { ignoredWords: () => Promise.resolve(['burp']) })
+    await proofread(editor)
+    expect(decorations(editor)).toHaveLength(0)
+  })
+
+  it('reports all the mistakes when the ignored words cannot be loaded', async () => {
+    fetchMock.mockImplementation(() => answer([match(0, 4)]))
+    const editor = editorWith(`<p>${unique('Burp erreur')}</p>`, { ignoredWords: () => Promise.reject(new Error('403')) })
+    await proofread(editor)
+    expect(decorations(editor).map((span) => span.textContent)).toEqual(['Burp'])
+  })
+
+  it('does not report the ignored words in the changed paragraphs', async () => {
+    const editor = editorWith(`<p>${unique('Nmap Exmple')}</p>`, { ignoredWords: () => ['nmap'] })
+    fetchMock.mockImplementation(() => answer([match(0, 4), match(5, 6)]))
+    await storage(editor).proofreadNodeAndUpdateItsDecorations(editor.state.doc.firstChild.firstChild, 1) // Text node at 1
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(decorations(editor).map((span) => span.textContent)).toEqual(['Exmple'])
   })
 })
 
@@ -275,11 +333,6 @@ describe('languagetool automatic mode and commands', () => {
     } finally {
       vi.useRealTimers()
     }
-  })
-
-  it('requires a document id to ignore a suggestion', () => {
-    const editor = editorWith('<p>x</p>')
-    expect(() => editor.commands.ignoreLanguageToolSuggestion()).toThrow('Please provide a unique Document ID')
   })
 
   it('does not toggle the proofreading (not implemented)', () => {

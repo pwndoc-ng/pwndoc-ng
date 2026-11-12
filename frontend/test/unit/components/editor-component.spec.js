@@ -38,6 +38,9 @@ vi.mock('@hocuspocus/provider', async () => {
 })
 
 import Utils from '@/services/utils'
+import UserService from '@/services/user'
+import SpellcheckService from '@/services/spellcheck'
+import { Notify } from 'quasar'
 import { createCommentsStore } from '@/services/comments'
 import { setInitialCollaborativeContent } from 'components/editor-collaboration'
 import { mountEditor, settle, selectText, lastValue, polyfillLayout, fetchNoMatch, waitBubbleMenuTimers } from '../../helpers/editor-component'
@@ -221,10 +224,11 @@ describe('loading of the content (loading prop, collaboration)', () => {
     await flushPromises()
     editor().view.focus()
     editor().commands.setTextSelection({ from: 1, to: 6 })
-    // Bubble menus shown (moved into the content by TipTap) after their update delay
+    // Formatting menu shown (moved into the content by TipTap) after its update delay; LanguageTool menu not shown for a
+    // selection without reported mistake
     const menus = wrapper.findAllComponents({ name: 'BubbleMenu' })
     const moved = () => menus.map((menu) => !!menu.element.parentNode && menu.element.parentNode.classList.contains('editor__content'))
-    await vi.waitFor(() => expect(moved()).toEqual([true, true]), { timeout: 3000 })
+    await vi.waitFor(() => expect(moved()).toEqual([true, false]), { timeout: 3000 })
     expect(wrapper.findAll('.editor-menu-wrapper')).toHaveLength(2)
     providers[0].emit('status', { status: 'disconnected' })
     await flushPromises()
@@ -828,6 +832,76 @@ describe('languagetool suggestions', () => {
     wrapper.vm.acceptSuggestion({ value: 'renvoyé' })
     expect(html()).toBe('<p>Le paramètre est renvoyé.</p>')
     expect(lastValue(wrapper)).toBe('<p>Le paramètre est renvoyé.</p>')
+  })
+
+  const MISTAKE = { message: 'Faute d’accord possible', replacements: [{ value: 'renvoyé' }], rule: { issueType: 'misspelling' } }
+
+  it('shows the LanguageTool menu only while a reported mistake is selected (not for any selected text)', async () => {
+    wrapper = await mountEditor({ modelValue: '<p>Le paramètre est renvoyer.</p>' })
+    expect(wrapper.vm.showLanguageToolMenu()).toBe(false)
+    selectText(editor(), 'paramètre est')
+    expect(wrapper.vm.showLanguageToolMenu()).toBe(false) // Selected text without mistake
+    editor().storage.languagetool.match.value = MISTAKE
+    expect(wrapper.vm.showLanguageToolMenu()).toBe(true)
+    editor().setEditable(false)
+    expect(wrapper.vm.showLanguageToolMenu()).toBe(false) // Read only: no suggestion to apply
+  })
+
+  it('proposes the selected word to ignore: pending until approved by an administrator', async () => {
+    const notify = vi.spyOn(Notify, 'create').mockImplementation(() => {})
+    const propose = vi.spyOn(SpellcheckService, 'proposeWord').mockResolvedValue({ data: { datas: { word: 'renvoyer', status: 'pending' } } })
+    const clear = vi.spyOn(SpellcheckService, 'clearCache')
+    wrapper = await mountEditor({ modelValue: '<p>Le paramètre est renvoyer.</p>' })
+    selectText(editor(), 'renvoyer')
+    editor().storage.languagetool.match.value = MISTAKE
+    await flushPromises()
+    expect(wrapper.vm.ignorableWord).toBe('renvoyer')
+    wrapper.vm.proposeIgnoredWord()
+    await flushPromises()
+    expect(propose).toHaveBeenCalledWith('renvoyer')
+    expect(clear).not.toHaveBeenCalled()
+    expect(notify.mock.calls[0][0].message).toBe('"renvoyer" proposed: it will be ignored once approved by an administrator')
+    expect(editor().state.selection.empty).toBe(true) // Menu closed
+  })
+
+  it('ignores at once the word proposed by an administrator: approved words loaded again, document checked again', async () => {
+    vi.spyOn(Notify, 'create').mockImplementation(() => {})
+    vi.spyOn(SpellcheckService, 'proposeWord').mockResolvedValue({ data: { datas: { word: 'renvoyer', status: 'approved' } } })
+    const clear = vi.spyOn(SpellcheckService, 'clearCache')
+    wrapper = await mountEditor({ modelValue: '<p>Le paramètre est renvoyer.</p>' })
+    const proofread = vi.spyOn(editor().storage.languagetool, 'proofreadAndDecorateWholeDoc')
+    selectText(editor(), 'renvoyer')
+    editor().storage.languagetool.match.value = MISTAKE
+    await flushPromises()
+    wrapper.vm.proposeIgnoredWord()
+    await flushPromises()
+    expect(clear).toHaveBeenCalled()
+    expect(proofread).toHaveBeenCalled()
+  })
+
+  it('does not propose a selection of several words, nor without the permission', async () => {
+    wrapper = await mountEditor({ modelValue: '<p>Le paramètre est renvoyer.</p>' })
+    selectText(editor(), 'est renvoyer')
+    editor().storage.languagetool.match.value = MISTAKE
+    await flushPromises()
+    expect(wrapper.vm.ignorableWord).toBeNull()
+    UserService.user = { username: 'viewer', roles: ['audits:read'] }
+    selectText(editor(), 'renvoyer')
+    editor().storage.languagetool.match.value = { ...MISTAKE }
+    await flushPromises()
+    expect(wrapper.vm.ignorableWord).toBeNull()
+  })
+
+  it('notifies the error of a proposal', async () => {
+    const notify = vi.spyOn(Notify, 'create').mockImplementation(() => {})
+    vi.spyOn(SpellcheckService, 'proposeWord').mockRejectedValue({ response: { data: { datas: 'Insufficient privileges' } } })
+    wrapper = await mountEditor({ modelValue: '<p>Le paramètre est renvoyer.</p>' })
+    selectText(editor(), 'renvoyer')
+    editor().storage.languagetool.match.value = MISTAKE
+    await flushPromises()
+    wrapper.vm.proposeIgnoredWord()
+    await flushPromises()
+    expect(notify.mock.calls[0][0]).toMatchObject({ message: 'Insufficient privileges', color: 'negative' })
   })
 
   it('checks the document again when the auto correction is toggled, until unmounted', async () => {

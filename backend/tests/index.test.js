@@ -35,6 +35,7 @@ require('./company-client.test')(request, app)
 require('./socket.test')(request, app)
 require('./collaboration.test')(request, app)
 require('./scenario.test')(request, app)
+require('./spellcheck.test')(request, app)
 require('./permissions-matrix.test')(request, app)
 require('./robustness.test')(request, app)
 require('./backup.test')(request, app) // Last: a restore replaces the whole database
