@@ -1,10 +1,84 @@
 /*
-  Words ignored by the spell checker of the editors: proposals of the users, approval by the administrators, approved
-  words read by all the users. The words created here begin with "spl" and are deleted at the end.
+  Spell checker of the editors: texts checked by LanguageTool through the backend (fake LanguageTool server started
+  here), words ignored once approved (proposals of the users, approval by the administrators, approved words read by all
+  the users). The words created here begin with "spl" and are deleted at the end.
 */
 
 module.exports = function(request, app) {
   var helpers = require('./helpers')(request, app)
+  var http = require('http')
+
+  describe('Spellcheck check Suite Tests', () => {
+    var userCookie, server, port, requests, answer
+    var check = (body, cookie = userCookie) => request(app).post('/api/spellcheck/check').set('Cookie', cookie).send(body)
+    var MATCH = {offset: 0, length: 6, message: 'Possible spelling mistake', replacements: [{value: 'Example'}], rule: {id: 'MORFOLOGIK', issueType: 'misspelling'}}
+
+    beforeAll(async () => {
+      userCookie = await helpers.login('user2', 'User1234')
+      // Fake LanguageTool server: requests recorded, answer chosen by the test
+      server = http.createServer((req, res) => {
+        var body = ''
+        req.on('data', chunk => body += chunk)
+        req.on('end', () => {
+          requests.push({method: req.method, url: req.url, type: req.headers['content-type'], params: Object.fromEntries(new URLSearchParams(body))})
+          answer(res)
+        })
+      })
+      await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+      port = server.address().port
+    })
+    beforeEach(() => {
+      requests = []
+      answer = (res) => res.end(JSON.stringify({software: {name: 'LanguageTool'}, matches: [MATCH]}))
+      process.env.LANGUAGETOOL_URL = `http://127.0.0.1:${port}/`
+    })
+    afterAll(async () => {
+      delete process.env.LANGUAGETOOL_URL
+      await new Promise(resolve => server.close(resolve))
+    })
+
+    it('Checks the text with LanguageTool and answers its matches', async () => {
+      var response = await check({text: 'Exmple de texte é 漢字 & <b>', language: 'fr'})
+      expect(response.status).toBe(200)
+      expect(response.body.datas).toEqual({matches: [MATCH]})
+      expect(requests).toEqual([{method: 'POST', url: '/v2/check', type: 'application/x-www-form-urlencoded',
+        params: {text: 'Exmple de texte é 漢字 & <b>', language: 'fr', enabledOnly: 'false'}}])
+    })
+
+    it('Detects the language by default, answers no match for a blank text without request', async () => {
+      await check({text: 'Exmple'})
+      expect(requests[0].params.language).toBe('auto')
+      requests = []
+      expect((await check({text: '   \n '})).body.datas).toEqual({matches: []})
+      expect(requests).toEqual([])
+    })
+
+    it('Answers 502 when LanguageTool answers an error or is not available', async () => {
+      answer = (res) => { res.statusCode = 500; res.end('error') }
+      var response = await check({text: 'Exmple'})
+      expect(response.status).toBe(502)
+      expect(response.body.datas).toBe('LanguageTool answered 500')
+      answer = (res) => res.end('not json')
+      expect((await check({text: 'Exmple'})).status).toBe(502)
+      process.env.LANGUAGETOOL_URL = 'http://127.0.0.1:1' // Nothing listening
+      response = await check({text: 'Exmple'})
+      expect(response.status).toBe(502)
+      expect(response.body.datas).toBe('LanguageTool is not available')
+    })
+
+    it('Refuses invalid parameters and too long texts, without request', async () => {
+      for (var body of [{}, {text: 12}, {text: ['a']}, {text: {$ne: ''}}, {text: 'a', language: 'fr&enabledOnly=true'}, {text: 'a', language: 3}])
+        expect((await check(body)).status).toBe(422)
+      expect((await check({text: 'a'.repeat(50001)})).status).toBe(413)
+      expect((await check({text: 'a'.repeat(50000)})).status).toBe(200)
+      expect(requests).toHaveLength(1)
+    })
+
+    it('Requires an authenticated user', async () => {
+      expect((await request(app).post('/api/spellcheck/check').send({text: 'Exmple'})).status).toBe(401)
+      expect(requests).toEqual([])
+    })
+  })
 
   describe('Spellcheck words Suite Tests', () => {
     var adminCookie, userCookie

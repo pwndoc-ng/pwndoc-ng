@@ -48,7 +48,7 @@ services:
         aliases:
           - pwndoc-ng-backend
 
-  # Small stub instead of the real LanguageTool server (spell checking requests of the editors, /v2)
+  # Small stub instead of the real LanguageTool server (spell checking requests of the editors, sent by the backend)
   languagetool:
     image: node:26-alpine
     command: ["node", "/stub/server.js"]

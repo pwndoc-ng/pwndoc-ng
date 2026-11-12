@@ -1,4 +1,5 @@
 import { api } from 'boot/axios'
+import UserService from '@/services/user'
 
 // Words ignored by the spell checker of the editors (LanguageTool): proposed by the users, ignored for all the users once
 // approved by an administrator (spellcheck-words:update)
@@ -6,6 +7,13 @@ const CACHE_DURATION = 5 * 60 * 1000 // Approved words loaded again after 5 minu
 let cache = null // {time, words: promise of the approved words in lower case}
 
 export default {
+  // Check of a text by LanguageTool through the backend: {matches} (none without the permission)
+  check: function(text) {
+    if (!UserService.isAllowed('spellcheck:check'))
+      return Promise.resolve({matches: []})
+    return api.post('spellcheck/check', {text: text, language: 'auto'}).then((response) => response.data.datas)
+  },
+
   // Approved words
   getWords: function() {
     return api.get('spellcheck/words')

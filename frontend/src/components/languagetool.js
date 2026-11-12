@@ -81,6 +81,31 @@ export const selectionMatch = (decorationSet, selection) => {
 
 const moreThan500Words = (s) => s.trim().split(/\s+/).length >= 500
 
+// Code (code blocks, inline code) is not checked: replaced by spaces in the text sent, the positions of the other words
+// are kept
+const isCodeMark = (mark) => Boolean(mark.type.spec.code) || mark.type.name === 'code'
+const isCodeNode = (node) => Boolean(node && (node.type.spec.code || node.type.name === 'codeBlock'))
+const blank = (text) => ' '.repeat(text.length)
+// Range of the document touching code: the matches of LanguageTool there are not shown (e.g. repeated whitespace of the
+// spaces replacing the code)
+export const touchesCode = (doc, from, to) => {
+  let found = false;
+  doc.nodesBetween(from, Math.max(to, from + 1), (node) => {
+    if (found) return false;
+    if (isCodeNode(node) || (node.isText && node.marks.some(isCodeMark))) found = true;
+    return !found;
+  });
+  return found;
+}
+// Text of a node to check (same length as its textContent)
+export const checkedText = (node, inCode = false) => {
+  if (node.isText) return inCode || node.marks.some(isCodeMark) ? blank(node.text) : node.text
+  if (inCode || isCodeNode(node)) return blank(node.textContent)
+  let text = ''
+  node.forEach((child) => { text += checkedText(child) })
+  return text
+}
+
 // Registry of active editor instances
 const activeEditors = new Set();
 
@@ -90,7 +115,8 @@ export const LanguageTool = Extension.create({
   addOptions() {
     return {
       language: 'auto',
-      apiUrl:'http://127.0.0.1:8010/v2/check',
+      // Check of a text by LanguageTool (through the backend): function returning a promise of {matches}
+      check: () => Promise.resolve({ matches: [] }),
       automaticMode: true,
       // Words not reported (approved words ignored by the spell checker): function returning them in lower case (array, or
       // promise of an array)
@@ -107,7 +133,6 @@ export const LanguageTool = Extension.create({
       match: ref(null),
       loading: ref(false),
       editorView: null,
-      apiUrl: null,
       decorationSet: null,
       textNodesWithPosition: [],
       proofReadInitially: false,
@@ -120,9 +145,13 @@ export const LanguageTool = Extension.create({
   
   addCommands() {
     return {
-      proofread: () => ({ tr }) => {
+      // Checks the whole document. Started after the command: its transactions (loading state) must not be dispatched
+      // during the command (mismatched transaction when another plugin appends a transaction, e.g. trailing paragraph)
+      proofread: () => () => {
         const storage = this.storage;
-        storage.proofreadAndDecorateWholeDoc(tr.doc);
+        queueMicrotask(() => {
+          if (storage.editorView) storage.proofreadAndDecorateWholeDoc(storage.editorView.state.doc);
+        });
         return true;
       },
       toggleProofreading: () => () => {
@@ -135,7 +164,7 @@ export const LanguageTool = Extension.create({
   onBeforeCreate() {
     // Initialisation avec les valeurs des options
     const storage = this.storage;
-    storage.apiUrl = this.options.apiUrl;
+    storage.check = this.options.check;
 
     // Ignored words in lower case (none if they cannot be loaded)
     const ignoredWords = this.options.ignoredWords;
@@ -146,11 +175,13 @@ export const LanguageTool = Extension.create({
         return new Set();
       }
     };
-    // Matches to show: matches whose text is not an ignored word
+    // Matches to show: matches whose text is not an ignored word, not touching code (the code is sent as spaces)
     storage.reportedMatches = async (doc, matches, offset) => {
       const ignored = await storage.ignoredWords();
+      const size = doc.content.size;
       return matches
         .map((match) => ({ from: match.offset + offset, to: match.offset + offset + match.length, match }))
+        .filter(({ from, to }) => from >= 0 && to <= size && !touchesCode(doc, from, to))
         .filter(({ from, to }) => !ignored.has(doc.textBetween(from, to).toLowerCase()));
     };
     
@@ -179,7 +210,7 @@ export const LanguageTool = Extension.create({
   },
   
   addProseMirrorPlugins() {
-    const { apiUrl, automaticMode, debounceDelay, minTextLengthForCheck, checkThrottle } = this.options;
+    const { automaticMode, debounceDelay, minTextLengthForCheck, checkThrottle } = this.options;
     const storage = this.storage;
     
     // Add editor to active instances registry
@@ -247,6 +278,12 @@ export const LanguageTool = Extension.create({
     // Optimized function to check a text node
     storage.proofreadNodeAndUpdateItsDecorations = async (node, offset) => {
       if (!storage.editorView?.state || !node.textContent) return;
+      // Text of the node without its code (text node of a code block: its parent at its position)
+      let inCode = false;
+      try {
+        inCode = node.isText && isCodeNode(storage.editorView.state.doc.resolve(offset).parent);
+      } catch (error) {}
+      const text = checkedText(node, inCode);
       
       // Check if auto correction is enabled
       const autoCorrectionEnabled = sessionStorage.getItem('autoCorrectionEnabled');
@@ -263,23 +300,14 @@ export const LanguageTool = Extension.create({
       const mapping = storage.trackChanges();
       try {
       
-        // Check cache first
-        let ltRes = getCachedResponse(node.textContent);
+        // Check cache first; only code: nothing to check
+        let ltRes = text.trim() ? getCachedResponse(text) : { matches: [] };
       
         if (!ltRes) {
           try {
-            const response = await fetch(storage.apiUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                Accept: 'application/json',
-              },
-              body: `text=${encodeURIComponent(node.textContent)}&language=auto&enabledOnly=false`,
-            });
             // Error answer (text too long, server error): no match to show, not cached
-            if (!response.ok) throw new Error(`LanguageTool answered ${response.status}`);
-            ltRes = await response.json();
-            addToCache(node.textContent, ltRes);
+            ltRes = await storage.check(text);
+            addToCache(text, ltRes);
           } catch (error) {
             console.error('LanguageTool request failed:', error);
             storage.dispatch(storage.editorView.state.tr.setMeta(LanguageToolHelpingWords.LoadingTransactionName, false));
@@ -342,15 +370,16 @@ export const LanguageTool = Extension.create({
       let index = 0;
       
       // Collect all text nodes
-      doc.descendants((node, pos) => {
+      doc.descendants((node, pos, parent) => {
         if (node.isText) {
+          const nodeText = checkedText(node, isCodeNode(parent)); // Code replaced by spaces
           if (storage.textNodesWithPosition[index]) {
-            const text = storage.textNodesWithPosition[index].text + node.text;
+            const text = storage.textNodesWithPosition[index].text + nodeText;
             const from = storage.textNodesWithPosition[index].from;
             const to = from + text.length;
             storage.textNodesWithPosition[index] = { text, from, to };
           } else {
-            const text = node.text || "";
+            const text = nodeText;
             const from = pos;
             const to = pos + text.length;
             storage.textNodesWithPosition[index] = { text, from, to };
@@ -413,22 +442,13 @@ export const LanguageTool = Extension.create({
       const getMatchAndSetDecorations = async (doc, text, originalFrom) => {
         if (!text || !storage.editorView) return;
         
-        // Check cache first
-        let ltRes = getCachedResponse(text);
+        // Check cache first; only code: nothing to check
+        let ltRes = text.trim() ? getCachedResponse(text) : { matches: [] };
         
         if (!ltRes) {
           try {
-            const response = await fetch(storage.apiUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                Accept: 'application/json',
-              },
-              body: `text=${encodeURIComponent(text)}&language=auto&enabledOnly=false`,
-            });
             // Error answer (text too long, server error): no match to show, not cached
-            if (!response.ok) throw new Error(`LanguageTool answered ${response.status}`);
-            ltRes = await response.json();
+            ltRes = await storage.check(text);
             addToCache(text, ltRes);
           } catch (error) {
             console.error('LanguageTool request failed:', error);

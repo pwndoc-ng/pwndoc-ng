@@ -996,8 +996,7 @@ export default defineComponent({
           TriggerMenuExtension,
           CommentHighlight.configure(), // New instance per editor: its storage (field target) must not be shared
           LanguageTool.configure({
-           apiUrl: `https://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/v2/check`, 
-            //apiUrl: `https://127.0.0.1:8443/v2/check`, 
+            check: (text) => SpellcheckService.check(text), // LanguageTool through the backend (authenticated)
             language: 'auto',   
             automaticMode: true, // 1 second delay before verification
             ignoredWords: () => SpellcheckService.ignoredWords(), // Words approved by the administrators

@@ -64,6 +64,15 @@ docker-compose up -d --build
 Application is accessible through https://localhost:8443
 API is accessible through https://localhost:8443/api
 
+### Spell checker
+
+The editors are checked by LanguageTool (container `languagetool` of `docker-compose.yml`). The texts are sent to the
+backend, which forwards them to LanguageTool: users must be authenticated and have the `spellcheck:check` permission, the
+LanguageTool server is not exposed. Code blocks and inline code are not checked.
+
+Another LanguageTool server can be used with the environment variable `LANGUAGETOOL_URL` of the backend container
+(default `http://pwndoc-ng-languagetool:8010`).
+
 ## Update to MongoDB 8
 
 Previous versions stored the data of MongoDB 4.x in a Docker volume (`<project>_mongo-data`, e.g. `pwndoc-ng_mongo-data`). The database now uses MongoDB 8, and its data is stored on the host, in the folder `mongodb/mongo-data`. The update copies the data automatically at the first start, and migrates it only if needed, according to the version of the data files:

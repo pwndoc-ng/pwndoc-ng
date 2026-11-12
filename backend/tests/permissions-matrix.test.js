@@ -29,7 +29,7 @@ module.exports = function(request, app) {
     'companies:create', 'companies:read', 'companies:update', 'companies:delete',
     'languages:read', 'audit-types:read', 'vulnerability-types:read', 'vulnerability-categories:read', 'sections:read',
     'templates:read', 'users:read', 'roles:read', 'vulnerabilities:read', 'vulnerability-updates:create',
-    'custom-fields:read', 'settings:read-public', 'spellcheck-words:read', 'spellcheck-words:create'
+    'custom-fields:read', 'settings:read-public', 'spellcheck:check', 'spellcheck-words:read', 'spellcheck-words:create'
   ]
   // Custom roles defined by this suite (same as roles of src/config/roles.json)
   var CUSTOM_ROLES = {
@@ -286,6 +286,7 @@ module.exports = function(request, app) {
         ['post', `/api/backups/${FAKE_BACKUP}/restore`, 'backups:restore', 404, {body: {}}],
 
         // Words ignored by the spell checker (src/routes/spellcheck.js)
+        ['post', '/api/spellcheck/check', 'spellcheck:check', 422, {body: {}}],
         ['get', '/api/spellcheck/words', 'spellcheck-words:read', 200],
         ['get', '/api/spellcheck/words/all', 'spellcheck-words:update', 200],
         ['post', '/api/spellcheck/words', 'spellcheck-words:create', 422, {body: {}}],

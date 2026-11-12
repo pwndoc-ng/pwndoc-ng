@@ -10,6 +10,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Collaboration from '@tiptap/extension-collaboration'
 
 vi.mock('boot/axios', () => import('../../helpers/api-mock'))
+import { api, resetApi } from '../../helpers/api-mock'
 
 // Fake Hocuspocus provider: the test emits its status ('connected') and synchronization ('synced')
 const providers = vi.hoisted(() => [])
@@ -816,6 +817,8 @@ describe('review comments', () => {
 })
 
 describe('languagetool suggestions', () => {
+  beforeEach(() => resetApi()) // Calls of the spell check counted per test
+
   it('shows a default message without error under the cursor', async () => {
     wrapper = await mountEditor({ modelValue: '<p>Texte</p>' })
     expect(wrapper.vm.matchMessage).toBe('No Message')
@@ -916,11 +919,19 @@ describe('languagetool suggestions', () => {
     expect(update).toHaveBeenCalledTimes(1)
   })
 
-  it('sends the text to the LanguageTool server of the application when the auto correction is enabled', async () => {
+  it('sends the text to the spell check of the backend when the auto correction is enabled (LanguageTool not exposed)', async () => {
     sessionStorage.setItem('autoCorrectionEnabled', 'true')
+    api.post.mockResolvedValue({ data: { datas: { matches: [] } } })
     wrapper = await mountEditor({ modelValue: '<p>Un texte a vérifier</p>' })
-    await vi.waitFor(() => expect(fetch).toHaveBeenCalled(), { timeout: 2000 })
-    expect(fetch.mock.calls[0][0]).toBe(`https://${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}/v2/check`)
+    await vi.waitFor(() => expect(api.post).toHaveBeenCalledWith('spellcheck/check', { text: 'Un texte a vérifier', language: 'auto' }), { timeout: 2000 })
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('does not check the texts without the permission', async () => {
+    sessionStorage.setItem('autoCorrectionEnabled', 'true')
+    wrapper = await mountEditor({ modelValue: '<p>Un texte a vérifier</p>' }, { user: { username: 'viewer', id: 'u2', roles: ['audits:read'] } })
+    await wait(800)
+    expect(api.post).not.toHaveBeenCalledWith('spellcheck/check', expect.anything())
   })
 })
 

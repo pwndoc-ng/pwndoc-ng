@@ -50,12 +50,12 @@ afterEach(() => {
 
 describe('LanguageTool with a hurried user', () => {
   const match = (offset, length) => ({ offset, length, message: 'Faute', replacements: [], rule: { issueType: 'misspelling' } })
-  const answer = (matches) => ({ ok: true, json: () => Promise.resolve({ matches }) })
+  const answer = (matches) => ({ matches }) // Answer of the check through the backend
 
   function editorWith(content, options = {}) {
     const element = document.createElement('div')
     document.body.appendChild(element)
-    return track(new Editor({ element, extensions: [StarterKit, LanguageTool.configure({ apiUrl: 'https://lt.test/v2/check', automaticMode: false, ...options })], content }))
+    return track(new Editor({ element, extensions: [StarterKit, LanguageTool.configure({ check: (text) => fetchMock(text), automaticMode: false, ...options })], content }))
   }
 
   const decorations = (editor) => [...editor.view.dom.querySelectorAll('span.lt')].map((span) => span.textContent)
