@@ -624,6 +624,8 @@
       @mouseup="checkCommentSelection"
       @keyup="checkCommentSelection"
       @click="onContentClick"
+      @mousedown="dismissPassage"
+      @keydown="dismissPassage"
     />
     <div v-else class="editor__content q-pa-sm" @dblclick="zoomImage">
       <div class="ProseMirror" v-html="diffContent"></div>
@@ -671,6 +673,7 @@ import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { LanguageTool } from './languagetool'
 import { contentExtensions, lowlight } from './editor-extensions'
 import { CommentHighlight, commentHighlightKey, quoteFromRange } from "./comment-highlight";
+import { targetKey } from '@/services/comments';
 import { TriggerMenuExtension } from './internal-link';
 import {v4 as uuidv4} from 'uuid';
 import UserService from '@/services/user';
@@ -782,6 +785,7 @@ export default defineComponent({
       emptyInitialValue: false, // Initialized with an empty value and not modified since (value may arrive later)
       earlyText: '', // Characters typed before the content was loaded
       commentSelection: null, // Selected passage to comment: {quote, top, left}
+      passageDismissed: null, // Id of the passage of a quality issue no longer shown (the user clicked or typed in the field)
       zoom: {show: false, src: '', alt: '', fullSize: false}, // Image zoom dialog
       htmlEncode: Utils.htmlEncode,
       stickyConfig: {
@@ -816,6 +820,9 @@ export default defineComponent({
       deep: true,
     },
     'commentsStore.activeId'() {
+      this.updateCommentHighlights()
+    },
+    passageFocus() {
       this.updateCommentHighlights()
     },
   },
@@ -889,6 +896,13 @@ export default defineComponent({
     },
     commentable() {
       return !!(this.commentsStore && this.commentTarget);
+    },
+    // Passage of this field shown after opening an issue of the quality checks: {text} or {image}, with its id
+    passageFocus() {
+      const focus = this.commentsStore && this.commentsStore.focus;
+      if (!focus || !focus.passage || !this.commentTarget || focus.key !== targetKey(this.commentTarget) || focus.at === this.passageDismissed)
+        return null;
+      return { ...focus.passage, id: focus.at };
     },
     // Comment mode: audit in review, selecting a passage only proposes to comment it (no formatting menu)
     commentMode() {
@@ -1283,9 +1297,15 @@ export default defineComponent({
       const tr = this.editor.state.tr.setMeta(commentHighlightKey, {
         comments: this.quoteComments,
         activeId: this.commentsStore ? this.commentsStore.activeId : null,
+        passage: this.passageFocus,
       });
       tr.setMeta('addToHistory', false);
       this.editor.view.dispatch(tr);
+    },
+
+    // Passage of a quality issue: no longer shown once the user clicks or types in the field
+    dismissPassage() {
+      if (this.passageFocus) this.passageDismissed = this.passageFocus.id;
     },
 
     // Passage selected with the mouse or keyboard (also in read-only editors: reviewers comment without editing)
@@ -1896,6 +1916,25 @@ pre .diffadd {
 
 .comment-highlight--active {
   background: rgba(255, 152, 0, 0.55);
+}
+
+// Passage of an issue of the quality checks, shown after opening the issue
+.qa-passage {
+  background: rgba(255, 112, 67, 0.35);
+  border-bottom: 2px solid #e64a19;
+  border-radius: 2px;
+  animation: qa-passage 1.2s ease-out 2;
+}
+
+.qa-passage-image .editor-image {
+  outline: 3px solid #e64a19;
+  outline-offset: 2px;
+  animation: qa-passage 1.2s ease-out 2;
+}
+
+@keyframes qa-passage {
+  0% { box-shadow: 0 0 0 4px rgba(230, 74, 25, 0.8); }
+  100% { box-shadow: 0 0 0 12px rgba(230, 74, 25, 0); }
 }
 
 .comment-image-highlight .editor-image {

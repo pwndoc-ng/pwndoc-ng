@@ -4,6 +4,7 @@ var fs = require('fs');
 var _ = require('lodash');
 var Utils = require('../lib/utils.js');
 var { HIGHLIGHT_COLORS } = require('../lib/highlights.js');
+var { parseExtraParameters } = require('../lib/ai.js');
 
 // https://stackoverflow.com/questions/25822289/what-is-the-best-way-to-store-color-hex-values-in-mongodb-mongoose
 const colorValidator = (v) => (/^#([0-9a-f]{3}){1,2}$/i).test(v);
@@ -86,15 +87,14 @@ const SettingSchema = new Schema({
     ai: {
         enabled: { type: Boolean, default: false },
         private: {
-            provider: { type: String, enum: ['openai', 'tfserving'], default: 'openai' },
             url: { type: String, default: '', maxlength: 500, validate: [url => url === '' || /^https?:\/\/\S+$/i.test(url), 'Invalid URL'] },
             model: { type: String, default: '', maxlength: 200 },
             tokenParameter: { type: String, enum: ['max_tokens', 'max_completion_tokens'], default: 'max_tokens' },
             maxTokens: { type: Number, default: 2000, min: 16, max: 200000, validate: [Number.isInteger, 'Invalid integer'] },
             timeout: { type: Number, default: 120, min: 5, max: 3600, validate: [Number.isInteger, 'Invalid integer'] }, // Seconds
             systemRole: { type: Boolean, default: true }, // Models refusing the system role: instructions in the user message
-            tfRequest: { type: String, default: '{"instances": [{"prompt": "{{prompt}}", "max_tokens": {{maxTokens}}}]}', maxlength: 5000 },
-            tfResponsePath: { type: String, default: 'predictions.0', maxlength: 200 },
+            // Parameters added to the requests (OpenAI compatible servers), JSON object: reasoning of the model...
+            extraParameters: { type: String, default: '', maxlength: 5000, validate: [value => parseExtraParameters(value) !== null, 'Invalid JSON object'] },
             guidelines: { type: String, default: '', maxlength: 20000 }, // Writing guidelines of the company
             pseudonymize: { type: Boolean, default: false } // Client, company and scope names replaced by tokens before sending
         }

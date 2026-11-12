@@ -66,12 +66,18 @@ API is accessible through https://localhost:8443/api
 
 ### AI assistance
 
-The assisted writing in the editors and the quality check of the findings by an AI are disabled by default. They use an inference server of your network, designated in *Settings > AI assistance*:
+The assisted writing in the editors and the quality check of the findings by an AI are disabled by default. They use an inference server of your network exposing the chat completions API of OpenAI (`GET /models`, `POST /chat/completions`): OpenAI, or a local server such as Ollama, vLLM, SGLang, LM Studio, LocalAI or tensorfold. Settings in *Settings > AI assistance*:
 
-- **API compatible with OpenAI** (OpenAI, and the local servers exposing it: Ollama, vLLM, LM Studio, LocalAI...): address such as `http://ai.local:8000/v1`, model, name of the parameter of the maximum length (`max_tokens` or `max_completion_tokens`), and whether the model accepts system instructions;
-- **TensorFlow Serving**: address such as `http://ai.local:8501`, model, JSON template of the body of the `:predict` request (`{{prompt}}`, `{{maxTokens}}`, `{{model}}`) and path of the text in the answer (e.g. `predictions.0`).
+- address such as `http://ai.local:8000/v1`, model, name of the parameter of the maximum length (`max_tokens` or `max_completion_tokens`), whether the model accepts system instructions;
+- **reasoning of the model and other parameters**: a JSON object added to each request, whose names depend on the server (click an example to use it):
+  - `{"reasoning_effort": "none"}` (no reasoning) or `"low"`: OpenAI, tensorfold;
+  - `{"chat_template_kwargs": {"enable_thinking": false}}` (no reasoning, through the chat template): Qwen3 or GLM on vLLM, SGLang, tensorfold;
+  - `{"thinking_budget": 1024}` (reasoning limited to 1024 tokens): tensorfold;
+- **maximum length**: it includes the reasoning, which a reasoning model can use entirely without answering (explained by the error). The reasoning returned apart by the server (`reasoning_content`) is never used as the answer.
 
-*Test the connection* checks the saved settings. Environment variables of the backend container (see `docker-compose.yml`):
+The refusals of the server (invalid parameter, context of the model too short...) are shown with its message. The waits announced by the server (`503` or `429` with `Retry-After`: model loading, restart) are retried within the timeout.
+
+*Test the connection* checks the saved settings, and shows the tokens of the reasoning of the model and the time taken (to set the reasoning, the maximum length and the timeout). Environment variables of the backend container (see `docker-compose.yml`):
 
 - `AI_API_KEY`: API key of the server, sent as `Authorization: Bearer <key>` (or in the header named by `AI_AUTH_HEADER`). It is never stored in the database nor sent to the browsers;
 - `NODE_EXTRA_CA_CERTS`: certificate authority of your network, for a server with a certificate of an internal authority (file mounted in the container).

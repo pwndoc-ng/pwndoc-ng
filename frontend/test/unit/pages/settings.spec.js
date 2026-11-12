@@ -603,34 +603,58 @@ describe('highlighted texts warning', () => {
 })
 
 describe('AI assistance', () => {
-  const AI = () => ({ enabled: false, private: { provider: 'openai', url: '', model: '', tokenParameter: 'max_tokens', maxTokens: 2000, timeout: 120, systemRole: true,
-    tfRequest: '{"instances": [{"prompt": "{{prompt}}"}]}', tfResponsePath: 'predictions.0', guidelines: '', pseudonymize: false } })
+  const AI = () => ({ enabled: false, private: { url: '', model: '', tokenParameter: 'max_tokens', maxTokens: 2000, timeout: 120, systemRole: true, extraParameters: '',
+    guidelines: '', pseudonymize: false } })
   const withAi = () => { const settings = SETTINGS(); settings.ai = AI(); return settings }
 
-  it('shows the settings of the server of the selected type', async () => {
+  it('shows the settings of the server (chat completions API of OpenAI), without type of server', async () => {
     await mountPage({ settings: withAi() })
     const card = wrapper.find('.ai-settings')
     expect(card.text()).toContain('AI assistance')
     expect(card.text()).toContain('AI_API_KEY')
+    expect(card.text()).toContain('server exposing the chat completions API of OpenAI (OpenAI, Ollama, vLLM, SGLang, LM Studio, tensorfold...)')
+    expect(card.find('.ai-url').exists()).toBe(true)
+    expect(card.find('.ai-model').exists()).toBe(true)
     expect(card.find('.ai-system-role').exists()).toBe(true)
-    expect(card.find('.ai-tf-request').exists()).toBe(false)
-    expect(wrapper.vm.aiProviderOptions.map((option) => option.value)).toEqual(['openai', 'tfserving'])
-    wrapper.vm.settings.ai.private.provider = 'tfserving'
-    await flushPromises()
-    expect(card.find('.ai-tf-request').exists()).toBe(true)
-    expect(card.find('.ai-tf-path').exists()).toBe(true)
-    expect(card.find('.ai-system-role').exists()).toBe(false)
-    expect(card.text()).toContain('{{prompt}}, {{maxTokens}}, {{model}}')
+    expect(card.find('.ai-provider').exists()).toBe(false)
+    expect(card.text()).not.toMatch(/TensorFlow|\{\{prompt\}\}/)
+  })
+
+  it('sets the reasoning of the model and other parameters of the requests (JSON object), with examples', async () => {
+    await mountPage({ settings: withAi() })
+    const card = wrapper.find('.ai-settings')
+    expect(card.find('.ai-extra-parameters').exists()).toBe(true)
+    expect(card.findAll('.ai-extra-parameters-example').map((chip) => chip.text()))
+      .toEqual(['{"reasoning_effort": "none"}', '{"chat_template_kwargs": {"enable_thinking": false}}', '{"reasoning_effort": "low"}', '{"thinking_budget": 1024}'])
+    expect(wrapper.vm.aiParameterExamples[1].label).toBe('Without reasoning, through the chat template (Qwen3, GLM: vLLM, SGLang, tensorfold...)')
+    // An example fills the field
+    await card.findAll('.ai-extra-parameters-example')[3].trigger('click')
+    expect(wrapper.vm.settings.ai.private.extraParameters).toBe('{"thinking_budget": 1024}')
+    expect(card.text()).toContain('Reasoning of the model included') // Maximum length
+    const rule = wrapper.vm.aiParametersRule
+    for (const valid of ['', '  ', '{"chat_template_kwargs": {"enable_thinking": false}}', '{}'])
+      expect(rule(valid)).toBe(true)
+    for (const invalid of ['{"broken"', '[1]', '"text"', 'null', '3'])
+      expect(rule(invalid)).toBe('JSON object expected')
+    wrapper.vm.settings.ai.private.extraParameters = '{"reasoning_effort": "low"}'
+    const update = vi.spyOn(SettingsService, 'updateSettings').mockResolvedValue({})
+    await wrapper.vm.updateSettings()
+    expect(update.mock.calls[0][0].ai.private.extraParameters).toBe('{"reasoning_effort": "low"}')
   })
 
   it('tests the connection with the saved settings only', async () => {
     await mountPage({ settings: withAi() })
-    const test = vi.spyOn(AiService, 'testConnection').mockResolvedValue({ data: { datas: { provider: 'openai', models: ['llama', 'mistral'], answer: 'OK' } } })
+    const test = vi.spyOn(AiService, 'testConnection').mockResolvedValue({ data: { datas: { models: ['llama', 'mistral'], answer: 'OK' } } })
     expect(wrapper.vm.aiUnsaved).toBe(false)
     await wrapper.vm.testAi()
     await flushPromises()
     expect(test).toHaveBeenCalled()
     expect(wrapper.find('.ai-test-result').text()).toBe('Connection working · Answer: OK · Models: llama, mistral')
+    // Tokens of the reasoning of the model and time taken
+    test.mockResolvedValue({ data: { datas: { models: [], answer: 'OK', reasoningTokens: 229, seconds: 6.5 } } })
+    await wrapper.vm.testAi()
+    await flushPromises()
+    expect(wrapper.find('.ai-test-result').text()).toBe('Connection working · Answer: OK · Reasoning: 229 tokens · 6.5 s')
     wrapper.vm.settings.ai.private.url = 'http://ai.local/v1'
     await flushPromises()
     expect(wrapper.vm.aiUnsaved).toBe(true)

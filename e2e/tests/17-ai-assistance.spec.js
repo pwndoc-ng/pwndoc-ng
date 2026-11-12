@@ -16,6 +16,7 @@ const STUB = 'http://ai-stub:8000'
 
 let auditId
 const ids = {}
+const REASONING = '{"chat_template_kwargs": {"enable_thinking": false}}' // Reasoning of the model set in the settings
 
 async function setAi (values) {
   const api = await apiAs(D.USERS.admin)
@@ -34,7 +35,7 @@ async function stubRequests () {
 
 test.beforeAll(async () => {
   await ensureBaseData()
-  await setAi({ enabled: true, private: { provider: 'openai', url: `${STUB}/v1`, model: 'e2e-model', pseudonymize: true } })
+  await setAi({ enabled: true, private: { url: `${STUB}/v1`, model: 'e2e-model', pseudonymize: true, extraParameters: REASONING } })
   const api = await apiAs(pentester)
   auditId = await ensureAudit(api, AUDIT_NAME)
   expect((await api.put(`/api/audits/${auditId}/general`, { data: { company: { name: COMPANY } } })).ok()).toBeTruthy()
@@ -50,7 +51,7 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
-  await setAi({ enabled: false, private: { url: '', model: '', pseudonymize: false } })
+  await setAi({ enabled: false, private: { url: '', model: '', pseudonymize: false, extraParameters: '' } })
   const api = await apiAs(pentester)
   await api.delete(`/api/audits/${auditId}`)
   await api.dispose()
@@ -61,8 +62,13 @@ test('settings: test of the connection to the AI server', async ({ page }) => {
   await page.goto('/settings?tab=ai')
   const card = page.locator('.ai-settings')
   await expect(card.locator('.ai-url input')).toHaveValue(`${STUB}/v1`)
+  await expect(card.locator('.ai-extra-parameters textarea')).toHaveValue(REASONING)
   await card.locator('.ai-test').click()
-  await expect(card.locator('.ai-test-result')).toHaveText('Connection working · Answer: OK · Models: e2e-model')
+  // Answer, tokens of the reasoning of the model, time taken, models of the server
+  await expect(card.locator('.ai-test-result')).toHaveText(/^Connection working · Answer: OK · Reasoning: 7 tokens · \d+(\.\d)? s · Models: e2e-model$/)
+  // An example of the reasoning parameters fills the field
+  await card.locator('.ai-extra-parameters-example').filter({ hasText: '{"reasoning_effort": "none"}' }).click()
+  await expect(card.locator('.ai-extra-parameters textarea')).toHaveValue('{"reasoning_effort": "none"}')
 })
 
 test('assisted writing: proposal shown, applied by the user, no image nor client name sent', async ({ page }) => {
@@ -82,6 +88,7 @@ test('assisted writing: proposal shown, applied by the user, no image nor client
 
   const sent = JSON.stringify((await stubRequests()).slice(before))
   expect(sent).toContain('[[TERM_1]]')
+  expect(sent).toContain('"chat_template_kwargs":{"enable_thinking":false}') // Parameters of the settings added
   expect(sent).not.toContain(COMPANY)
   expect(sent).not.toContain('iVBORw0KGgo')
   expect(sent).not.toContain('<img')

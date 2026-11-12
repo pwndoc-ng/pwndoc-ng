@@ -1,3 +1,4 @@
+import { reactive } from 'vue'
 import { $t } from '@/boot/i18n'
 
 // Quality checks (backend lib/qa.js): issues {fingerprint, check, severity, code, params, location} shown in the audit,
@@ -36,6 +37,27 @@ export function issuePath(auditId, issue) {
   if (location.kind === 'section') return `/audits/${auditId}/sections/${location.id}`
   if (location.kind === 'network') return `/audits/${auditId}/network`
   return `/audits/${auditId}/general`
+}
+
+// Field of an issue as a target of the audit page (same as the review comments): {kind, findingId | sectionId, field}
+export function issueTarget(issue) {
+  var location = issue.location || {}
+  var field = location.field === 'cvss' ? 'cvssv3' : location.field || undefined
+  if (location.kind === 'finding') return { kind: 'finding', findingId: location.id, field: field }
+  if (location.kind === 'section') return { kind: 'section', sectionId: location.id, field: field }
+  if (location.kind === 'network') return { kind: 'network' }
+  return { kind: 'general', field: field }
+}
+
+// Issue to show by the audit page (field, passage), requested before the navigation to the audit: {auditId, issue}
+export const qaFocus = reactive({ request: null })
+
+// Opens the place of an issue of an audit: page, then the field and its passage shown by the audit page
+export function openIssue(router, auditId, issue) {
+  qaFocus.request = { auditId: auditId, issue: issue }
+  var path = issuePath(auditId, issue)
+  if (router.currentRoute && router.currentRoute.value && router.currentRoute.value.path === path) return Promise.resolve()
+  return Promise.resolve(router.push(path)).catch(() => {})
 }
 
 // Number of issues of each severity: {error, warning, info}

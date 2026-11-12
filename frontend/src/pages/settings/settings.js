@@ -49,10 +49,16 @@ export default {
         },
 
         // Variables of the findings sidebar template, including findings custom fields
-        // Types of AI server
-        aiProviderOptions: function() {
-            return ['openai', 'tfserving'].map(value => ({value: value, label: $t(`ai.providers.${value}`)}))
+        // Examples of parameters of the reasoning of the models (names depending on the servers), filling the field
+        aiParameterExamples: function() {
+            return [
+                {json: '{"reasoning_effort": "none"}', label: $t('ai.extraParametersExamples.noReasoning')},
+                {json: '{"chat_template_kwargs": {"enable_thinking": false}}', label: $t('ai.extraParametersExamples.noReasoningTemplate')},
+                {json: '{"reasoning_effort": "low"}', label: $t('ai.extraParametersExamples.lowReasoning')},
+                {json: '{"thinking_budget": 1024}', label: $t('ai.extraParametersExamples.reasoningBudget')}
+            ]
         },
+
 
         aiTokenOptions: function() {
             return [{value: 'max_tokens', label: 'max_tokens'}, {value: 'max_completion_tokens', label: 'max_completion_tokens'}]
@@ -197,6 +203,17 @@ export default {
 
         // Message of the server (the message of axios only says the status code), or of the network error
         /* AI assistance */
+
+        // Parameters added to the requests to the AI server (reasoning of the model...): JSON object or empty
+        aiParametersRule: function(value) {
+            if (!value || !String(value).trim()) return true
+            try {
+                var parsed = JSON.parse(value)
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return true
+            }
+            catch (err) {}
+            return $t('ai.extraParametersInvalid')
+        },
 
         testAi: function() {
             this.aiTest = {loading: true, result: null, error: ''}

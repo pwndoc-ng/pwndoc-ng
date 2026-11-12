@@ -3,8 +3,9 @@
 //
 // Issue: {fingerprint, check, severity ('error' | 'warning' | 'info'), code (message of the frontend, qa.codes.<code>),
 //   params (values of the message), location: {kind ('general' | 'finding' | 'section' | 'vulnerability'), id, name, field,
-//   label}}. The fingerprint identifies the issue and its content: an issue ignored by the users comes back when its
-//   content changes.
+//   label, passage}}. passage (optional): part of the field shown when the issue is opened, {text} or {image: {src, alt}}.
+//   The fingerprint identifies the issue and its content: an issue ignored by the users comes back when its content
+//   changes.
 var crypto = require('crypto');
 var highlights = require('./highlights');
 
@@ -33,6 +34,18 @@ function textOf(html) {
     if (typeof html !== 'string')
         return '';
     return unescape(html.replace(/<img\b[^>]*>/gi, ' [image] ').replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/g, ' ')).replace(/\s+/g, ' ').trim();
+}
+
+// Anchor of an image of the editors (same as the frontend, comment-highlight.js): its source, a hash for long sources
+function imageAnchorKey(src) {
+    if (typeof src !== 'string') return '';
+    if (src.length <= 200) return src;
+    var hash = 0x811c9dc5;
+    for (var i = 0; i < src.length; i++) {
+        hash ^= src.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return `hash:${src.length}:${hash.toString(16)}`;
 }
 
 // Images of the editors in an HTML value: [{src, alt}]
@@ -81,7 +94,7 @@ function contentIssues(checks, location, fields, references, existingImages) {
     var issues = [];
     if (checks.includes('images')) {
         fields.forEach(({field, label, html}) => imagesIn(html).forEach(image => {
-            var at = {...location, field, label: label || null};
+            var at = {...location, field, label: label || null, passage: {image: {src: imageAnchorKey(image.src), alt: image.alt || ''}}};
             var caption = (image.alt || '').trim();
             if (/^[a-f0-9]{24}$/i.test(image.src) && existingImages && !existingImages.has(image.src.toLowerCase()))
                 issues.push(issue('images', 'error', 'imageMissing', at, {caption}, image.src));
@@ -97,7 +110,7 @@ function contentIssues(checks, location, fields, references, existingImages) {
             if (typeof reference !== 'string' || !reference.trim())
                 issues.push(issue('references', 'warning', 'referenceEmpty', at));
             else if (invalidReference(reference))
-                issues.push(issue('references', 'warning', 'referenceInvalid', at, {reference: reference.trim()}, reference.trim()));
+                issues.push(issue('references', 'warning', 'referenceInvalid', {...at, passage: {text: reference.trim()}}, {reference: reference.trim()}, reference.trim()));
         });
     }
     return issues;
@@ -157,7 +170,7 @@ function auditIssues(audit, {settings, comments = [], existingImages} = {}) {
     if (checks.includes('internalLinks')) {
         places.forEach(({location, fields}) => fields.forEach(({field, label, html}) => internalLinksIn(html).forEach(link => {
             if (/^[a-f0-9]{24}$/i.test(link.target) && !findingIds.has(link.target.toLowerCase()))
-                issues.push(issue('internalLinks', 'error', 'internalLinkBroken', {...location, field, label: label || null}, {text: link.text}, `${link.target}\u0000${link.text}`));
+                issues.push(issue('internalLinks', 'error', 'internalLinkBroken', {...location, field, label: label || null, passage: link.text ? {text: link.text} : null}, {text: link.text}, `${link.target}\u0000${link.text}`));
         })));
     }
 
@@ -182,7 +195,7 @@ function auditIssues(audit, {settings, comments = [], existingImages} = {}) {
     var report = settings && settings.report;
     if (report && report.enabled !== false && report.public && report.public.highlightWarning) {
         highlights.auditHighlights(audit, report.public.highlightWarningColors || []).forEach(item => item.texts.forEach(highlight => {
-            var location = {kind: item.kind, id: item.id, name: item.name, field: item.field, label: item.label};
+            var location = {kind: item.kind, id: item.id, name: item.name, field: item.field, label: item.label, passage: {text: highlight.text}};
             issues.push(issue('highlights', 'warning', 'highlightedText', location, highlight, `${highlight.color}\u0000${highlight.text}`));
         }));
     }
@@ -263,4 +276,4 @@ function imageIds(values) {
     return [...ids];
 }
 
-module.exports = {CHECKS, enabledChecks, auditIssues, vulnerabilityIssues, imageIds, isFileNameCaption, invalidReference, similarity, normalizedTitle};
+module.exports = {imageAnchorKey, CHECKS, enabledChecks, auditIssues, vulnerabilityIssues, imageIds, isFileNameCaption, invalidReference, similarity, normalizedTitle};

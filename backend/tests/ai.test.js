@@ -1,6 +1,6 @@
 /*
-  AI assistance (lib/ai.js, routes/ai.js), disabled by default: inference server compatible with OpenAI or TensorFlow
-  Serving (fake server started here), assisted writing (images never sent, pseudonymization), quality check of the
+  AI assistance (lib/ai.js, routes/ai.js), disabled by default: inference server exposing the chat completions API of
+  OpenAI (fake server started here), assisted writing (images never sent, pseudonymization), quality check of the
   findings by the AI, test of the connection. Data prefixed with "ai" deleted at the end, settings reverted.
 */
 
@@ -16,13 +16,14 @@ module.exports = function(request, app) {
       calls.push({url, method: options.method, headers: options.headers, body: options.body ? JSON.parse(options.body) : null})
       var result = typeof answer === 'function' ? answer(url, options) : answer
       if (result instanceof Error) throw result
-      return {ok: (result.status || 200) < 400, status: result.status || 200, json: async () => { if (result.invalid) throw new Error('json'); return result.json }}
+      return {ok: (result.status || 200) < 400, status: result.status || 200, headers: {get: (name) => (result.headers || {})[name.toLowerCase()] || null},
+        json: async () => { if (result.invalid) throw new Error('json'); return result.json }}
     }
     return {fetchImpl, calls}
   }
   var chat = (content) => ({json: {choices: [{message: {role: 'assistant', content}}]}})
-  var CONFIG = {provider: 'openai', url: 'http://ai.local:8000/v1/', model: 'llama', tokenParameter: 'max_tokens', maxTokens: 500, timeout: 30, systemRole: true,
-    tfRequest: '{"instances": [{"prompt": "{{prompt}}", "max_tokens": {{maxTokens}}}]}', tfResponsePath: 'predictions.0', guidelines: '', pseudonymize: false}
+  var CONFIG = {url: 'http://ai.local:8000/v1/', model: 'llama', tokenParameter: 'max_tokens', maxTokens: 500, timeout: 30, systemRole: true,
+    extraParameters: '', guidelines: '', pseudonymize: false}
 
   describe('AI assistance (lib/ai.js)', () => {
     afterEach(() => {
@@ -74,16 +75,82 @@ module.exports = function(request, app) {
       expect(calls[1].body).toEqual({messages: [{role: 'user', content: 'S\n\nU'}], temperature: 0.2, stream: false, max_completion_tokens: 500})
     })
 
-    it('TensorFlow Serving: predict of the model, body of the template (prompt escaped), text at the path of the answer', async () => {
-      var {fetchImpl, calls} = fakeFetch({json: {predictions: [{text: '<p>Done</p>'}]}})
-      var config = {...CONFIG, provider: 'tfserving', url: 'http://tf.local:8501', model: 'writer'}
-      expect(await ai.generate(config, {system: 'Sys "quoted"', user: 'line\nnext'}, fetchImpl)).toBe('<p>Done</p>')
-      expect(calls[0].url).toBe('http://tf.local:8501/v1/models/writer:predict')
-      expect(calls[0].body).toEqual({instances: [{prompt: 'Sys "quoted"\n\nline\nnext', max_tokens: 500}]})
-      var paths = fakeFetch({json: {outputs: {texts: ['first']}}})
-      expect(await ai.generate({...config, tfResponsePath: 'outputs.texts'}, {system: 'S', user: 'U'}, paths.fetchImpl)).toBe('first')
-      await expect(ai.generate({...config, tfRequest: '{"broken": {{prompt}}'}, {system: 'S', user: 'U'}, fetchImpl)).rejects.toEqual({status: 422, message: 'Invalid request template of TensorFlow Serving'})
-      await expect(ai.generate({...config, tfResponsePath: 'missing.0'}, {system: 'S', user: 'U'}, fetchImpl)).rejects.toMatchObject({status: 502})
+    it('OpenAI compatible server: parameters of the settings added to the requests (reasoning of the model)', async () => {
+      var {fetchImpl, calls} = fakeFetch(chat('OK'))
+      var extraParameters = '{"chat_template_kwargs": {"enable_thinking": false}, "temperature": 0.6, "messages": [], "stream": true}'
+      expect(await ai.generate({...CONFIG, extraParameters}, {system: 'S', user: 'U'}, fetchImpl)).toBe('OK')
+      // Messages and streaming of pwndoc kept, model and maximum length of the settings
+      expect(calls[0].body).toEqual({model: 'llama', messages: [{role: 'system', content: 'S'}, {role: 'user', content: 'U'}], temperature: 0.6, stream: false, max_tokens: 500,
+        chat_template_kwargs: {enable_thinking: false}})
+      await ai.generate({...CONFIG, extraParameters: '  '}, {system: 'S', user: 'U'}, fetchImpl)
+      expect(Object.keys(calls[1].body).sort()).toEqual(['max_tokens', 'messages', 'model', 'stream', 'temperature'])
+      for (var invalid of ['{"broken"', '[1]', '"text"', 'null', '3'])
+        await expect(ai.generate({...CONFIG, extraParameters: invalid}, {system: 'S', user: 'U'}, fetchImpl)).rejects.toEqual({status: 422, message: 'Invalid additional parameters of the requests (JSON object expected)'})
+      expect(calls).toHaveLength(2)
+      expect(ai.parseExtraParameters('')).toEqual({})
+      expect(ai.parseExtraParameters('{"reasoning_effort": "low"}')).toEqual({reasoning_effort: 'low'})
+      expect(ai.parseExtraParameters('[]')).toBe(null)
+    })
+
+    it('Reasoning models: maximum length reached before the answer, explained', async () => {
+      var reasoning = (content, finish) => fakeFetch({json: {choices: [{message: {role: 'assistant', content, reasoning_content: 'Thinking...'}, finish_reason: finish}]}}).fetchImpl
+      var prompt = {system: 'S', user: 'U'}
+      var length = {status: 502, message: 'Maximum length reached before the answer of the AI (reasoning of the model included): increase the maximum length or limit the reasoning in the settings'}
+      await expect(ai.generate(CONFIG, prompt, reasoning(null, 'length'))).rejects.toEqual(length)
+      await expect(ai.generate(CONFIG, prompt, reasoning('', 'length'))).rejects.toEqual(length)
+      await expect(ai.generate(CONFIG, prompt, reasoning(' ', 'stop'))).rejects.toEqual({status: 502, message: 'No text in the answer of the AI server'})
+      // Reasoning repeating itself, stopped by the server (tensorfold), or answer filtered
+      var loop = fakeFetch({json: {choices: [{message: {role: 'assistant', content: '', reasoning_content: 'Again'}, finish_reason: 'content_filter'}], error: {code: 'reasoning_loop', message: 'details'}}}).fetchImpl
+      await expect(ai.generate(CONFIG, prompt, loop)).rejects.toEqual({status: 502, message: 'The reasoning of the model looped and was stopped by the AI server: retry, or limit the reasoning in the settings'})
+      await expect(ai.generate(CONFIG, prompt, reasoning(null, 'content_filter'))).rejects.toEqual({status: 502, message: 'The AI server stopped the answer (content filter)'})
+      expect(await ai.complete(CONFIG, prompt, fakeFetch({json: {choices: [{message: {content: 'OK'}}], usage: {completion_tokens_details: {reasoning_tokens: 12}}}}).fetchImpl)).toEqual({text: 'OK', reasoningTokens: 12})
+      expect(await ai.generate(CONFIG, prompt, reasoning('[]', 'stop'))).toBe('[]')
+    })
+
+    it('Refusals of the server: its message for the request (4xx), the API key (401, 403), the address (404), codes of the waits', async () => {
+      var prompt = {system: 'S', user: 'U'}
+      var answer = (status, error) => fakeFetch({status, json: {error}}).fetchImpl
+      await expect(ai.generate(CONFIG, prompt, answer(400, {message: 'reasoning_effort must be none, minimal, low, medium, high, xhigh or max', type: 'invalid_request_error'}))).rejects
+        .toEqual({status: 502, message: 'The AI server refused the request: reasoning_effort must be none, minimal, low, medium, high, xhigh or max'})
+      await expect(ai.generate(CONFIG, prompt, answer(400, {message: "This server's maximum context length is 200000 tokens\u0000", code: 'context_length_exceeded'}))).rejects
+        .toEqual({status: 502, message: "The AI server refused the request (context_length_exceeded): This server's maximum context length is 200000 tokens"})
+      await expect(ai.generate(CONFIG, prompt, answer(400, {message: 'x'.repeat(500)}))).rejects.toMatchObject({message: `The AI server refused the request: ${'x'.repeat(300)}`})
+      await expect(ai.generate(CONFIG, prompt, answer(401, {message: 'Invalid key'}))).rejects.toEqual({status: 502, message: 'The AI server answered 401: check the API key (environment variable AI_API_KEY)'})
+      await expect(ai.generate(CONFIG, prompt, answer(403, {message: 'No', code: 'insufficient_scope'}))).rejects.toEqual({status: 502, message: 'The AI server answered 403 (insufficient_scope): check the API key (environment variable AI_API_KEY)'})
+      await expect(ai.generate(CONFIG, prompt, answer(404, 'not found'))).rejects.toEqual({status: 502, message: 'The AI server answered 404: check the address of the server (usually ending with /v1) and the model'})
+      // Server errors: status and code only (never their message)
+      await expect(ai.generate(CONFIG, prompt, answer(500, {message: 'secret details', type: 'server_error'}))).rejects.toEqual({status: 502, message: 'The AI server answered 500'})
+      await expect(ai.generate(CONFIG, prompt, answer(503, {message: 'Busy', code: 'engine_busy'}))).rejects.toEqual({status: 502, message: 'The AI server answered 503 (engine_busy)'})
+      await expect(ai.generate(CONFIG, prompt, answer(503, {message: 'Busy', code: 'bad code!'}))).rejects.toEqual({status: 502, message: 'The AI server answered 503'})
+    })
+
+    it('Waits announced by the server (503, 429 with Retry-After) waited then retried, within the timeout', async () => {
+      var prompt = {system: 'S', user: 'U'}
+      var waits = (count, retry) => fakeFetch((url, options) => {
+        waits.calls = (waits.calls || 0) + 1
+        return waits.calls <= count ? {status: 503, headers: {'retry-after': retry}, json: {error: {message: 'Loading', code: 'engine_loading'}}} : chat('OK')
+      })
+      waits.calls = 0
+      var loading = waits(2, '0')
+      expect(await ai.generate(CONFIG, prompt, loading.fetchImpl)).toBe('OK')
+      expect(loading.calls).toHaveLength(3)
+      waits.calls = 0
+      var limited = fakeFetch(() => { waits.calls++; return waits.calls === 1 ? {status: 429, headers: {'retry-after': '0'}, json: {error: {message: 'Limit', code: 'admission_capacity_exceeded'}}} : chat('OK') })
+      expect(await ai.generate(CONFIG, prompt, limited.fetchImpl)).toBe('OK')
+      // Three retries at most
+      waits.calls = 0
+      var always = waits(10, '0')
+      await expect(ai.generate(CONFIG, prompt, always.fetchImpl)).rejects.toEqual({status: 502, message: 'The AI server answered 503 (engine_loading)'})
+      expect(always.calls).toHaveLength(4)
+      // Wait longer than the timeout, or not announced: not retried
+      waits.calls = 0
+      var long = waits(1, '3600')
+      await expect(ai.generate(CONFIG, prompt, long.fetchImpl)).rejects.toEqual({status: 502, message: 'The AI server answered 503 (engine_loading)'})
+      expect(long.calls).toHaveLength(1)
+      waits.calls = 0
+      var unknown = fakeFetch(() => ({status: 503, json: {error: {code: 'engine_busy'}}}))
+      await expect(ai.generate(CONFIG, prompt, unknown.fetchImpl)).rejects.toEqual({status: 502, message: 'The AI server answered 503 (engine_busy)'})
+      expect(unknown.calls).toHaveLength(1)
     })
 
     it('Errors of the server: not available, timeout, error status, invalid answer, no text, no address', async () => {
@@ -121,8 +188,8 @@ module.exports = function(request, app) {
         '{"finding": "unknown", "message": "x"}, {"finding": "f2", "field": "other", "severity": "error", "message": " Unclear wording "}, {"finding": "f2", "message": ""}]'))
       var issues = await ai.qaIssues({...CONFIG, pseudonymize: true}, audit, {terms: ['ACME']}, fetchImpl)
       expect(issues.map(issue => [issue.check, issue.severity, issue.code, issue.params.message, issue.location])).toEqual([
-        ['ai', 'warning', 'ai', 'Critical CVSS but ACME impact described as low', {kind: 'finding', id: 'f1', name: 'SQLi on ACME', field: 'cvss', label: null}],
-        ['ai', 'warning', 'ai', 'Unclear wording', {kind: 'finding', id: 'f2', name: 'XSS', field: null, label: null}]
+        ['ai', 'warning', 'ai', 'Critical CVSS but ACME impact described as low', {kind: 'finding', id: 'f1', name: 'SQLi on ACME', field: 'cvss', label: null, passage: null}],
+        ['ai', 'warning', 'ai', 'Unclear wording', {kind: 'finding', id: 'f2', name: 'XSS', field: null, label: null, passage: null}]
       ])
       expect(issues[0].fingerprint).toMatch(/^[a-f0-9]{20}$/)
       expect(calls).toHaveLength(1)
@@ -134,6 +201,23 @@ module.exports = function(request, app) {
       expect(await ai.qaIssues(CONFIG, audit, {}, fakeFetch(chat('[]')).fetchImpl)).toEqual([])
     })
 
+    it('Quality check by the AI: passage of the field shown when the issue is opened, only when really in the field', async () => {
+      var audit = {findings: [{_id: 'f1', title: 'SQLi', description: '<p>The login form of <strong>ACME</strong> is   vulnerable.</p><p>Its gona be hacked.</p>', remediation: '<p>Use prepared statements.</p>'}]}
+      var answer = (items) => fakeFetch(chat(JSON.stringify(items))).fetchImpl
+      var issues = await ai.qaIssues({...CONFIG, pseudonymize: true}, audit, {terms: ['ACME']}, answer([
+        {finding: 'f1', field: 'description', message: 'Informal', quote: 'its GONA be hacked'}, // Case and whitespace ignored
+        {finding: 'f1', field: 'description', message: 'Pseudonymized', quote: 'form of [[TERM_1]] is vulnerable'}, // Name restored
+        {finding: 'f1', field: 'remediation', message: 'Rephrased', quote: 'Use parameterized queries'}, // Not in the field
+        {finding: 'f1', field: 'cvss', message: 'CVSS', quote: 'AV:N'}, // Not a text field
+        {finding: 'f1', field: 'description', message: 'No quote'}
+      ]))
+      expect(issues.map(issue => issue.location.passage)).toEqual([{text: 'its GONA be hacked'}, {text: 'form of ACME is vulnerable'}, null, null, null])
+      // Asked to the model
+      var {fetchImpl, calls} = fakeFetch(chat('[]'))
+      await ai.qaIssues(CONFIG, audit, {}, fetchImpl)
+      expect(calls[0].body.messages[1].content).toContain('"quote": "<passage of the field concerned, copied word for word from it')
+    })
+
     it('Quality check by the AI: large audits sent in several requests (fields shortened)', async () => {
       var findings = Array.from({length: 30}, (_, i) => ({_id: `f${i}`, title: `F${i}`, description: `<p>${'x'.repeat(20000)}</p>`}))
       var {fetchImpl, calls} = fakeFetch(chat('[]'))
@@ -143,12 +227,14 @@ module.exports = function(request, app) {
       expect(calls[0].body.messages[1].content).not.toContain('x'.repeat(3001))
     })
 
-    it('Test of the connection: models of the server and short answer', async () => {
-      var {fetchImpl, calls} = fakeFetch((url) => url.endsWith('/models') ? {json: {data: [{id: 'llama'}, {id: 'mistral'}]}} : chat(' OK '))
-      expect(await ai.testConnection(CONFIG, fetchImpl)).toEqual({provider: 'openai', models: ['llama', 'mistral'], answer: 'OK'})
+    it('Test of the connection: models of the server, short answer, tokens of the reasoning and time taken', async () => {
+      var {fetchImpl, calls} = fakeFetch((url) => url.endsWith('/models') ? {json: {data: [{id: 'llama'}, {id: 'mistral'}]}} :
+        {json: {choices: [{message: {role: 'assistant', content: ' OK ', reasoning_content: 'Thinking'}, finish_reason: 'stop'}], usage: {completion_tokens_details: {reasoning_tokens: 229}}}})
+      var result = await ai.testConnection(CONFIG, fetchImpl)
+      expect(result).toEqual({models: ['llama', 'mistral'], answer: 'OK', reasoningTokens: 229, seconds: expect.any(Number)})
+      expect(result.seconds).toBeGreaterThanOrEqual(0)
+      expect((await ai.testConnection(CONFIG, fakeFetch(chat('OK')).fetchImpl)).reasoningTokens).toBeNull() // Not given by the server
       expect(calls.map(call => [call.method, call.url])).toEqual([['GET', 'http://ai.local:8000/v1/models'], ['POST', 'http://ai.local:8000/v1/chat/completions']])
-      var tf = fakeFetch((url) => url.endsWith(':predict') ? {json: {predictions: ['OK']}} : {json: {model_version_status: [{version: '3', state: 'AVAILABLE'}]}})
-      expect(await ai.testConnection({...CONFIG, provider: 'tfserving', model: 'writer'}, tf.fetchImpl)).toEqual({provider: 'tfserving', models: ['writer v3 (AVAILABLE)'], answer: 'OK'})
       var noList = fakeFetch((url) => url.endsWith('/models') ? {status: 404, json: {}} : chat('OK'))
       expect((await ai.testConnection(CONFIG, noList.fetchImpl)).models).toBeNull()
     })
@@ -204,13 +290,14 @@ module.exports = function(request, app) {
     })
 
     it('Settings of the AI server validated, test of the connection by the administrators', async () => {
-      for (var values of [{private: {url: 'ftp://x'}}, {private: {provider: 'other'}}, {private: {maxTokens: 1.5}}, {private: {timeout: 2}}, {private: {tokenParameter: 'tokens'}}])
+      for (var values of [{private: {url: 'ftp://x'}}, {private: {maxTokens: 1.5}}, {private: {timeout: 2}}, {private: {tokenParameter: 'tokens'}},
+        {private: {extraParameters: '{"broken"'}}, {private: {extraParameters: '[1]'}}])
         expect((await setAi(values)).status).toBe(422)
       expect((await setAi({private: {url: `http://127.0.0.1:${port}/v1`, model: 'fake-model'}})).status).toBe(200)
       answer = () => 'OK'
       var response = await request(app).post('/api/ai/test').set('Cookie', adminCookie)
       expect(response.status).toBe(200)
-      expect(response.body.datas).toEqual({provider: 'openai', models: ['fake-model'], answer: 'OK'})
+      expect(response.body.datas).toEqual({models: ['fake-model'], answer: 'OK', reasoningTokens: null, seconds: expect.any(Number)})
       expect((await request(app).post('/api/ai/test').set('Cookie', userCookie)).status).toBe(403)
       // API key never in the settings
       expect(JSON.stringify((await request(app).get('/api/settings').set('Cookie', adminCookie)).body.datas.ai)).not.toMatch(/key/i)

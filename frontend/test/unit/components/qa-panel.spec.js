@@ -4,6 +4,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 
 vi.mock('boot/axios', () => import('../../helpers/api-mock'))
 
+import { qaFocus } from '@/services/qa'
 import QaPanel from 'components/qa-panel'
 import AuditService from '@/services/audit'
 import AiService from '@/services/ai'
@@ -76,6 +77,9 @@ describe('quality checks panel', () => {
     await wrapper.findAll('.qa-open')[2].trigger('click')
     expect(router.push).toHaveBeenCalledWith('/audits/a1/sections/s1')
     expect(wrapper.emitted('close')).toHaveLength(1)
+    // Field and passage shown by the audit page
+    expect(qaFocus.request).toEqual({ auditId: 'a1', issue: wrapper.vm.issues[2] })
+    qaFocus.request = null
   })
 
   it('offers the quality check by the AI when it is enabled and allowed, with the date of the last check', async () => {

@@ -559,21 +559,22 @@
             </q-card-section>
             <q-card-section v-if="settings.ai.private" class="q-pt-none">
                 <div class="row q-col-gutter-md">
-                    <q-select class="col-12 col-md-4 ai-provider" outlined dense emit-value map-options :options="aiProviderOptions" v-model="settings.ai.private.provider" :label="$t('ai.provider')" :readonly="!canEdit" />
-                    <q-input class="col-12 col-md-5 ai-url" outlined dense v-model="settings.ai.private.url" :label="$t('ai.url')" :hint="$t('ai.urlHint')" :readonly="!canEdit" />
-                    <q-input class="col-12 col-md-3 ai-model" outlined dense v-model="settings.ai.private.model" :label="$t('ai.model')" :readonly="!canEdit" />
-                    <template v-if="settings.ai.private.provider === 'tfserving'">
-                        <div class="col-12 col-md-8">
-                            <q-input class="ai-tf-request" outlined dense type="textarea" autogrow v-model="settings.ai.private.tfRequest" :label="$t('ai.tfRequest')" :readonly="!canEdit" />
-                            <div class="text-caption text-grey-7" v-pre>{{prompt}}, {{maxTokens}}, {{model}}</div>
+                    <q-input class="col-12 col-md-8 ai-url" outlined dense v-model="settings.ai.private.url" :label="$t('ai.url')" :hint="$t('ai.urlHint')" :readonly="!canEdit" />
+                    <q-input class="col-12 col-md-4 ai-model" outlined dense v-model="settings.ai.private.model" :label="$t('ai.model')" :readonly="!canEdit" />
+                    <q-select class="col-12 col-md-4" outlined dense emit-value map-options :options="aiTokenOptions" v-model="settings.ai.private.tokenParameter" :label="$t('ai.tokenParameter')" :readonly="!canEdit" />
+                    <q-toggle class="col-12 col-md-8 ai-system-role" v-model="settings.ai.private.systemRole" :label="$t('ai.systemRole')" :disable="!canEdit" />
+                    <!-- Reasoning of the model (names of the parameters depending on the server) and other parameters -->
+                    <div class="col-12">
+                        <q-input class="ai-extra-parameters" outlined dense type="textarea" autogrow v-model="settings.ai.private.extraParameters" :label="$t('ai.extraParameters')" :rules="[aiParametersRule]" hide-bottom-space :readonly="!canEdit" />
+                        <div class="text-caption text-grey-7 q-mt-xs ai-extra-parameters-examples">
+                            {{$t('ai.extraParametersHint')}}
+                            <q-chip v-for="example in aiParameterExamples" :key="example.json" dense square clickable :disable="!canEdit" class="ai-extra-parameters-example" @click="settings.ai.private.extraParameters = example.json">
+                                <code>{{example.json}}</code>
+                                <q-tooltip :delay="300">{{example.label}}</q-tooltip>
+                            </q-chip>
                         </div>
-                        <q-input class="col-12 col-md-4 ai-tf-path" outlined dense v-model="settings.ai.private.tfResponsePath" :label="$t('ai.tfResponsePath')" :readonly="!canEdit" />
-                    </template>
-                    <template v-else>
-                        <q-select class="col-12 col-md-4" outlined dense emit-value map-options :options="aiTokenOptions" v-model="settings.ai.private.tokenParameter" :label="$t('ai.tokenParameter')" :readonly="!canEdit" />
-                        <q-toggle class="col-12 col-md-8 ai-system-role" v-model="settings.ai.private.systemRole" :label="$t('ai.systemRole')" :disable="!canEdit" />
-                    </template>
-                    <q-input class="col-6 col-md-3" outlined dense type="number" v-model.number="settings.ai.private.maxTokens" :label="$t('ai.maxTokens')" :readonly="!canEdit" />
+                    </div>
+                    <q-input class="col-6 col-md-3" outlined dense type="number" v-model.number="settings.ai.private.maxTokens" :label="$t('ai.maxTokens')" :hint="$t('ai.maxTokensHint')" :readonly="!canEdit" />
                     <q-input class="col-6 col-md-3" outlined dense type="number" v-model.number="settings.ai.private.timeout" :label="$t('ai.timeout')" :readonly="!canEdit" />
                     <q-input class="col-12 ai-guidelines" outlined dense type="textarea" autogrow v-model="settings.ai.private.guidelines" :label="$t('ai.guidelines')" :hint="$t('ai.guidelinesHint')" :readonly="!canEdit" />
                     <q-toggle class="col-12 ai-pseudonymize" v-model="settings.ai.private.pseudonymize" :label="$t('ai.pseudonymize')" :disable="!canEdit" />
@@ -583,7 +584,7 @@
                     <div v-if="aiUnsaved" class="text-caption text-grey-7">{{$t('ai.testSaveFirst')}}</div>
                     <div v-else-if="aiTest.error" class="text-negative ai-test-error">{{aiTest.error}}</div>
                     <div v-else-if="aiTest.result" class="text-positive ai-test-result">
-                        {{$t('ai.testOk')}} · {{$t('ai.testAnswer', {answer: aiTest.result.answer})}}<span v-if="aiTest.result.models && aiTest.result.models.length"> · {{$t('ai.testModels', {models: aiTest.result.models.join(', ')})}}</span>
+                        {{$t('ai.testOk')}} · {{$t('ai.testAnswer', {answer: aiTest.result.answer})}}<span v-if="aiTest.result.reasoningTokens != null" class="ai-test-reasoning"> · {{$t('ai.testReasoning', {tokens: aiTest.result.reasoningTokens})}}</span><span v-if="aiTest.result.seconds != null"> · {{$t('ai.testSeconds', {seconds: aiTest.result.seconds})}}</span><span v-if="aiTest.result.models && aiTest.result.models.length"> · {{$t('ai.testModels', {models: aiTest.result.models.join(', ')})}}</span>
                     </div>
                 </div>
             </q-card-section>

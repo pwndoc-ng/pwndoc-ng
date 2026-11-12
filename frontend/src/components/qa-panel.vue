@@ -65,7 +65,7 @@
 <script>
 import AuditService, { errorMessage } from '@/services/audit'
 import AiService, { aiAllowed } from '@/services/ai'
-import { SEVERITY_ICONS, issueMessage, issuePlace, issuePath, issueCounts } from '@/services/qa'
+import { SEVERITY_ICONS, issueMessage, issuePlace, issueCounts, openIssue } from '@/services/qa'
 import { $t } from '@/boot/i18n'
 
 export default {
@@ -139,9 +139,10 @@ export default {
       .catch((err) => { this.error = errorMessage(err) })
     },
 
+    // Page of the issue, its field and passage shown (audit page)
     open: function(issue) {
       this.$emit('close')
-      this.$router.push(issuePath(this.auditId, issue))
+      return openIssue(this.$router, this.auditId, issue)
     },
 
     icon: (issue) => SEVERITY_ICONS[issue.severity] || SEVERITY_ICONS.info,
