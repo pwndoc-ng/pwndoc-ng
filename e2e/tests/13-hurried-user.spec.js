@@ -8,7 +8,7 @@ const { test: base, expect } = require('@playwright/test')
 const D = require('./support/data')
 const {
   qField, qInput, qSelect, expectNotification, notification, dialog, button, editorContent, editorCard, press, type,
-  newUserContext, apiAs, datas, ensureBaseData, ensureVulnerability
+  newUserContext, apiAs, datas, ensureBaseData, ensureVulnerability, setQaChecks
 } = require('./support/helpers')
 const {
   RUN, pause, textOf, watchErrors, checkErrors, hurriedClick, clicksAt, doubleClick, slowCollab, slowApi,
@@ -582,9 +582,11 @@ test.describe('Hurried user: double clicks on the creation and action buttons', 
     }
   })
 
-  // Report of an audit generated from the audit menu with clicks at a hurried pace. Returns the downloads.
+  // Report of an audit generated from the audit menu with clicks at a hurried pace (quality checks disabled: no check
+  // before the generation). Returns the downloads.
   async function generateReports (page, name, clicks) {
     const { auditId } = await createAudit(name, FINDINGS.slice(0, 2))
+    await setQaChecks(false)
     const admin = await apiAs(D.USERS.admin)
     const settings = await datas(await admin.get('/api/settings'))
     const mandatory = settings.reviews.public.mandatoryReview
@@ -603,6 +605,7 @@ test.describe('Hurried user: double clicks on the creation and action buttons', 
       await expect(notification(page, 'Generating the Report')).toHaveCount(0, { timeout: 60_000 })
       return downloads
     } finally {
+      await setQaChecks(true)
       if (mandatory) {
         settings.reviews.public.mandatoryReview = true
         await admin.put('/api/settings', { data: settings })

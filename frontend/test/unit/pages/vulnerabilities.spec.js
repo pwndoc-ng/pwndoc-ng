@@ -271,3 +271,59 @@ describe('vulnerabilities page actions', () => {
     expect(VulnerabilityService.mergeVulnerability).toHaveBeenCalledWith('v1', 'v5', 'fr')
   })
 })
+
+describe('quality checks of the vulnerability database', () => {
+  const ISSUES = [
+    { fingerprint: 'a'.repeat(20), check: 'duplicates', severity: 'warning', code: 'duplicateTitle', params: { other: 'sql-injection', otherId: 'v9' }, location: { kind: 'vulnerability', id: 'v1', name: 'SQL Injection', field: null, label: null, locale: 'en' } },
+    { fingerprint: 'b'.repeat(20), check: 'references', severity: 'warning', code: 'referenceInvalid', params: { reference: 'htps://x.y' }, location: { kind: 'vulnerability', id: 'v4', name: 'Updated vuln', field: 'references', label: null, locale: 'en' } },
+    { fingerprint: 'c'.repeat(20), check: 'duplicates', severity: 'info', code: 'similarTitle', params: { other: 'x' }, location: { kind: 'vulnerability', id: 'v404', name: 'Deleted', field: null, label: null, locale: 'en' } }
+  ]
+
+  it('is offered to the users allowed to update the vulnerabilities', async () => {
+    await mountPage(['vulnerabilities:read'])
+    expect(wrapper.find('.vulnerabilities-qa-button').exists()).toBe(false)
+    wrapper.unmount()
+    await mountPage()
+    expect(wrapper.find('.vulnerabilities-qa-button').exists()).toBe(true)
+  })
+
+  it('lists the issues of the database with their place and message, and their counts', async () => {
+    vi.spyOn(VulnerabilityService, 'getVulnerabilitiesQa').mockResolvedValue({ data: { datas: { issues: ISSUES } } })
+    await mountPage()
+    wrapper.vm.openQa()
+    await flushPromises()
+    expect(wrapper.vm.qa.show).toBe(true)
+    expect(wrapper.vm.qa.issues).toEqual(ISSUES)
+    expect(wrapper.vm.qaSummary).toBe('0 errors, 2 warnings, 1 information')
+    expect(ISSUES.map((issue) => [wrapper.vm.qaPlace(issue), wrapper.vm.qaMessage(issue)])).toEqual([
+      ['SQL Injection (en)', 'Same title as "sql-injection"'],
+      ['Updated vuln (en) · References', 'Invalid link: "htps://x.y"'],
+      ['Deleted (en)', 'Title very similar to "x"']
+    ])
+  })
+
+  it('opens the vulnerability of an issue (edition, or proposals of an updated vulnerability)', async () => {
+    vi.spyOn(VulnerabilityService, 'getVulnerabilitiesQa').mockResolvedValue({ data: { datas: { issues: ISSUES } } })
+    await mountPage()
+    const proposals = vi.spyOn(wrapper.vm, 'openVulnerabilityProposals').mockImplementation(() => {})
+    wrapper.vm.openQa()
+    await flushPromises()
+    wrapper.vm.openQaIssue(ISSUES[0])
+    expect(wrapper.vm.qa.show).toBe(false)
+    expect(wrapper.vm.vulnerabilityId).toBe('v1')
+    expect(wrapper.vm.$refs.editModal.open).toBe(true)
+    wrapper.vm.openQaIssue(ISSUES[1])
+    expect(proposals).toHaveBeenCalledWith(expect.objectContaining({ _id: 'v4' }))
+    wrapper.vm.qa.show = true
+    wrapper.vm.openQaIssue(ISSUES[2]) // Deleted meanwhile: nothing opened
+    expect(wrapper.vm.qa.show).toBe(true)
+  })
+
+  it('shows the error of the checks', async () => {
+    vi.spyOn(VulnerabilityService, 'getVulnerabilitiesQa').mockRejectedValue({ response: { data: { datas: 'Insufficient privileges' } } })
+    await mountPage()
+    wrapper.vm.openQa()
+    await flushPromises()
+    expect(wrapper.vm.qa.error).toBe('Insufficient privileges')
+  })
+})

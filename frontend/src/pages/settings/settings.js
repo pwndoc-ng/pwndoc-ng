@@ -2,6 +2,7 @@ import { Notify, Dialog } from 'quasar'
 
 import SettingsService from '@/services/settings'
 import SpellcheckService from '@/services/spellcheck'
+import AiService from '@/services/ai'
 import UserService from '@/services/user'
 import DataService from '@/services/data'
 import Utils from '@/services/utils'
@@ -13,6 +14,8 @@ export default {
     data: () => {
         return {
             loading: true,
+            // Section of the settings shown (tab), also given by the address: /settings?tab=ai
+            tab: 'general',
             UserService: UserService,
             settings: {danger:{enabled:false,public:{nbdaydelete: 0}},reviews:{enabled:false}},
             settingsOrig : {danger:{enabled:false},reviews:{enabled:false}},
@@ -20,13 +23,53 @@ export default {
             // Number of the last loading of the settings (reloaded after a revert or an import)
             settingsRequest: 0,
             findingCustomFieldLabels: [], // Labels of findings custom fields usable in the sidebar template
+            // Test of the connection to the AI server
+            aiTest: {loading: false, result: null, error: ''},
+            // Quality checks of the settings (backend lib/qa.js)
+            qaChecks: ['completeness', 'comments', 'internalLinks', 'images', 'references', 'duplicates'],
             spellcheckWords: [], // Words ignored by the spell checker: proposed (pending) and approved
             spellcheckNewWord: ''
         }
     },
 
     computed: {
+        // Sections of the settings allowed to the user (tabs), with the number of words of the spell checker to approve
+        settingsTabs: function() {
+            var read = UserService.isAllowed('settings:read')
+            var pending = this.spellcheckWords.filter(word => word.status === 'pending').length
+            return [
+                {name: 'general', icon: 'mdi-tune', label: $t('settingsTabs.general'), show: true},
+                {name: 'reports', icon: 'mdi-file-document-outline', label: $t('reports'), show: read},
+                {name: 'reviews', icon: 'mdi-account-check-outline', label: $t('reviews'), show: read},
+                {name: 'quality', icon: 'mdi-clipboard-check-outline', label: $t('settingsTabs.quality'), show: read || UserService.isAllowed('spellcheck-words:update'), badge: pending},
+                {name: 'ai', icon: 'mdi-creation', label: $t('ai.title'), show: read},
+                {name: 'backups', icon: 'mdi-backup-restore', label: $t('backupSettings'), show: read},
+                {name: 'danger', icon: 'mdi-alert-outline', label: $t('dangerSettings'), show: read}
+            ].filter(item => item.show)
+        },
+
         // Variables of the findings sidebar template, including findings custom fields
+        // Types of AI server
+        aiProviderOptions: function() {
+            return ['openai', 'tfserving'].map(value => ({value: value, label: $t(`ai.providers.${value}`)}))
+        },
+
+        aiTokenOptions: function() {
+            return [{value: 'max_tokens', label: 'max_tokens'}, {value: 'max_completion_tokens', label: 'max_completion_tokens'}]
+        },
+
+        // Settings of the AI changed and not saved: the test uses the saved settings
+        aiUnsaved: function() {
+            return JSON.stringify(this.settings.ai) !== JSON.stringify(this.settingsOrig.ai)
+        },
+
+        // Highlight colors of the editors for the warning of the highlighted texts, several can be chosen (same colors as
+        // the editor menu)
+        highlightColorOptions: function() {
+            return [['#ffff00', 'yellow'], ['#fe0000', 'red'], ['#00ff00', 'green'], ['#00ffff', 'cyan']]
+                .map(([value, name]) => ({value: value, label: $t(`highlightColor.${name}`)}))
+        },
+
         // Days of the automatic backups, Monday first: {value: 0 (Sunday) to 6, label: name in the language of the interface}
         weekDayOptions: function() {
             return [1, 2, 3, 4, 5, 6, 0].map(day => ({value: day, label: this.weekDayName(day)}))
@@ -77,7 +120,18 @@ export default {
             next()
     },
 
+    watch: {
+        // Section kept in the address (link to a section, back after a reload)
+        tab: function(tab) {
+            if (this.$router && this.$route && this.$route.query.tab !== tab)
+                Promise.resolve(this.$router.replace({query: {...this.$route.query, tab: tab}})).catch(() => {})
+        }
+    },
+
     mounted: function() {
+        var requested = this.$route && this.$route.query && this.$route.query.tab
+        if (requested && this.settingsTabs.some(item => item.name === requested))
+            this.tab = requested
         if (UserService.isAllowed('settings:read')) {
             this.getSettings()
             this.getFindingCustomFieldLabels()
@@ -142,6 +196,19 @@ export default {
         },
 
         // Message of the server (the message of axios only says the status code), or of the network error
+        /* AI assistance */
+
+        testAi: function() {
+            this.aiTest = {loading: true, result: null, error: ''}
+            return AiService.testConnection()
+            .then((data) => {
+                this.aiTest = {loading: false, result: data.data.datas, error: ''}
+            })
+            .catch((err) => {
+                this.aiTest = {loading: false, result: null, error: this.errorMessage(err)}
+            })
+        },
+
         /* Words ignored by the spell checker */
 
         getSpellcheckWords: function() {

@@ -3,7 +3,7 @@ const fs = require('fs')
 const { test, expect } = require('@playwright/test')
 const D = require('./support/data')
 const { unzip } = require('./support/zip')
-const { qInput, loginUI, apiAs, datas, ensureMainAudit, ensureAudit, notification } = require('./support/helpers')
+const { qInput, loginUI, apiAs, datas, ensureMainAudit, ensureAudit, notification, downloadReport } = require('./support/helpers')
 
 test.describe.configure({ mode: 'serial' })
 
@@ -28,9 +28,8 @@ test.describe('Report', () => {
   test('generated from the audit menu: valid .docx with the findings, the table, the image and its caption', async ({ page }) => {
     await page.goto(`/audits/${auditId}/general`)
     await expect(qInput(page, 'Name *')).toHaveValue(D.AUDIT.name)
-    const downloadPromise = page.waitForEvent('download', { timeout: 120_000 })
-    await page.locator('.q-drawer--left').locator('button').filter({ has: page.locator('.fa-download') }).click()
-    const download = await downloadPromise
+    // Quality checks of the audit (warnings: findings in redaction...) confirmed before the generation
+    const download = await downloadReport(page, () => page.locator('.q-drawer--left').locator('button').filter({ has: page.locator('.fa-download') }).click())
     expect(download.suggestedFilename()).toBe(`${D.AUDIT.name}.docx`)
     await expect(notification(page, 'Report successfully generated')).toBeVisible()
 
@@ -59,9 +58,7 @@ test.describe('Report', () => {
 
   test('generated from the audits list', async ({ page }) => {
     const row = page.getByRole('row').filter({ hasText: D.AUDIT.name })
-    const downloadPromise = page.waitForEvent('download', { timeout: 120_000 })
-    await row.locator('button').filter({ has: page.locator('.fa-download') }).click()
-    const download = await downloadPromise
+    const download = await downloadReport(page, () => row.locator('button').filter({ has: page.locator('.fa-download') }).click())
     const docx = unzip(fs.readFileSync(await download.path()))
     expect(documentText(docx)).toContain(D.VULNS.sqli.en.title)
   })
@@ -79,6 +76,8 @@ test.describe('Report', () => {
       await page.goto(`/audits/${draftId}/general`)
       await expect(qInput(page, 'Name *')).toHaveValue('E2E Draft Audit')
       await page.locator('.q-drawer--left').locator('button').filter({ has: page.locator('.fa-download') }).click()
+      // Audit without finding: warning of the quality checks, generated anyway, then refused
+      await page.locator('.report-check-dialog').getByRole('button', { name: 'Generate anyway' }).click()
       await expect(notification(page, 'Audit was not approved therefore cannot be exported.')).toBeVisible()
 
       // The approved audit can still be exported

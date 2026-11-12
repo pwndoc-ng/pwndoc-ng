@@ -3,7 +3,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import _ from 'lodash'
-import { QBtn, QToggle, QInput, QChip, QBtnToggle } from 'quasar'
+import { QBtn, QToggle, QInput, QChip, QBtnToggle, QCheckbox } from 'quasar'
 
 vi.mock('boot/axios', () => import('../../helpers/api-mock'))
 vi.mock('@/router', () => ({ default: { push: vi.fn() } }))
@@ -13,6 +13,7 @@ import SettingsService from '@/services/settings'
 import DataService from '@/services/data'
 import UserService from '@/services/user'
 import SpellcheckService from '@/services/spellcheck'
+import AiService from '@/services/ai'
 import { mockDialog, mockNotify, lastNotification } from '../../helpers/quasar'
 import { trackFileReads } from '../../helpers/data-pages'
 
@@ -47,10 +48,11 @@ const CUSTOM_FIELDS = [
 
 let wrapper
 let $settings
+let $router
 let errors
 let fileReadsDone
 
-async function mountPage({ roles = '*', settings = SETTINGS(), customFields = CUSTOM_FIELDS } = {}) {
+async function mountPage({ roles = '*', settings = SETTINGS(), customFields = CUSTOM_FIELDS, query = {} } = {}) {
   UserService.user = { username: 'admin', roles }
   $settings = { refresh: vi.fn(() => Promise.resolve()), reviews: { enabled: false } }
   errors = []
@@ -59,7 +61,7 @@ async function mountPage({ roles = '*', settings = SETTINGS(), customFields = CU
   wrapper = mount(SettingsPage, {
     attachTo: document.body,
     global: {
-      mocks: { $_: _, $settings },
+      mocks: { $_: _, $settings, $route: { query }, $router: ($router = { replace: vi.fn(() => Promise.resolve()) }) },
       stubs: { LanguageSelector: { name: 'LanguageSelector', template: '<div class="language-selector-stub" />' } },
       config: { errorHandler: (err) => errors.push(err) }
     }
@@ -94,6 +96,77 @@ afterEach(() => {
   wrapper && wrapper.unmount()
   wrapper = null
   keydownListeners.splice(0).forEach((listener) => EventTarget.prototype.removeEventListener.call(document, 'keydown', listener, false))
+})
+
+describe('settings sections (tabs) and actions', () => {
+  const tabNames = () => wrapper.vm.settingsTabs.map((item) => item.name)
+  const shown = () => wrapper.findAll('.settings-section').filter((section) => section.element.style.display !== 'none').map((section) => section.classes().find((name) => name.startsWith('settings-section--')))
+
+  it('shows the sections allowed to the administrators as tabs, the general section first', async () => {
+    await mountPage()
+    expect(tabNames()).toEqual(['general', 'reports', 'reviews', 'quality', 'ai', 'backups', 'danger'])
+    expect(wrapper.findAll('.settings-tabs .q-tab')).toHaveLength(7)
+    expect(shown()).toEqual(['settings-section--general'])
+    expect(wrapper.find('.settings-section--general').text()).toContain('Display Language')
+  })
+
+  it('shows one section at a time and keeps it in the address', async () => {
+    await mountPage()
+    wrapper.vm.tab = 'ai'
+    await flushPromises()
+    expect(shown()).toEqual(['settings-section--ai'])
+    expect($router.replace).toHaveBeenCalledWith({ query: { tab: 'ai' } })
+    wrapper.vm.tab = 'reports'
+    await flushPromises()
+    expect(shown()).toEqual(['settings-section--reports'])
+    expect(wrapper.find('.settings-section--reports').findAll('.q-card').map((card) => card.classes().find((name) => name.endsWith('-settings'))))
+      .toEqual(['report-images-settings', 'report-colors-settings', 'report-highlight-settings'])
+  })
+
+  it('opens the section given by the address, ignores an unknown section', async () => {
+    await mountPage({ query: { tab: 'backups' } })
+    expect(wrapper.vm.tab).toBe('backups')
+    expect(shown()).toEqual(['settings-section--backups'])
+    wrapper.unmount()
+    await mountPage({ query: { tab: 'unknown' } })
+    expect(wrapper.vm.tab).toBe('general')
+    wrapper.unmount()
+    await mountPage({ roles: [], query: { tab: 'danger' } }) // Not allowed
+    expect(wrapper.vm.tab).toBe('general')
+  })
+
+  it('shows the general section only, without tabs, to the users who cannot read the settings', async () => {
+    await mountPage({ roles: [] })
+    expect(tabNames()).toEqual(['general'])
+    expect(wrapper.find('.settings-tabs').exists()).toBe(false)
+    expect(wrapper.find('.settings-actions').exists()).toBe(false)
+    wrapper.unmount()
+    vi.spyOn(SpellcheckService, 'getAllWords').mockResolvedValue({ data: { datas: [] } })
+    await mountPage({ roles: ['spellcheck-words:update'] })
+    expect(tabNames()).toEqual(['general', 'quality'])
+  })
+
+  it('counts the words of the spell checker to approve on the quality section', async () => {
+    vi.spyOn(SpellcheckService, 'getAllWords').mockResolvedValue({ data: { datas: [{ _id: 'w1', word: 'a', status: 'pending' }, { _id: 'w2', word: 'b', status: 'pending' }, { _id: 'w3', word: 'c', status: 'approved' }] } })
+    await mountPage()
+    expect(wrapper.vm.settingsTabs.find((item) => item.name === 'quality').badge).toBe(2)
+    expect(wrapper.find('.settings-tab--quality .q-badge').text()).toBe('2')
+  })
+
+  it('shows the actions at the top, and the unsaved changes until saved', async () => {
+    await mountPage()
+    const actions = wrapper.find('.settings-actions')
+    expect(wrapper.find('.settings-page').element.querySelector('.q-card')).toBe(actions.element) // First card of the page
+    expect(actions.text()).toContain('Save')
+    expect(actions.find('.settings-unsaved').exists()).toBe(false)
+    wrapper.vm.settings.reviews.enabled = true
+    await flushPromises()
+    expect(actions.find('.settings-unsaved').text()).toContain('Unsaved changes')
+    vi.spyOn(SettingsService, 'updateSettings').mockResolvedValue({})
+    await actions.find('.settings-save').trigger('click')
+    await flushPromises()
+    expect(actions.find('.settings-unsaved').exists()).toBe(false)
+  })
 })
 
 describe('settings loading and permissions', () => {
@@ -497,6 +570,108 @@ describe('findings sidebar template', () => {
     await flushPromises()
     expect(wrapper.find('img[src="x"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('<img src=x onerror=alert(1)> SQL Injection')
+  })
+})
+
+describe('highlighted texts warning', () => {
+  it('enables the warning and chooses several colors among the highlight colors of the editors', async () => {
+    const settings = SETTINGS()
+    settings.report.public.highlightWarning = false
+    settings.report.public.highlightWarningColors = ['#ffff00']
+    await mountPage({ settings })
+    expect(wrapper.vm.highlightColorOptions).toEqual([
+      { value: '#ffff00', label: 'Yellow' }, { value: '#fe0000', label: 'Red' }, { value: '#00ff00', label: 'Green' }, { value: '#00ffff', label: 'Cyan' }
+    ])
+    const section = wrapper.find('.highlight-warning-settings')
+    expect(section.text()).toContain('Highlighted texts to replace')
+    const boxes = () => section.findAllComponents(QCheckbox)
+    expect(boxes()).toHaveLength(4)
+    expect(boxes().every((box) => box.props('disable'))).toBe(true) // Disabled with the warning
+    expect(boxes().map((box) => box.props('modelValue').includes(box.props('val')))).toEqual([true, false, false, false])
+    wrapper.vm.settings.report.public.highlightWarning = true
+    await flushPromises()
+    expect(boxes().some((box) => box.props('disable'))).toBe(false)
+    await boxes()[2].trigger('click') // Green added
+    await boxes()[1].trigger('click') // Red added
+    await boxes()[0].trigger('click') // Yellow removed
+    expect(wrapper.vm.settings.report.public.highlightWarningColors).toEqual(['#00ff00', '#fe0000'])
+    const update = vi.spyOn(SettingsService, 'updateSettings').mockResolvedValue({})
+    wrapper.vm.updateSettings()
+    await flushPromises()
+    expect(update.mock.calls[0][0].report.public).toMatchObject({ highlightWarning: true, highlightWarningColors: ['#00ff00', '#fe0000'] })
+  })
+})
+
+describe('AI assistance', () => {
+  const AI = () => ({ enabled: false, private: { provider: 'openai', url: '', model: '', tokenParameter: 'max_tokens', maxTokens: 2000, timeout: 120, systemRole: true,
+    tfRequest: '{"instances": [{"prompt": "{{prompt}}"}]}', tfResponsePath: 'predictions.0', guidelines: '', pseudonymize: false } })
+  const withAi = () => { const settings = SETTINGS(); settings.ai = AI(); return settings }
+
+  it('shows the settings of the server of the selected type', async () => {
+    await mountPage({ settings: withAi() })
+    const card = wrapper.find('.ai-settings')
+    expect(card.text()).toContain('AI assistance')
+    expect(card.text()).toContain('AI_API_KEY')
+    expect(card.find('.ai-system-role').exists()).toBe(true)
+    expect(card.find('.ai-tf-request').exists()).toBe(false)
+    expect(wrapper.vm.aiProviderOptions.map((option) => option.value)).toEqual(['openai', 'tfserving'])
+    wrapper.vm.settings.ai.private.provider = 'tfserving'
+    await flushPromises()
+    expect(card.find('.ai-tf-request').exists()).toBe(true)
+    expect(card.find('.ai-tf-path').exists()).toBe(true)
+    expect(card.find('.ai-system-role').exists()).toBe(false)
+    expect(card.text()).toContain('{{prompt}}, {{maxTokens}}, {{model}}')
+  })
+
+  it('tests the connection with the saved settings only', async () => {
+    await mountPage({ settings: withAi() })
+    const test = vi.spyOn(AiService, 'testConnection').mockResolvedValue({ data: { datas: { provider: 'openai', models: ['llama', 'mistral'], answer: 'OK' } } })
+    expect(wrapper.vm.aiUnsaved).toBe(false)
+    await wrapper.vm.testAi()
+    await flushPromises()
+    expect(test).toHaveBeenCalled()
+    expect(wrapper.find('.ai-test-result').text()).toBe('Connection working · Answer: OK · Models: llama, mistral')
+    wrapper.vm.settings.ai.private.url = 'http://ai.local/v1'
+    await flushPromises()
+    expect(wrapper.vm.aiUnsaved).toBe(true)
+    expect(wrapper.find('.ai-settings').text()).toContain('Save the settings before testing')
+  })
+
+  it('shows the error of the test', async () => {
+    await mountPage({ settings: withAi() })
+    vi.spyOn(AiService, 'testConnection').mockRejectedValue({ response: { data: { datas: 'The AI server is not available' } } })
+    await wrapper.vm.testAi()
+    await flushPromises()
+    expect(wrapper.find('.ai-test-error').text()).toBe('The AI server is not available')
+  })
+})
+
+describe('quality checks', () => {
+  const CHECKS = { completeness: true, comments: true, internalLinks: true, images: true, references: true, duplicates: true }
+
+  it('enables and disables each check of the quality checks', async () => {
+    const settings = SETTINGS()
+    settings.qa = { public: { checks: { ...CHECKS } } }
+    await mountPage({ settings })
+    const items = wrapper.findAll('.qa-settings .qa-check')
+    expect(items.map((item) => item.text())).toEqual([
+      expect.stringContaining('Completeness'), expect.stringContaining('Review comments'), expect.stringContaining('Links between findings'),
+      expect.stringContaining('Images'), expect.stringContaining('References'), expect.stringContaining('Duplicated vulnerabilities')
+    ])
+    expect(wrapper.find('.qa-settings').text()).toContain('Links are never opened')
+    await items[2].findComponent(QToggle).trigger('click')
+    expect(wrapper.vm.settings.qa.public.checks.internalLinks).toBe(false)
+    const update = vi.spyOn(SettingsService, 'updateSettings').mockResolvedValue({})
+    wrapper.vm.updateSettings()
+    await flushPromises()
+    expect(update.mock.calls[0][0].qa.public.checks).toEqual({ ...CHECKS, internalLinks: false })
+  })
+
+  it('is read only for the users allowed to read the settings only', async () => {
+    const settings = SETTINGS()
+    settings.qa = { public: { checks: { ...CHECKS } } }
+    await mountPage({ settings, roles: ['settings:read'] })
+    expect(wrapper.findAll('.qa-settings .qa-check').every((item) => item.findComponent(QToggle).props('disable'))).toBe(true)
   })
 })
 

@@ -182,6 +182,7 @@ require('./routes/image')(app);
 require('./routes/settings')(app);
 require('./routes/backup')(app);
 require('./routes/spellcheck')(app);
+require('./routes/ai')(app);
 
 const { cronJobs } = require('./lib/cron');
 cronJobs();

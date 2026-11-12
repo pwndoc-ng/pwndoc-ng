@@ -1,16 +1,15 @@
 // components/languagetool.js: spell / grammar check of the editors by LanguageTool (requests, decorations, cache,
-// auto correction toggle), in real TipTap editors with fetch mocked
+// auto correction toggle, code not checked), in real TipTap editors with the check through the backend mocked
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { flushPromises } from '@vue/test-utils'
 import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { Schema } from '@tiptap/pm/model'
 
-import { LanguageTool, changedDescendants, selectionMatch } from 'components/languagetool'
+import { LanguageTool, changedDescendants, selectionMatch, checkedText } from 'components/languagetool'
 
-const API = 'https://pwndoc.test/v2/check'
 const editors = []
-let fetchMock
+let checkMock // Check of a text by LanguageTool through the backend (SpellcheckService.check): text → {matches}
 let counter = 0
 
 // Unique texts: the responses are cached by text for the whole module
@@ -19,7 +18,7 @@ const unique = (text) => `${text} ${++counter}`
 function editorWith(content, options = {}) {
   const editor = new Editor({
     element: document.createElement('div'),
-    extensions: [StarterKit, LanguageTool.configure({ apiUrl: API, automaticMode: false, ...options })],
+    extensions: [StarterKit, LanguageTool.configure({ check: (text) => checkMock(text), automaticMode: false, ...options })],
     content
   })
   document.body.appendChild(editor.view.dom.parentNode)
@@ -30,7 +29,7 @@ function editorWith(content, options = {}) {
 const match = (offset, length, message = 'Possible spelling mistake', issueType = 'misspelling') => ({
   offset, length, message, shortMessage: 'Spelling', replacements: [{ value: 'fix' }], rule: { id: 'MORFOLOGIK', issueType }
 })
-const answer = (matches) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ matches }) })
+const answer = (matches) => Promise.resolve({ matches })
 const storage = (editor) => editor.storage.languagetool
 const decorations = (editor) => [...editor.view.dom.querySelectorAll('span.lt')]
 
@@ -43,8 +42,7 @@ async function proofread(editor) {
 
 beforeEach(() => {
   sessionStorage.clear()
-  fetchMock = vi.fn(() => answer([]))
-  vi.stubGlobal('fetch', fetchMock)
+  checkMock = vi.fn(() => answer([]))
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 afterEach(() => {
@@ -55,31 +53,26 @@ afterEach(() => {
 })
 
 describe('languagetool requests', () => {
-  it('sends the text of the document to the LanguageTool API (form encoded, unicode included)', async () => {
+  it('sends the text of the document to the check function (unicode included)', async () => {
     const text = unique('Le paramètre « q » est renvoyé sans encodage & 漢字')
     const editor = editorWith(`<p>${text.replace('&', '&amp;')}</p>`)
     await proofread(editor)
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    const [url, options] = fetchMock.mock.calls[0]
-    expect(url).toBe(API)
-    expect(options.method).toBe('POST')
-    expect(options.headers['Content-Type']).toBe('application/x-www-form-urlencoded')
-    expect(options.body).toBe(`text=${encodeURIComponent(text)}&language=auto&enabledOnly=false`)
-    expect(new URLSearchParams(options.body).get('text')).toBe(text)
+    expect(checkMock).toHaveBeenCalledTimes(1)
+    expect(checkMock).toHaveBeenCalledWith(text)
   })
 
   it('joins the paragraphs with spaces keeping the positions of the document', async () => {
     const first = unique('Premier')
     const editor = editorWith(`<p>${first}</p><p>Second</p>`)
     await proofread(editor)
-    const text = new URLSearchParams(fetchMock.mock.calls[0][1].body).get('text')
+    const text = checkMock.mock.calls[0][0]
     expect(text).toBe(`${first}  Second`) // Two positions between the paragraphs (end and start of paragraph)
   })
 
   it('does not send a request for an empty document', async () => {
     const editor = editorWith('<p></p>')
     await proofread(editor)
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(checkMock).not.toHaveBeenCalled()
     expect(storage(editor).loading.value).toBe(false)
   })
 
@@ -87,8 +80,8 @@ describe('languagetool requests', () => {
     const paragraph = (word) => Array.from({ length: 300 }, () => word).join(' ')
     const editor = editorWith(`<p>${paragraph(unique('alpha').replace(' ', ''))}</p><p>${paragraph('beta')}</p><p>${paragraph('gamma')}</p>`)
     await proofread(editor)
-    expect(fetchMock).toHaveBeenCalledTimes(2)
-    const texts = fetchMock.mock.calls.map(([, options]) => new URLSearchParams(options.body).get('text'))
+    expect(checkMock).toHaveBeenCalledTimes(2)
+    const texts = checkMock.mock.calls.map(([text]) => text)
     expect(texts[0]).toContain('beta')
     expect(texts[1].startsWith('gamma')).toBe(true)
   })
@@ -100,24 +93,24 @@ describe('languagetool requests', () => {
     await proofread(editor)
     const other = editorWith(`<p>${text}</p>`)
     await proofread(other)
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(checkMock).toHaveBeenCalledTimes(1)
   })
 
   it('shows the loading state during the request', async () => {
     let resolve
-    fetchMock.mockImplementation(() => new Promise((r) => { resolve = r }))
+    checkMock.mockImplementation(() => new Promise((r) => { resolve = r }))
     const editor = editorWith(`<p>${unique('En cours')}</p>`)
     editor.commands.proofread()
     await flushPromises()
     expect(storage(editor).loading.value).toBe(true)
-    resolve({ ok: true, json: () => Promise.resolve({ matches: [] }) })
+    resolve({ matches: [] })
     await flushPromises()
     expect(storage(editor).loading.value).toBe(false)
     expect(storage(editor).proofReadInitially).toBe(true)
   })
 
   it('ignores the network errors (no decoration)', async () => {
-    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
+    checkMock.mockRejectedValue(new TypeError('Failed to fetch'))
     const editor = editorWith(`<p>${unique('Hors ligne')}</p>`)
     await proofread(editor)
     expect(decorations(editor)).toEqual([])
@@ -126,19 +119,19 @@ describe('languagetool requests', () => {
   })
 
   it('ignores the error answers of the server', async () => {
-    fetchMock.mockResolvedValue({ ok: false, status: 413, json: () => Promise.resolve({ error: 'Text too long' }) })
+    checkMock.mockRejectedValueOnce({ response: { status: 413, data: { datas: 'Text too long' } } })
     const text = unique('Texte refusé')
     const editor = editorWith(`<p>${text}</p>`)
     await proofread(editor)
     expect(storage(editor).loading.value).toBe(false)
-    fetchMock.mockImplementation(() => answer([]))
+    checkMock.mockImplementation(() => answer([]))
     await proofread(editor)
-    expect(fetchMock).toHaveBeenCalledTimes(2) // Error answer not cached
+    expect(checkMock).toHaveBeenCalledTimes(2) // Error answer not cached
   })
 
   it('does not decorate an editor destroyed during the request', async () => {
     let resolve
-    fetchMock.mockImplementation(() => new Promise((r) => { resolve = r }))
+    checkMock.mockImplementation(() => new Promise((r) => { resolve = r }))
     const editor = editorWith(`<p>${unique('Détruit')}</p>`)
     const state = storage(editor)
     editor.commands.proofread()
@@ -146,17 +139,73 @@ describe('languagetool requests', () => {
     editors.splice(editors.indexOf(editor), 1)
     editor.destroy()
     expect(state.editorView).toBeNull()
-    resolve({ ok: true, json: () => Promise.resolve({ matches: [match(0, 3)] }) })
+    resolve({ matches: [match(0, 3)] })
     await flushPromises()
     expect(state.loading.value).toBe(true) // Not updated anymore
     expect(state.decorationSet.find()).toEqual([])
   })
 })
 
+describe('code not checked', () => {
+  it('replaces the code blocks and the inline code by spaces, keeping the positions of the words', async () => {
+    const first = unique('Texte')
+    const editor = editorWith(`<p>${first} <code>exmple()</code> fin</p><pre><code>SELEKT * FROM t</code></pre><p>Après</p>`)
+    await proofread(editor)
+    expect(checkMock).toHaveBeenCalledWith(`${first} ${' '.repeat(8)} fin  ${' '.repeat(15)}  Après`)
+  })
+
+  it('places the matches of the text after the code at their position', async () => {
+    const first = unique('Code')
+    const offset = `${first} `.length + 'x()'.length + 1
+    checkMock.mockImplementation(() => answer([match(offset, 6)]))
+    const editor = editorWith(`<p>${first} <code>x()</code> Exmple</p>`)
+    await proofread(editor)
+    expect(decorations(editor).map((span) => span.textContent)).toEqual(['Exmple'])
+  })
+
+  it('does not show the matches touching the code (repeated whitespace of the spaces replacing it), shows the others', async () => {
+    const first = unique('Appel')
+    const editor = editorWith(`<p>${first} <code>fonction()</code> Exmple</p><pre><code>SELEKT * FROM t</code></pre><p>Fin</p>`)
+    checkMock.mockImplementation((text) => {
+      // LanguageTool: runs of spaces reported (WHITESPACE_RULE), and the misspelled word
+      const whitespace = [...text.matchAll(/ {2,}/g)].map((m) => ({ ...match(m.index, m[0].length, 'Repeated whitespace', 'whitespace'), rule: { id: 'WHITESPACE_RULE', issueType: 'whitespace' } }))
+      return answer([...whitespace, match(text.indexOf('Exmple'), 6)])
+    })
+    await proofread(editor)
+    expect(decorations(editor).map((span) => span.textContent)).toEqual(['Exmple'])
+    expect(editor.view.dom.querySelector('code span.lt, pre span.lt')).toBeNull()
+  })
+
+  it('sends nothing for a document of code only', async () => {
+    const editor = editorWith(`<pre><code>${unique('only_code')}</code></pre>`)
+    await proofread(editor)
+    expect(checkMock).not.toHaveBeenCalled()
+    expect(storage(editor).loading.value).toBe(false)
+  })
+
+  it('checks the document after the proofread command, ending with a code block (no mismatched transaction)', async () => {
+    const editor = editorWith(`<p>${unique('Avant')}</p><pre><code>x</code></pre>`)
+    expect(() => editor.commands.proofread()).not.toThrow()
+    await flushPromises()
+    expect(checkMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('checks a changed paragraph without its code, and nothing for a changed code block', async () => {
+    const editor = editorWith(`<p>${unique('Changé')} <code>x</code> fin</p><pre><code>${unique('code')}</code></pre>`)
+    const [paragraph, codeBlock] = [editor.state.doc.child(0), editor.state.doc.child(1)]
+    await storage(editor).proofreadNodeAndUpdateItsDecorations(paragraph, 0)
+    expect(checkMock.mock.calls[0][0]).toBe(checkedText(paragraph))
+    expect(checkMock.mock.calls[0][0]).toMatch(/ {3}fin$/)
+    await storage(editor).proofreadNodeAndUpdateItsDecorations(codeBlock.firstChild, paragraph.nodeSize + 1) // Text of the code block
+    await storage(editor).proofreadNodeAndUpdateItsDecorations(codeBlock, paragraph.nodeSize)
+    expect(checkMock).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('languagetool decorations', () => {
   it('decorates the matches with their issue type and the details of the match', async () => {
     const text = unique('Ceci est un exmple')
-    fetchMock.mockImplementation(() => answer([match(12, 6), match(0, 4, 'Style', 'style')]))
+    checkMock.mockImplementation(() => answer([match(12, 6), match(0, 4, 'Style', 'style')]))
     const editor = editorWith(`<p>${text}</p>`)
     await proofread(editor)
     const spans = decorations(editor)
@@ -166,8 +215,7 @@ describe('languagetool decorations', () => {
 
   it('places the matches of the following paragraphs and chunks at their position', async () => {
     const paragraph = (word) => Array.from({ length: 300 }, () => word).join(' ')
-    fetchMock.mockImplementation((url, { body }) => {
-      const text = new URLSearchParams(body).get('text')
+    checkMock.mockImplementation((text) => {
       return answer(text.startsWith('delta') ? [match(0, 5)] : [match(text.indexOf('zeta'), 4)])
     })
     const editor = editorWith(`<p>${paragraph(unique('epsilon').replace(' ', ''))}</p><p>zeta ${paragraph('eta')}</p><p>${paragraph('delta')}</p>`)
@@ -177,7 +225,7 @@ describe('languagetool decorations', () => {
 
   it('moves the decorations with the changes of the document', async () => {
     const text = unique('Un exmple')
-    fetchMock.mockImplementation(() => answer([match(3, 6)]))
+    checkMock.mockImplementation(() => answer([match(3, 6)]))
     const editor = editorWith(`<p>${text}</p>`)
     await proofread(editor)
     editor.commands.insertContentAt(1, 'Voici ')
@@ -185,7 +233,7 @@ describe('languagetool decorations', () => {
   })
 
   it('selects the match on click (message and replacements of the suggestion menu)', async () => {
-    fetchMock.mockImplementation(() => answer([match(0, 6)]))
+    checkMock.mockImplementation(() => answer([match(0, 6)]))
     const editor = editorWith(`<p>${unique('Exmple de texte')}</p>`)
     await proofread(editor)
     const [span] = decorations(editor)
@@ -195,7 +243,7 @@ describe('languagetool decorations', () => {
   })
 
   it('removes the listeners of the decorations when the editor is destroyed', async () => {
-    fetchMock.mockImplementation(() => answer([match(0, 6)]))
+    checkMock.mockImplementation(() => answer([match(0, 6)]))
     const editor = editorWith(`<p>${unique('Exmple détruit')}</p>`)
     await proofread(editor)
     const [span] = decorations(editor)
@@ -206,7 +254,7 @@ describe('languagetool decorations', () => {
   })
 
   it('selects the match in the editor of the clicked decoration only', async () => {
-    fetchMock.mockImplementation(() => answer([match(0, 6)]))
+    checkMock.mockImplementation(() => answer([match(0, 6)]))
     const first = editorWith(`<p>${unique('Exmple premier')}</p>`)
     await proofread(first)
     const second = editorWith(`<p>${unique('Exmple second')}</p>`)
@@ -217,7 +265,7 @@ describe('languagetool decorations', () => {
   })
 
   it('gives the match of the selection only for a selection inside a mistake (suggestion menu)', async () => {
-    fetchMock.mockImplementation(() => answer([match(0, 6)]))
+    checkMock.mockImplementation(() => answer([match(0, 6)]))
     const editor = editorWith(`<p>${unique('Exmple de texte')}</p>`)
     await proofread(editor)
     editor.commands.setTextSelection({ from: 1, to: 7 }) // The mistake
@@ -234,7 +282,7 @@ describe('languagetool decorations', () => {
   })
 
   it('keeps the match when the mouse leaves the mistake (suggestion menu reached with the mouse)', async () => {
-    fetchMock.mockImplementation(() => answer([match(0, 6)]))
+    checkMock.mockImplementation(() => answer([match(0, 6)]))
     const editor = editorWith(`<p>${unique('Exmple quitté')}</p>`)
     await proofread(editor)
     const [span] = decorations(editor)
@@ -251,21 +299,21 @@ describe('languagetool decorations', () => {
 
 describe('ignored words (approved by the administrators)', () => {
   it('does not report the ignored words, whatever their case', async () => {
-    fetchMock.mockImplementation(() => answer([match(0, 4), match(5, 6)]))
+    checkMock.mockImplementation(() => answer([match(0, 4), match(5, 6)]))
     const editor = editorWith(`<p>${unique('Nmap Exmple')}</p>`, { ignoredWords: () => ['nmap'] })
     await proofread(editor)
     expect(decorations(editor).map((span) => span.textContent)).toEqual(['Exmple'])
   })
 
   it('reads the ignored words given as a promise', async () => {
-    fetchMock.mockImplementation(() => answer([match(0, 4)]))
+    checkMock.mockImplementation(() => answer([match(0, 4)]))
     const editor = editorWith(`<p>${unique('Burp suite')}</p>`, { ignoredWords: () => Promise.resolve(['burp']) })
     await proofread(editor)
     expect(decorations(editor)).toHaveLength(0)
   })
 
   it('reports all the mistakes when the ignored words cannot be loaded', async () => {
-    fetchMock.mockImplementation(() => answer([match(0, 4)]))
+    checkMock.mockImplementation(() => answer([match(0, 4)]))
     const editor = editorWith(`<p>${unique('Burp erreur')}</p>`, { ignoredWords: () => Promise.reject(new Error('403')) })
     await proofread(editor)
     expect(decorations(editor).map((span) => span.textContent)).toEqual(['Burp'])
@@ -273,7 +321,7 @@ describe('ignored words (approved by the administrators)', () => {
 
   it('does not report the ignored words in the changed paragraphs', async () => {
     const editor = editorWith(`<p>${unique('Nmap Exmple')}</p>`, { ignoredWords: () => ['nmap'] })
-    fetchMock.mockImplementation(() => answer([match(0, 4), match(5, 6)]))
+    checkMock.mockImplementation(() => answer([match(0, 4), match(5, 6)]))
     await storage(editor).proofreadNodeAndUpdateItsDecorations(editor.state.doc.firstChild.firstChild, 1) // Text node at 1
     await new Promise((resolve) => setTimeout(resolve, 10))
     expect(decorations(editor).map((span) => span.textContent)).toEqual(['Exmple'])
@@ -285,11 +333,11 @@ describe('auto correction toggle (profile)', () => {
     sessionStorage.setItem('autoCorrectionEnabled', 'false')
     const editor = editorWith(`<p>${unique('Désactivé')}</p>`)
     await proofread(editor)
-    expect(fetchMock).not.toHaveBeenCalled()
+    expect(checkMock).not.toHaveBeenCalled()
   })
 
   it('removes the decorations when the auto correction is disabled and checks again when enabled', async () => {
-    fetchMock.mockImplementation(() => answer([match(0, 6)]))
+    checkMock.mockImplementation(() => answer([match(0, 6)]))
     const editor = editorWith(`<p>${unique('Exmple bascule')}</p>`)
     await proofread(editor)
     expect(decorations(editor)).toHaveLength(1)
@@ -310,9 +358,9 @@ describe('languagetool automatic mode and commands', () => {
     vi.useFakeTimers({ toFake: ['setTimeout'] })
     try {
       const editor = editorWith(`<p>${unique('Automatique')}</p>`, { automaticMode: true })
-      expect(fetchMock).not.toHaveBeenCalled()
+      expect(checkMock).not.toHaveBeenCalled()
       await vi.advanceTimersByTimeAsync(500)
-      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(checkMock).toHaveBeenCalledTimes(1)
     } finally {
       vi.useRealTimers()
     }
@@ -323,13 +371,13 @@ describe('languagetool automatic mode and commands', () => {
     try {
       const editor = editorWith(`<p>${unique('Saisie')}</p>`, { automaticMode: true, debounceDelay: 800 })
       await vi.advanceTimersByTimeAsync(500) // Initial check
-      fetchMock.mockClear()
+      checkMock.mockClear()
       editor.commands.insertContentAt(2, 'a')
       editor.commands.insertContentAt(3, 'b')
       await vi.advanceTimersByTimeAsync(700)
-      expect(fetchMock).not.toHaveBeenCalled()
+      expect(checkMock).not.toHaveBeenCalled()
       await vi.advanceTimersByTimeAsync(200)
-      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(checkMock).toHaveBeenCalledTimes(1)
     } finally {
       vi.useRealTimers()
     }

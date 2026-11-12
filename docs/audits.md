@@ -64,6 +64,38 @@ The ![Propose Creation / Update in Vulnerability Database](/_images/finding_upd
 
 Saving can be done with the upper right button or by the most acclaimed feature: <kbd>Ctrl</kbd>+<kbd>S</kbd> or <kbd>&#8984;</kbd>+<kbd>S</kbd>
 
+### AI assistance
+
+When the AI assistance is enabled (*Settings > AI assistance*, see the installation), the button of the toolbar of the editors proposes an action on the selected text, or on the whole field: correct the spelling and grammar, rephrase, make shorter, translate into French or English, write from notes, or a custom instruction. The writing guidelines of the company (settings) are sent with each request.
+
+The proposal is shown next to the current text: it replaces it only when *Replace* is clicked, and the change can be undone (Ctrl+Z). The images are never sent.
+
+The quality check panel also offers *Check with the AI*: the findings are reviewed by the AI (severity not matching the description, remediation not addressing the vulnerability, unclear wording, writing guidelines). Its issues are listed with the other checks and can be ignored; the last check is kept with its date.
+
+### Quality check
+
+The *Quality check* button of the audit (count of the errors and warnings on it) lists the issues found in the audit, without AI and without opening any link (the references of a report can contain payloads):
+
+- completeness: findings without description (error), without remediation or CVSS, still in redaction; empty sections; audit without finding;
+- review comments not resolved;
+- links between findings (`:::`) to a deleted finding;
+- images not found, captions empty or left as file names (`IMG_1234.png`, *Capture d'écran...*);
+- references written as links but invalid (never requested);
+- highlighted texts to replace (see below).
+
+A click opens the place of the issue. An issue can be ignored for the audit (for all its users): it comes back when its content changes, and the ignored issues can be restored. The checks are chosen in *Settings > Quality check*.
+
+Before a report is generated (audit page or audits list), its errors and warnings not ignored are listed: a click opens the place of an issue, *Generate anyway* generates the report. It is a warning only.
+
+### Highlighted texts to replace
+
+Generic texts of the templates can be highlighted in the editors (toolbar highlight button) to remember to replace them. When the warning is enabled in *Settings > Reports > Highlighted texts to replace*, with one or several highlight colors of the editors (yellow by default):
+
+- the findings and sections containing texts highlighted in these colors are marked with an icon in the menu of the audit;
+- before the report is generated (audit page or audits list), these texts are listed with their finding or section and field: a click opens the place of the text, *Generate anyway* generates the report.
+
+It is a warning only: the report can always be generated.
+
 ## Custom Sections
 
 Add any Custom Section previously defined in [Custom Data](/data?id=custom-sections).

@@ -29,6 +29,10 @@
               </q-item-section>
               </template>
               <q-item-section side class="topButtonSection">
+                <q-btn flat dense color="blue-grey-7" icon="mdi-clipboard-check-outline" class="qa-button" @click="qaOpen = true">
+                  <q-badge v-if="qaCounts.error + qaCounts.warning" :color="qaCounts.error ? 'negative' : 'orange-8'" floating rounded>{{ qaCounts.error + qaCounts.warning }}</q-badge>
+                  <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{ $t('qa.title') }}</q-tooltip>
+                </q-btn>
                 <q-btn flat dense color="orange-8" icon="mdi-comment-text-multiple-outline" @click="toggleCommentsPanel">
                   <q-badge v-if="commentsStore.openCount()" color="orange-8" floating rounded>{{ commentsStore.openCount() }}</q-badge>
                   <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{ $t('comments.title') }}</q-tooltip>
@@ -203,6 +207,9 @@
                         <q-item-section side v-if="openCommentsCount('finding', finding._id)">
                   <q-badge color="orange-8" rounded>{{ openCommentsCount('finding', finding._id) }}</q-badge>
                 </q-item-section>
+                        <q-item-section side v-if="highlightedIds.has(finding._id)" class="highlight-marker">
+                          <q-icon name="mdi-marker" color="orange-9"><q-tooltip :delay="500">{{ $t('highlightWarningTooltip') }}</q-tooltip></q-icon>
+                        </q-item-section>
                         <q-item-section side v-if="finding.status === 0">
                           <q-icon name="check" color="green" />
                         </q-item-section>
@@ -234,6 +241,9 @@
                 </q-item-section>
                 <q-item-section side v-if="openCommentsCount('section', section._id)">
                   <q-badge color="orange-8" rounded>{{ openCommentsCount('section', section._id) }}</q-badge>
+                </q-item-section>
+                <q-item-section side v-if="highlightedIds.has(section._id)" class="highlight-marker">
+                  <q-icon name="mdi-marker" color="orange-9"><q-tooltip :delay="500">{{ $t('highlightWarningTooltip') }}</q-tooltip></q-icon>
                 </q-item-section>
               </q-item>
               <div class="row">
@@ -278,6 +288,12 @@
       <comments-panel />
     </q-drawer>
     <router-view :key="$route.fullPath" :frontEndAuditState="frontEndAuditState" :parentState="audit.state" :parentApprovals="audit.approvals"  :audit="audit" />
+    <!-- Errors and warnings of the quality checks (highlighted texts included), listed before the generation of the report -->
+    <report-check-dialog ref="reportCheck" />
+    <!-- Quality checks of the audit -->
+    <q-dialog v-model="qaOpen" position="right" full-height>
+      <qa-panel :audit-id="auditId" :editable="frontEndAuditState === AUDIT_VIEW_STATE.EDIT" @update="qaCounts = $event" @close="qaOpen = false" />
+    </q-dialog>
     </div>
   </template>
   
@@ -287,7 +303,10 @@ import { defineComponent } from 'vue';
 import { Loading, Notify, QSpinnerGears } from 'quasar';
 import draggable from 'vuedraggable'
 
-import AuditService, { errorMessage } from '@/services/audit';
+import AuditService, { errorMessage, highlightWarningEnabled } from '@/services/audit';
+import ReportCheckDialog from '@/components/report-check-dialog';
+import QaPanel from '@/components/qa-panel';
+import { qaEnabled, issueCounts } from '@/services/qa';
 import UserService from '@/services/user';
 import DataService from '@/services/data';
 import Utils from '@/services/utils';
@@ -320,6 +339,11 @@ export default defineComponent({
         reviewPending: false,
         approvalPending: false,
         reportPending: false,
+        // Places of the audit with texts highlighted in the warning color of the settings (generic texts to replace)
+        highlights: [],
+        // Quality checks: panel shown, errors and warnings not ignored (button)
+        qaOpen: false,
+        qaCounts: {error: 0, warning: 0, info: 0},
         // Number of the last load of the audit: only its answer is shown (reloads answered in any order)
         lastAuditLoad: 0,
         // Page left: the late answers do not join the room of the audit nor register socket listeners
@@ -342,7 +366,9 @@ export default defineComponent({
 
   components: {
     draggable,
-    CommentsPanel
+    CommentsPanel,
+    ReportCheckDialog,
+    QaPanel
   },
 
   created: function() {
@@ -401,6 +427,8 @@ export default defineComponent({
   },
 
   computed: {
+    // Findings and sections with texts highlighted in the warning color (marker in the menu)
+    highlightedIds: function() {return new Set(this.highlights.filter(item => item.id).map(item => item.id))},
     generalUsers: function() {return this.users.filter(user => user.menu === 'general')},
     networkUsers: function() {return this.users.filter(user => user.menu === 'network')},
     findingUsers: function() {return this.users.filter(user => user.menu === 'editFinding')},
@@ -621,6 +649,8 @@ export default defineComponent({
         this.audit = data.data.datas;
         this.getUIState();
         this.getSections()
+        this.getHighlights()
+        this.getQaCounts()
         if (this.loading)
           this.handleSocket()
         this.loading = false
@@ -698,11 +728,48 @@ export default defineComponent({
       })
     },
 
+    // Errors and warnings of the quality checks not ignored (button of the checks), none when they are disabled
+    getQaCounts: function() {
+      if (!qaEnabled(this.$settings)) {
+        this.qaCounts = {error: 0, warning: 0, info: 0}
+        return
+      }
+      AuditService.getAuditQa(this.auditId)
+      .then((data) => {
+        if (!this.left) this.qaCounts = issueCounts(data.data.datas.issues)
+      })
+      .catch(() => {})
+    },
+
+    // Findings and sections with texts highlighted in the warning color (menu), none when the warning is disabled or when
+    // they cannot be loaded (warning only)
+    getHighlights: function() {
+      if (!highlightWarningEnabled(this.$settings)) {
+        this.highlights = []
+        return
+      }
+      AuditService.getAuditHighlights(this.auditId)
+      .then((data) => {
+        if (!this.left) this.highlights = data.data.datas.items
+      })
+      .catch(() => {})
+    },
+
     generateReport: function(event) {
       // One generation at a time, and the second click of a double click ignored (the generation may already be
       // answered): a double click downloads the report once
       if (this.reportPending || this.isRepeatedClick(event)) return
       this.reportPending = true
+      // Errors and warnings of the quality checks (highlighted texts included), when enabled: listed, the report generated
+      // if confirmed. Generated at once otherwise
+      var generation = !qaEnabled(this.$settings) ? this.downloadReport() : this.$refs.reportCheck.confirm(this.auditId)
+        .then((generate) => generate ? this.downloadReport() : null)
+      generation.finally(() => {
+        this.reportPending = false
+      })
+    },
+
+    downloadReport: function() {
       const downloadNotif = Notify.create({
         spinner: QSpinnerGears,
         message: 'Generating the Report',
@@ -710,7 +777,7 @@ export default defineComponent({
         timeout: 0,
         group: false
       })
-      AuditService.generateAuditReport(this.auditId)
+      return AuditService.generateAuditReport(this.auditId)
       .then(response => {
         var blob = new Blob([response.data], {type: "application/octet-stream"});
         var link = document.createElement('a');
@@ -745,9 +812,6 @@ export default defineComponent({
           timeout: 0,
           classes: "text-pre-wrap"
         })
-      })
-      .finally(() => {
-        this.reportPending = false
       })
     },
 

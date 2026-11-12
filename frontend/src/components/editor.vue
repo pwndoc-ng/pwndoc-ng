@@ -507,6 +507,12 @@
           <q-icon name="redo" />
         </q-btn>
 
+        <!-- Assisted writing (AI enabled in the settings and allowed to the user) -->
+        <template v-if="aiAssist">
+          <q-separator vertical class="q-mx-sm" />
+          <ai-assist-button :editor="editor" :audit-id="$route.params.auditId || ''" :disable="!canEdit" />
+        </template>
+
         <q-separator
           vertical
           class="q-mx-sm"
@@ -669,6 +675,8 @@ import { TriggerMenuExtension } from './internal-link';
 import {v4 as uuidv4} from 'uuid';
 import UserService from '@/services/user';
 import SpellcheckService from '@/services/spellcheck';
+import AiAssistButton from './ai-assist-button.vue';
+import { aiAllowed } from '@/services/ai';
 import Collaboration from '@tiptap/extension-collaboration'
 import { fixPluginRegistration, keepUndoManagerTracking, setInitialCollaborativeContent, initialContentIds } from './editor-collaboration'
 import { uploadImageFile } from './editor-image'
@@ -755,7 +763,8 @@ export default defineComponent({
 
   components: {
     EditorContent,
-    BubbleMenu
+    BubbleMenu,
+    AiAssistButton
   },
 
   data() {
@@ -906,6 +915,10 @@ export default defineComponent({
       //console.log('remplacements',this.match.replacements,this.match)
       return this.match?.replacements || [];
     },
+    // Assisted writing offered in the toolbar: AI enabled in the settings and allowed to the user
+    aiAssist() {
+      return aiAllowed(this.$settings, 'ai:assist');
+    },
     // Selected word of a reported mistake that the user can propose to ignore (a single word)
     ignorableWord() {
       if (!this.match || !this.editor || !UserService.isAllowed('spellcheck-words:create')) return null;
@@ -996,8 +1009,7 @@ export default defineComponent({
           TriggerMenuExtension,
           CommentHighlight.configure(), // New instance per editor: its storage (field target) must not be shared
           LanguageTool.configure({
-           apiUrl: `https://${window.location.hostname}${window.location.port != '' ? ':'+window.location.port : ''}/v2/check`, 
-            //apiUrl: `https://127.0.0.1:8443/v2/check`, 
+            check: (text) => SpellcheckService.check(text), // LanguageTool through the backend (authenticated)
             language: 'auto',   
             automaticMode: true, // 1 second delay before verification
             ignoredWords: () => SpellcheckService.ignoredWords(), // Words approved by the administrators

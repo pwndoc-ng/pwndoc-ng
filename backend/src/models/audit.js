@@ -114,6 +114,10 @@ var AuditSchema = new Schema({
     state:              { type: String, enum: ['EDIT', 'REVIEW', 'APPROVED'], default: 'EDIT'},
     approvals:          [{type: Schema.Types.ObjectId, ref: 'User'}],
     comments:           [CommentSchema],
+    // Issues of the quality checks ignored by the users (lib/qa.js): fingerprint of the issue and of its content
+    qaIgnored:          [{_id: false, fingerprint: String, by: {type: Schema.Types.ObjectId, ref: 'User'}, at: Date}],
+    // Last quality check by the AI (lib/ai.js): date, user and issues
+    qaAi:               {at: Date, by: {type: Schema.Types.ObjectId, ref: 'User'}, issues: Schema.Types.Mixed},
 }, {timestamps: true});
 
 /*
@@ -739,6 +743,25 @@ AuditSchema.statics.setReviewState = (isAdmin, auditId, userId, state) => {
 */
 
 var COMMENT_USERS = 'username firstname lastname'
+
+// Last quality check by the AI stored (shown to the users of the audit until checked again)
+AuditSchema.statics.setQaAi = async (auditId, userId, issues) => {
+    await Audit.updateOne({_id: auditId}, {$set: {qaAi: {at: new Date(), by: userId, issues: issues}}}, {timestamps: false})
+}
+
+// Issue of the quality checks ignored (ignored true) or no longer ignored, by a user allowed to update the audit
+AuditSchema.statics.setQaIgnored = async (isAdmin, auditId, userId, fingerprint, ignored) => {
+    var update = ignored ?
+        [{$set: {qaIgnored: {$concatArrays: [
+            {$filter: {input: {$ifNull: ['$qaIgnored', []]}, cond: {$ne: ['$$this.fingerprint', fingerprint]}}},
+            [{fingerprint: fingerprint, by: new mongoose.Types.ObjectId(String(userId)), at: '$$NOW'}]
+        ]}}}] :
+        {$pull: {qaIgnored: {fingerprint: fingerprint}}}
+    var row = await Audit.findOneAndUpdate(writeFilter(isAdmin, auditId, userId), update, {timestamps: false})
+    if (!row)
+        throw({fn: 'NotFound', message: 'Audit not found or Insufficient Privileges'})
+    return 'Quality issue updated'
+}
 
 AuditSchema.statics.getComments = async (auditId) => {
     var row = await Audit.findById(auditId).select('comments')

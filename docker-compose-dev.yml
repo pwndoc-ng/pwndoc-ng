@@ -87,5 +87,14 @@ services:
       - frontend-app
       - backend
 
+  # Spell checker of the editors, reached by the backend only (POST /api/spellcheck/check)
+  languagetool:
+    image: erikvl87/languagetool
+    container_name: pwndoc-ng-languagetool
+    restart: always
+    environment:
+      - Java_Xms=512m
+      - Java_Xmx=2g
+
 volumes:
   mongo-data-dev:

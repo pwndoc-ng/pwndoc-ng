@@ -46,6 +46,13 @@ services:
       # - BACKUP_PASSWORD=change-me
       # Time zone of the time of the automatic backups (UTC by default)
       # - TZ=<Region/City>
+      # LanguageTool server of the spell checker, reached by the backend only (container languagetool by default)
+      # - LANGUAGETOOL_URL=http://pwndoc-ng-languagetool:8010
+      # AI assistance (Settings > AI assistance): API key of the inference server (never stored), header of the key
+      # (Authorization: Bearer <key> by default), certificate authority of the network (file mounted in the container)
+      # - AI_API_KEY=change-me
+      # - AI_AUTH_HEADER=X-Api-Key
+      # - NODE_EXTRA_CA_CERTS=/app/ssl/internal-ca.pem
     restart: always
     ports:
       - 4242:4242
@@ -59,17 +66,19 @@ services:
     image: pwndoc-ng/pwndoc-ng:frontend
     container_name: pwndoc-ng-frontend
     restart: always
-    environment:
-      - Java_Xms=512m
-      - Java_Xmx=2g
     ports:
       - 8443:8443
     networks:
       - backend
+  # Spell checker of the editors, reached by the backend only (POST /api/spellcheck/check)
   languagetool:
     image: erikvl87/languagetool
     container_name: pwndoc-ng-languagetool
     restart: always
+    environment:
+      # Memory of the Java server of LanguageTool
+      - Java_Xms=512m
+      - Java_Xmx=2g
     networks:
       - backend
 

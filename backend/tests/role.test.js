@@ -36,7 +36,7 @@ module.exports = function(request, app) {
 
         var user = helpers.jwtPayload(await login('user2', 'User1234'))
         expect(user).toMatchObject({username: 'user2', role: 'user'})
-        expect(user.roles).toEqual(expect.arrayContaining(['audits:read', 'audits:create', 'vulnerability-updates:create', 'settings:read-public', 'spellcheck-words:read', 'spellcheck-words:create']))
+        expect(user.roles).toEqual(expect.arrayContaining(['audits:read', 'audits:create', 'vulnerability-updates:create', 'settings:read-public', 'spellcheck:check', 'spellcheck-words:read', 'spellcheck-words:create']))
         expect(user.roles).not.toContain('audits:read-all')
         expect(user.roles).not.toContain('vulnerabilities:create')
 

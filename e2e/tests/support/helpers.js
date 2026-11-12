@@ -182,6 +182,27 @@ async function apiAs (user) {
   return api
 }
 
+// Report generated with a download button: the check before the generation (errors and warnings of the quality checks,
+// highlighted texts) is confirmed with "Generate anyway" when it is shown. Returns the download
+async function downloadReport (page, clickDownload) {
+  const downloadPromise = page.waitForEvent('download', { timeout: 120_000 })
+  await clickDownload()
+  const check = page.locator('.report-check-dialog')
+  const checkShown = check.waitFor({ state: 'visible', timeout: 120_000 }).then(() => 'check', () => null)
+  if (await Promise.race([downloadPromise.then(() => 'download'), checkShown]) === 'check')
+    await check.getByRole('button', { name: 'Generate anyway' }).click()
+  return downloadPromise
+}
+
+// Quality checks of the settings: all enabled (default) or all disabled
+async function setQaChecks (enabled) {
+  const api = await apiAs(D.USERS.admin)
+  const checks = Object.fromEntries(['completeness', 'comments', 'internalLinks', 'images', 'references', 'duplicates'].map(check => [check, enabled]))
+  const response = await api.put('/api/settings', { data: { qa: { public: { checks } } } })
+  expect(response.ok(), await response.text()).toBeTruthy()
+  await api.dispose()
+}
+
 async function datas (response) {
   const body = await response.json()
   return body.datas
@@ -387,7 +408,7 @@ module.exports = {
   escapeRegex, exactText, knownBug,
   qField, qInput, qSelect, menusClosed, notification, expectNotification, waitForApi, dialog, button,
   editorContent, editorCard, toolbarButton, clickToolbar, nextFrames, press, type, typeInEditor, cvssPick, cvssBase,
-  loginUI, newUserContext, apiAs, datas,
+  loginUI, newUserContext, apiAs, datas, downloadReport, setQaChecks,
   ensureInitialized, ensureUsers, ensureLanguages, ensureTemplate, ensureSection, ensureAuditType, ensureVulnTypes,
   ensureCategory, ensureCustomFields, ensureCompanyAndClient, ensureReviewSettings, ensureBaseData,
   ensureVulnerability, ensureAudit, ensureMainAudit, auditByName, auditIdByName

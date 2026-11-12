@@ -1,6 +1,6 @@
 // Minimal LanguageTool replacement for the end-to-end tests.
-// nginx (frontend/.docker/nginx.conf) proxies /v2 to pwndoc-ng-languagetool:8010: the stub answers the spell checking
-// requests of the editors without any suggestion, except for the word "E2E_TYPO_WORD" (used to check that the
+// The backend (POST /api/spellcheck/check) forwards the texts to pwndoc-ng-languagetool:8010: the stub answers the spell
+// checking requests of the editors without any suggestion, except for the word "E2E_TYPO_WORD" (used to check that the
 // suggestions are displayed). Lighter and faster to start than the real LanguageTool server.
 const http = require('http')
 
@@ -43,6 +43,21 @@ http.createServer(async (req, res) => {
         rule: { id: 'MORFOLOGIK_RULE_EN_US', description: 'Possible spelling mistake', issueType: 'misspelling', category: { id: 'TYPOS', name: 'Possible Typo' } }
       })
       index = text.indexOf(word, index + word.length)
+    }
+    // Repeated whitespace (WHITESPACE_RULE of LanguageTool, which reports 2 spaces or more): runs of 3 spaces or more
+    // here, the spaces replacing the code sent by the editors (2 spaces separate the paragraphs)
+    for (const run of text.matchAll(/ {3,}/g)) {
+      matches.push({
+        message: 'Possible typo: you repeated a whitespace',
+        shortMessage: '',
+        replacements: [{ value: ' ' }],
+        offset: run.index,
+        length: run[0].length,
+        context: { text, offset: run.index, length: run[0].length },
+        sentence: text,
+        type: { typeName: 'Other' },
+        rule: { id: 'WHITESPACE_RULE', description: 'Whitespace repetition', issueType: 'whitespace', category: { id: 'TYPOGRAPHY', name: 'Typography' } }
+      })
     }
     return res.end(JSON.stringify({ software: { name: 'LanguageTool', version: 'e2e-stub' }, language: { name: 'English (US)', code: 'en-US' }, matches }))
   }

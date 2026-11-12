@@ -29,7 +29,7 @@ module.exports = function(request, app) {
     'companies:create', 'companies:read', 'companies:update', 'companies:delete',
     'languages:read', 'audit-types:read', 'vulnerability-types:read', 'vulnerability-categories:read', 'sections:read',
     'templates:read', 'users:read', 'roles:read', 'vulnerabilities:read', 'vulnerability-updates:create',
-    'custom-fields:read', 'settings:read-public', 'spellcheck-words:read', 'spellcheck-words:create'
+    'custom-fields:read', 'settings:read-public', 'spellcheck:check', 'spellcheck-words:read', 'spellcheck-words:create', 'ai:assist', 'ai:qa'
   ]
   // Custom roles defined by this suite (same as roles of src/config/roles.json)
   var CUSTOM_ROLES = {
@@ -231,6 +231,7 @@ module.exports = function(request, app) {
         // Vulnerabilities and proposals (src/routes/vulnerability.js)
         ['get', '/api/vulnerabilities', 'vulnerabilities:read', 200],
         ['get', '/api/vulnerabilities/export', 'vulnerabilities:read', 200],
+        ['get', '/api/vulnerabilities/qa', 'vulnerabilities:update', 200],
         ['post', '/api/vulnerabilities', 'vulnerabilities:create', 422, {body: [{}]}],
         ['put', `/api/vulnerabilities/${FAKE_ID}`, 'vulnerabilities:update', 404, {body: {details: [{locale: 'en', title: 'perm-unknown'}]}}],
         ['put', `/api/vulnerabilities/${FAKE_ID}/archive`, 'vulnerabilities:update', 404, {body: {archived: true}}],
@@ -274,6 +275,9 @@ module.exports = function(request, app) {
         ['post', `/api/audits/${FAKE_ID}/comments/${FAKE_ID}/replies`, 'audits:read', 404, {body: {text: 'Reply'}}],
         ['put', `/api/audits/${FAKE_ID}/comments/${FAKE_ID}`, 'audits:read', 404, {body: {resolved: true}}],
         ['delete', `/api/audits/${FAKE_ID}/comments/${FAKE_ID}`, 'audits:read', 404],
+        ['get', `/api/audits/${FAKE_ID}/highlights`, 'audits:read', 404],
+        ['get', `/api/audits/${FAKE_ID}/qa`, 'audits:read', 404],
+        ['put', `/api/audits/${FAKE_ID}/qa/ignored`, 'audits:update', 404, {body: {fingerprint: 'a'.repeat(20), ignored: true}}],
 
         // Backups (src/routes/backup.js)
         ['get', '/api/backups', 'backups:read', 200],
@@ -286,11 +290,17 @@ module.exports = function(request, app) {
         ['post', `/api/backups/${FAKE_BACKUP}/restore`, 'backups:restore', 404, {body: {}}],
 
         // Words ignored by the spell checker (src/routes/spellcheck.js)
+        ['post', '/api/spellcheck/check', 'spellcheck:check', 422, {body: {}}],
         ['get', '/api/spellcheck/words', 'spellcheck-words:read', 200],
         ['get', '/api/spellcheck/words/all', 'spellcheck-words:update', 200],
         ['post', '/api/spellcheck/words', 'spellcheck-words:create', 422, {body: {}}],
         ['put', `/api/spellcheck/words/${FAKE_ID}`, 'spellcheck-words:update', 404, {body: {status: 'approved'}}],
         ['delete', `/api/spellcheck/words/${FAKE_ID}`, 'spellcheck-words:delete', 404],
+
+        // AI assistance (src/routes/ai.js): disabled during the matrix (403 answered by the route)
+        ['post', '/api/ai/assist', 'ai:assist', 422, {body: {}}],
+        ['post', `/api/audits/${FAKE_ID}/qa/ai`, 'ai:qa', 403],
+        ['post', '/api/ai/test', 'settings:update', 422],
 
         // Unknown route (src/app.js)
         ['get', '/api/perm-unknown-route', null, 404]

@@ -8,6 +8,8 @@ module.exports = function(app, io) {
     var utils = require('../lib/utils');
     var Settings = require('mongoose').model('Settings');
     var Image = require('mongoose').model('Image');
+    var highlights = require('../lib/highlights');
+    var qa = require('../lib/qa');
 
     // Images of the content written to the audit (copied from another audit the user can read) readable by its users
     var grantImages = (req) => Image.grantReferenced(req.body, req.params.auditId, req.decodedToken.id, acl.isAllowed(req.decodedToken.role, 'audits:read-all'));
@@ -134,6 +136,65 @@ module.exports = function(app, io) {
         Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id)
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
+    });
+
+    // Texts highlighted with the warning colors of the settings (generic texts to replace, setting of the reports): places
+    // of the audit, none when the warning is disabled. {enabled, colors, items}
+    app.get("/api/audits/:auditId/highlights", acl.hasPermission('audits:read'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+
+        try {
+            var audit = await Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id);
+            var settings = await Settings.getAll();
+            var report = settings && settings.report;
+            var enabled = Boolean(report && report.enabled !== false && report.public.highlightWarning);
+            var colors = (report && report.public.highlightWarningColors) || [];
+            Response.Ok(res, {enabled: enabled, colors: colors, items: enabled ? highlights.auditHighlights(audit, colors) : []});
+        }
+        catch (err) {
+            Response.Internal(res, err);
+        }
+    });
+
+    // Quality checks of the audit (lib/qa.js, without network request): {issues, ignored (issues ignored by the users)}
+    app.get("/api/audits/:auditId/qa", acl.hasPermission('audits:read'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+
+        try {
+            var audit = await Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id);
+            var settings = await Settings.getAll();
+            var comments = await Audit.getComments(req.params.auditId);
+            var data = audit.toObject();
+            var ids = qa.imageIds(data);
+            var existingImages = new Set((await Image.find({_id: {$in: ids}}).select('_id').lean()).map(image => String(image._id)));
+            var issues = qa.auditIssues(data, {settings: settings, comments: comments, existingImages: existingImages});
+            var ignored = new Set((audit.qaIgnored || []).map(item => item.fingerprint));
+            // Last quality check by the AI (issues of the findings still in the audit)
+            var findingIds = new Set(data.findings.map(finding => String(finding._id)));
+            var aiIssues = ((audit.qaAi && audit.qaAi.issues) || []).filter(item => item && item.location && findingIds.has(String(item.location.id)));
+            issues.push(...aiIssues);
+            Response.Ok(res, {
+                issues: issues.filter(item => !ignored.has(item.fingerprint)),
+                ignored: issues.filter(item => ignored.has(item.fingerprint)),
+                ai: audit.qaAi && audit.qaAi.at ? {at: audit.qaAi.at} : null
+            });
+        }
+        catch (err) {
+            Response.Internal(res, err);
+        }
+    });
+
+    // Issue of the quality checks ignored or no longer ignored: {fingerprint, ignored}
+    app.put("/api/audits/:auditId/qa/ignored", acl.hasPermission('audits:update'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
+        if (typeof req.body.fingerprint !== 'string' || !/^[a-f0-9]{20}$/.test(req.body.fingerprint) || typeof req.body.ignored !== 'boolean') {
+            Response.BadParameters(res, 'Required parameters: fingerprint, ignored (boolean)');
+            return;
+        }
+        Audit.setQaIgnored(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, req.body.fingerprint, req.body.ignored)
+        .then(msg => Response.Ok(res, msg))
+        .catch(err => Response.Internal(res, err));
     });
 
     // Get audit general information

@@ -17,6 +17,10 @@
                 </div>
             </q-tab>
         </q-tabs>
+        <!-- Quality checks of the vulnerability database: duplicated or similar titles, images, references -->
+        <div v-if="UserService.isAllowed('vulnerabilities:update')" class="row justify-end">
+            <q-btn flat dense no-caps color="blue-grey-7" icon="mdi-clipboard-check-outline" class="vulnerabilities-qa-button" :label="$t('qa.vulnerabilitiesTitle')" @click="openQa" />
+        </div>
     </div>
 </div>
 <div v-if="mainTab === 'proposals'" class="row">
@@ -607,6 +611,33 @@
         <q-card-actions align="center">
                 <q-btn color="secondary" unelevated @click="mergeVulnerabilities" :disable="mergeVulnLeft === '' || mergeVulnRight === ''">{{$t('merge')}}</q-btn>
             </q-card-actions>
+    </q-card>
+</q-dialog>
+<!-- Quality checks of the vulnerability database -->
+<q-dialog v-model="qa.show">
+    <q-card class="vulnerabilities-qa" style="width: 720px; max-width: 90vw">
+        <q-card-section class="row items-center no-wrap q-pb-none">
+            <q-icon name="mdi-clipboard-check-outline" color="blue-grey-7" size="sm" class="q-mr-sm" />
+            <div class="text-h6 col">{{$t('qa.vulnerabilitiesTitle')}}</div>
+            <q-btn flat round dense icon="refresh" class="qa-refresh" :loading="qa.loading" @click="loadQa" />
+            <q-btn flat round dense icon="close" v-close-popup />
+        </q-card-section>
+        <q-card-section>
+            <div class="text-caption text-grey-8 q-mb-sm qa-summary">{{qaSummary}}</div>
+            <div v-if="qa.error" class="text-negative qa-error">{{qa.error}}</div>
+            <div v-else-if="qa.loaded && qa.issues.length === 0" class="text-grey-7 qa-empty">{{$t('qa.noIssues')}}</div>
+            <q-list v-else dense bordered separator class="vulnerabilities-qa__list" style="max-height: 60vh; overflow-y: auto">
+                <q-item v-for="issue in qa.issues" :key="issue.fingerprint" clickable class="qa-issue" @click="openQaIssue(issue)">
+                    <q-item-section avatar>
+                        <q-icon v-bind="qaIcon(issue)" size="xs" />
+                    </q-item-section>
+                    <q-item-section>
+                        <q-item-label class="text-weight-medium">{{qaPlace(issue)}}</q-item-label>
+                        <q-item-label caption>{{qaMessage(issue)}}</q-item-label>
+                    </q-item-section>
+                </q-item>
+            </q-list>
+        </q-card-section>
     </q-card>
 </q-dialog>
 </div>

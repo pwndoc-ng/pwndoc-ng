@@ -1,6 +1,40 @@
-<div v-if="!loading" class="row">
-    <div class="col-md-8 col-12 offset-md-2 q-mt-md">
+<div v-if="!loading" class="row settings-page">
+    <div class="col-lg-10 col-12 offset-lg-1 q-mt-md q-px-sm">
 
+        <!-- Save, import, export and revert: always visible -->
+        <q-card v-if="canEdit" flat bordered class="q-mb-md settings-actions">
+            <q-card-section class="row items-center q-gutter-sm q-py-sm">
+                <q-btn :label="$t('saveSettings')" color="secondary" unelevated no-caps icon="save" class="settings-save" @click="updateSettings" />
+                <q-chip v-if="unsavedChanges()" dense square color="orange-2" text-color="orange-10" icon="mdi-circle-edit-outline" class="settings-unsaved">{{$t('settingsTabs.unsaved')}}</q-chip>
+                <q-space />
+                <input
+                ref="importSetttings"
+                value=""
+                type="file"
+                accept=".json"
+                class="hidden"
+                @change="importSettings($event.target.files)"
+                />
+                <q-btn flat no-caps color="warning" icon="fas fa-file-import" :label="$t('importSettings')" @click="$refs.importSetttings.click()" />
+                <q-btn flat no-caps color="warning" icon="fas fa-file-export" :label="$t('exportSettings')" @click="exportSettings" />
+                <q-btn flat no-caps color="negative" icon="mdi-restore" :label="$t('revertSettingsToDefaults')" @click="revertToDefaults" />
+            </q-card-section>
+        </q-card>
+
+        <div class="row q-col-gutter-md">
+            <!-- Sections of the settings -->
+            <div v-if="settingsTabs.length > 1" class="col-12 col-md-3">
+                <q-card flat bordered>
+                    <q-tabs v-model="tab" :vertical="$q.screen.gt.sm" dense no-caps inline-label outside-arrows mobile-arrows align="left" active-color="primary" indicator-color="primary" class="text-grey-8 settings-tabs">
+                        <q-tab v-for="item in settingsTabs" :key="item.name" :name="item.name" :icon="item.icon" :label="item.label" :class="`settings-tab--${item.name}`">
+                            <q-badge v-if="item.badge" color="orange-8" floating rounded>{{item.badge}}</q-badge>
+                        </q-tab>
+                    </q-tabs>
+                </q-card>
+            </div>
+            <div class="col">
+            <!-- general -->
+            <div v-show="tab === 'general'" class="settings-section settings-section--general">
         <q-card class="q-my-md">
           <q-card-section class="q-py-none bg-blue-grey-5 text-white">
               <q-item style="padding:0px;">
@@ -54,122 +88,14 @@
             </div>
         </q-card-section>
         </q-card>
-
-<!-- Danger Settings START  -->
-<q-card v-if="UserService.isAllowed('settings:read')" class="q-my-mg">
-    <q-card-section class="q-py-none bg-red text-white">
-        <q-item style="padding:0px;">
-            <q-item-section class="col-11">
-                <div class="text-h6">{{$t('dangerSettings')}}</div>
-            </q-item-section>
-            <q-item-section class="col-md-1 items-center" >
-                <q-toggle
-                    color="primary"
-                    keep-color
-                    :disable="!canEdit"
-                    v-model="settings.danger.enabled"
-                />
-            </q-item-section>
-        </q-item>
-    </q-card-section>
-    <q-card-section>
-        <div class="text-bold">{{$t('autoDeleteReport')}}</div>
-        <br/>
-        <q-item>
-            <q-item-section class="col-2">
-                <q-input
-                v-model.number="settings.danger.public.nbdaydelete"
-                type="number"
-                filled
-                :disable="!canEdit || !settings.danger.enabled"
-                :hint="$t('numberDayBeforeDelete')"
-                />
-            </q-item-section>
-        </q-item>
-    </q-card-section>
-</q-card>
-<!-- Danger Settings END  -->
-
-<!-- Automatic backups START -->
-<q-card v-if="UserService.isAllowed('settings:read') && settings.backups" class="q-my-md backup-settings">
-    <q-card-section class="q-py-none bg-blue-grey-5 text-white">
-        <q-item style="padding:0px;">
-            <q-item-section class="col-11">
-                <div class="text-h6">{{$t('backupSettings')}}</div>
-            </q-item-section>
-            <q-item-section class="col-md-1 items-center">
-                <q-toggle color="primary" keep-color :disable="!canEdit" v-model="settings.backups.enabled" />
-            </q-item-section>
-        </q-item>
-    </q-card-section>
-    <q-card-section>
-        <div class="text-grey-8 q-mb-md">{{$t('backupSettingsInfo')}}</div>
-        <div class="row q-col-gutter-md items-start">
-            <div class="col-md-3 col-12">
-                <q-input
-                    v-model="settings.backups.private.time"
-                    type="time"
-                    filled
-                    :label="$t('backupTime')"
-                    :hint="$t('backupTimeInfo')"
-                    :disable="!canEdit || !settings.backups.enabled"
-                />
             </div>
-            <div class="col-md-9 col-12">
-                <div class="text-caption text-grey-8">{{$t('backupDays')}}</div>
-                <q-option-group
-                    v-model="settings.backups.private.days"
-                    type="checkbox"
-                    inline
-                    :options="weekDayOptions"
-                    :disable="!canEdit || !settings.backups.enabled"
-                />
-            </div>
-            <div class="col-md-3 col-12">
-                <q-input
-                    v-model.number="settings.backups.private.keepDaily"
-                    type="number"
-                    min="1"
-                    filled
-                    :label="$t('backupKeepDaily')"
-                    :disable="!canEdit || !settings.backups.enabled"
-                />
-            </div>
-            <div class="col-md-3 col-12">
-                <q-input
-                    v-model.number="settings.backups.private.keepWeekly"
-                    type="number"
-                    min="0"
-                    filled
-                    :label="$t('backupKeepWeekly')"
-                    :disable="!canEdit || !settings.backups.enabled"
-                />
-            </div>
-            <div class="col-md-3 col-12">
-                <q-select
-                    v-model="settings.backups.private.weeklyDay"
-                    :options="weekDayOptions"
-                    emit-value
-                    map-options
-                    filled
-                    :label="$t('backupWeeklyDay')"
-                    :disable="!canEdit || !settings.backups.enabled"
-                />
-            </div>
-        </div>
-        <div class="text-caption text-grey-7 q-mt-md">
-            {{$t('backupRotationInfo', [settings.backups.private.keepDaily, settings.backups.private.keepWeekly, weekDayName(settings.backups.private.weeklyDay), (settings.backups.private.keepDaily || 0) + (settings.backups.private.keepWeekly || 0)])}}
-        </div>
-        <div class="text-caption text-grey-7">{{$t('backupEncryptionInfo')}}</div>
-    </q-card-section>
-</q-card>
-<!-- Automatic backups END -->
-
-        <q-card v-if="UserService.isAllowed('settings:read')" class="q-my-md">
+            <!-- reports -->
+            <div v-show="tab === 'reports'" class="settings-section settings-section--reports">
+        <q-card class="q-mb-md report-images-settings">
             <q-card-section class="q-py-none bg-blue-grey-5 text-white">
                 <q-item style="padding:0px;">
-                    <q-item-section class="col-md-11">
-                        <div class="text-h6">{{$t('reports')}}</div>
+                    <q-item-section>
+                        <div class="text-h6">{{$t('settingsTabs.reportImages')}}</div>
                     </q-item-section>
                 </q-item>
             </q-card-section>
@@ -213,6 +139,41 @@
                     </q-item>
                 </q-card-section>
                 <q-separator />
+<!-- Remediation priority color end -->
+                <q-card-section>
+                    <div class="text-bold">{{$t('captions')}}</div>
+                    <br/>
+                    <div class="text-grey-8">{{$t('captionsDescription')}}</div>
+                    <br/>
+                    <q-item>
+                        <q-item-section class="col-md-6">
+                            <q-select
+                            label="Caption Labels'"
+                            stack-label
+                            outlined
+                            v-model="settings.report.public.captions"
+                            use-input
+                            use-chips
+                            multiple
+                            hide-dropdown-icon
+                            options-sanitize
+                            input-debounce="0"
+                            new-value-mode="add-unique"
+                        />
+                        </q-item-section>
+                    </q-item>
+                </q-card-section>
+            </div>
+        </q-card>
+        <q-card class="q-mb-md report-colors-settings">
+            <q-card-section class="q-py-none bg-blue-grey-5 text-white">
+                <q-item style="padding:0px;">
+                    <q-item-section>
+                        <div class="text-h6">{{$t('settingsTabs.reportColors')}}</div>
+                    </q-item-section>
+                </q-item>
+            </q-card-section>
+            <div v-if="UserService.isAllowed('settings:update')">
                 <q-card-section>
                     <div class="text-bold">{{$t('cvssColors')}}</div>
                     <br/>
@@ -374,82 +335,42 @@
                         </q-item>
                     </q-list>
                 </q-card-section>
-                <q-separator />
-<!-- Remediation priority color end -->
-                <q-card-section>
-                    <div class="text-bold">{{$t('captions')}}</div>
+            </div>
+        </q-card>
+        <q-card class="q-mb-md report-highlight-settings">
+            <q-card-section class="q-py-none bg-blue-grey-5 text-white">
+                <q-item style="padding:0px;">
+                    <q-item-section>
+                        <div class="text-h6">{{$t('highlightWarning')}}</div>
+                    </q-item-section>
+                </q-item>
+            </q-card-section>
+            <div v-if="UserService.isAllowed('settings:update')">
+                <q-card-section class="highlight-warning-settings">
+                    <div class="text-bold">{{$t('highlightWarning')}}</div>
                     <br/>
-                    <div class="text-grey-8">{{$t('captionsDescription')}}</div>
+                    <div class="text-grey-8">{{$t('highlightWarningDescription')}}</div>
                     <br/>
                     <q-item>
-                        <q-item-section class="col-md-6">
-                            <q-select
-                            label="Caption Labels'"
-                            stack-label
-                            outlined
-                            v-model="settings.report.public.captions"
-                            use-input
-                            use-chips
-                            multiple
-                            hide-dropdown-icon
-                            options-sanitize
-                            input-debounce="0"
-                            new-value-mode="add-unique"
-                        />
+                        <q-item-section class="col-md-2">
+                            <q-toggle :label="$t('btn.enable')" v-model="settings.report.public.highlightWarning" />
+                        </q-item-section>
+                        <q-item-section>
+                            <q-option-group
+                            v-model="settings.report.public.highlightWarningColors"
+                            :disable="!settings.report.public.highlightWarning"
+                            :options="highlightColorOptions"
+                            type="checkbox"
+                            inline
+                            />
                         </q-item-section>
                     </q-item>
                 </q-card-section>
             </div>
         </q-card>
-
-<!-- Words ignored by the spell checker START -->
-        <q-card v-if="UserService.isAllowed('spellcheck-words:update')" class="q-my-md spellcheck-words">
-            <q-card-section class="q-py-none bg-blue-grey-5 text-white">
-                <q-item style="padding:0px;">
-                    <q-item-section>
-                        <div class="text-h6">{{$t('spellcheck.title')}}</div>
-                    </q-item-section>
-                </q-item>
-            </q-card-section>
-            <q-card-section>
-                <div class="text-grey-8">{{$t('spellcheck.description')}}</div>
-                <div class="row items-center q-gutter-sm q-mt-sm">
-                    <q-input
-                    class="col-md-4 col-grow"
-                    dense outlined
-                    v-model="spellcheckNewWord"
-                    :label="$t('spellcheck.addWord')"
-                    maxlength="100"
-                    @keyup.enter="addSpellcheckWord"
-                    />
-                    <q-btn unelevated color="secondary" icon="add" :label="$t('btn.create')" :disable="!spellcheckNewWord.trim()" @click="addSpellcheckWord" />
-                </div>
-            </q-card-section>
-            <q-card-section class="q-pt-none">
-                <div v-if="spellcheckWords.length === 0" class="text-grey-7">{{$t('spellcheck.noWords')}}</div>
-                <q-list v-else bordered separator dense>
-                    <q-item v-for="word in spellcheckWords" :key="word._id" class="spellcheck-word">
-                        <q-item-section>
-                            <q-item-label>{{word.word}}</q-item-label>
-                            <q-item-label caption>{{spellcheckWordInfo(word)}}</q-item-label>
-                        </q-item-section>
-                        <q-item-section side>
-                            <div class="row items-center no-wrap q-gutter-xs">
-                                <q-chip dense square :color="word.status === 'pending' ? 'orange-2' : 'green-2'" :label="$t(`spellcheck.status.${word.status}`)" />
-                                <q-btn v-if="word.status === 'pending'" flat round dense color="positive" icon="check" class="spellcheck-approve" @click="approveSpellcheckWord(word)">
-                                    <q-tooltip>{{$t('spellcheck.approve')}}</q-tooltip>
-                                </q-btn>
-                                <q-btn flat round dense color="negative" icon="delete" class="spellcheck-delete" @click="deleteSpellcheckWord(word)">
-                                    <q-tooltip>{{$t(word.status === 'pending' ? 'spellcheck.refuse' : 'spellcheck.remove')}}</q-tooltip>
-                                </q-btn>
-                            </div>
-                        </q-item-section>
-                    </q-item>
-                </q-list>
-            </q-card-section>
-        </q-card>
-<!-- Words ignored by the spell checker END -->
-
+            </div>
+            <!-- reviews -->
+            <div v-show="tab === 'reviews'" class="settings-section settings-section--reviews">
         <q-card v-if="UserService.isAllowed('settings:read')" class="q-my-lg">
             <q-card-section class="q-py-none bg-blue-grey-5 text-white">
                 <q-item style="padding:0px;">
@@ -541,72 +462,249 @@
                 </q-item>
             </q-card-section>
         </q-card>
-
-        <q-card class="q-my-lg" v-if="canEdit" align="center">
-            <q-card-section >
-                <q-item>
-                    <q-item-section class="q-px-md">
-                        <q-btn 
-                        :label="$t('saveSettings')"
-                        color="secondary"
-                        no-caps
-                        flat
-                        class="bg-secondary text-white"
-                        @click="updateSettings"
-                        ></q-btn>
-                    </q-item-section>
-                    <q-item-section class="q-px-md">
-                        <q-btn 
-                        :label="$t('revertSettingsToDefaults')"
-                        color="negative"
-                        no-caps
-                        flat
-                        class="bg-negative text-white"
-                        @click="revertToDefaults"
-                        ></q-btn>
-                    </q-item-section>
-                    <q-item-section class="q-px-md">
-                        <input
-                        ref="importSetttings"
-                        value=""
-                        type="file"
-                        accept=".json"
-                        class="hidden"
-                        @change="importSettings($event.target.files)"
-                        />
-                        <q-btn 
-                        color="warning"
-                        no-caps
-                        flat
-                        class="bg-warning text-white"
-                        @click="$refs.importSetttings.click()"
-                        >
-                            <div class="row items-center no-wrap">
-                                <q-icon left name="fas fa-file-import" class="icon-update-btn"/>
-                                <div class="text-center">
-                                    {{$t('importSettings')}}
-                                </div>
-                            </div>
-                        </q-btn>
-                    </q-item-section>
-                    <q-item-section class="q-px-md">
-                        <q-btn 
-                        color="warning"
-                        no-caps
-                        flat
-                        class="bg-warning text-white"
-                        @click="exportSettings"
-                        >
-                            <div class="row items-center no-wrap">
-                                <q-icon left name="fas fa-file-export" class="icon-update-btn"/>
-                                <div class="text-center">
-                                    {{$t('exportSettings')}}
-                                </div>
-                            </div>
-                        </q-btn>
+            </div>
+            <!-- quality -->
+            <div v-show="tab === 'quality'" class="settings-section settings-section--quality">
+<!-- Quality checks START -->
+        <q-card v-if="UserService.isAllowed('settings:read') && settings.qa" class="q-my-md qa-settings">
+            <q-card-section class="q-py-none bg-blue-grey-5 text-white">
+                <q-item style="padding:0px;">
+                    <q-item-section>
+                        <div class="text-h6">{{$t('qa.title')}}</div>
                     </q-item-section>
                 </q-item>
             </q-card-section>
+            <q-card-section>
+                <div class="text-grey-8">{{$t('qa.settingsDescription')}}</div>
+                <q-list>
+                    <q-item v-for="check in qaChecks" :key="check" tag="label" class="qa-check">
+                        <q-item-section side>
+                            <q-toggle v-model="settings.qa.public.checks[check]" :disable="!canEdit" />
+                        </q-item-section>
+                        <q-item-section>
+                            <q-item-label>{{$t(`qa.checks.${check}`)}}</q-item-label>
+                            <q-item-label caption>{{$t(`qa.checksDescription.${check}`)}}</q-item-label>
+                        </q-item-section>
+                    </q-item>
+                </q-list>
+            </q-card-section>
         </q-card>
+<!-- Quality checks END -->
+
+<!-- Words ignored by the spell checker START -->
+        <q-card v-if="UserService.isAllowed('spellcheck-words:update')" class="q-my-md spellcheck-words">
+            <q-card-section class="q-py-none bg-blue-grey-5 text-white">
+                <q-item style="padding:0px;">
+                    <q-item-section>
+                        <div class="text-h6">{{$t('spellcheck.title')}}</div>
+                    </q-item-section>
+                </q-item>
+            </q-card-section>
+            <q-card-section>
+                <div class="text-grey-8">{{$t('spellcheck.description')}}</div>
+                <div class="row items-center q-gutter-sm q-mt-sm">
+                    <q-input
+                    class="col-md-4 col-grow"
+                    dense outlined
+                    v-model="spellcheckNewWord"
+                    :label="$t('spellcheck.addWord')"
+                    maxlength="100"
+                    @keyup.enter="addSpellcheckWord"
+                    />
+                    <q-btn unelevated color="secondary" icon="add" :label="$t('btn.create')" :disable="!spellcheckNewWord.trim()" @click="addSpellcheckWord" />
+                </div>
+            </q-card-section>
+            <q-card-section class="q-pt-none">
+                <div v-if="spellcheckWords.length === 0" class="text-grey-7">{{$t('spellcheck.noWords')}}</div>
+                <q-list v-else bordered separator dense>
+                    <q-item v-for="word in spellcheckWords" :key="word._id" class="spellcheck-word">
+                        <q-item-section>
+                            <q-item-label>{{word.word}}</q-item-label>
+                            <q-item-label caption>{{spellcheckWordInfo(word)}}</q-item-label>
+                        </q-item-section>
+                        <q-item-section side>
+                            <div class="row items-center no-wrap q-gutter-xs">
+                                <q-chip dense square :color="word.status === 'pending' ? 'orange-2' : 'green-2'" :label="$t(`spellcheck.status.${word.status}`)" />
+                                <q-btn v-if="word.status === 'pending'" flat round dense color="positive" icon="check" class="spellcheck-approve" @click="approveSpellcheckWord(word)">
+                                    <q-tooltip>{{$t('spellcheck.approve')}}</q-tooltip>
+                                </q-btn>
+                                <q-btn flat round dense color="negative" icon="delete" class="spellcheck-delete" @click="deleteSpellcheckWord(word)">
+                                    <q-tooltip>{{$t(word.status === 'pending' ? 'spellcheck.refuse' : 'spellcheck.remove')}}</q-tooltip>
+                                </q-btn>
+                            </div>
+                        </q-item-section>
+                    </q-item>
+                </q-list>
+            </q-card-section>
+        </q-card>
+<!-- Words ignored by the spell checker END -->
+            </div>
+            <!-- ai -->
+            <div v-show="tab === 'ai'" class="settings-section settings-section--ai">
+<!-- AI assistance START -->
+        <q-card v-if="UserService.isAllowed('settings:read') && settings.ai" class="q-my-md ai-settings">
+            <q-card-section class="q-py-none bg-blue-grey-5 text-white">
+                <q-item style="padding:0px;">
+                    <q-item-section class="col-11">
+                        <div class="text-h6">{{$t('ai.title')}}</div>
+                    </q-item-section>
+                    <q-item-section class="col-md-1 items-center">
+                        <q-toggle class="ai-enabled" v-model="settings.ai.enabled" :disable="!canEdit" color="light-green-5" />
+                    </q-item-section>
+                </q-item>
+            </q-card-section>
+            <q-card-section>
+                <div class="text-grey-8">{{$t('ai.settingsDescription')}}</div>
+                <div class="text-caption text-grey-7 q-mt-xs">{{$t('ai.keyInfo')}}</div>
+            </q-card-section>
+            <q-card-section v-if="settings.ai.private" class="q-pt-none">
+                <div class="row q-col-gutter-md">
+                    <q-select class="col-12 col-md-4 ai-provider" outlined dense emit-value map-options :options="aiProviderOptions" v-model="settings.ai.private.provider" :label="$t('ai.provider')" :readonly="!canEdit" />
+                    <q-input class="col-12 col-md-5 ai-url" outlined dense v-model="settings.ai.private.url" :label="$t('ai.url')" :hint="$t('ai.urlHint')" :readonly="!canEdit" />
+                    <q-input class="col-12 col-md-3 ai-model" outlined dense v-model="settings.ai.private.model" :label="$t('ai.model')" :readonly="!canEdit" />
+                    <template v-if="settings.ai.private.provider === 'tfserving'">
+                        <div class="col-12 col-md-8">
+                            <q-input class="ai-tf-request" outlined dense type="textarea" autogrow v-model="settings.ai.private.tfRequest" :label="$t('ai.tfRequest')" :readonly="!canEdit" />
+                            <div class="text-caption text-grey-7" v-pre>{{prompt}}, {{maxTokens}}, {{model}}</div>
+                        </div>
+                        <q-input class="col-12 col-md-4 ai-tf-path" outlined dense v-model="settings.ai.private.tfResponsePath" :label="$t('ai.tfResponsePath')" :readonly="!canEdit" />
+                    </template>
+                    <template v-else>
+                        <q-select class="col-12 col-md-4" outlined dense emit-value map-options :options="aiTokenOptions" v-model="settings.ai.private.tokenParameter" :label="$t('ai.tokenParameter')" :readonly="!canEdit" />
+                        <q-toggle class="col-12 col-md-8 ai-system-role" v-model="settings.ai.private.systemRole" :label="$t('ai.systemRole')" :disable="!canEdit" />
+                    </template>
+                    <q-input class="col-6 col-md-3" outlined dense type="number" v-model.number="settings.ai.private.maxTokens" :label="$t('ai.maxTokens')" :readonly="!canEdit" />
+                    <q-input class="col-6 col-md-3" outlined dense type="number" v-model.number="settings.ai.private.timeout" :label="$t('ai.timeout')" :readonly="!canEdit" />
+                    <q-input class="col-12 ai-guidelines" outlined dense type="textarea" autogrow v-model="settings.ai.private.guidelines" :label="$t('ai.guidelines')" :hint="$t('ai.guidelinesHint')" :readonly="!canEdit" />
+                    <q-toggle class="col-12 ai-pseudonymize" v-model="settings.ai.private.pseudonymize" :label="$t('ai.pseudonymize')" :disable="!canEdit" />
+                </div>
+                <div class="row items-center q-mt-md q-gutter-sm">
+                    <q-btn unelevated no-caps color="secondary" icon="mdi-connection" class="ai-test" :label="$t('ai.test')" :loading="aiTest.loading" :disable="!canEdit || aiUnsaved" @click="testAi" />
+                    <div v-if="aiUnsaved" class="text-caption text-grey-7">{{$t('ai.testSaveFirst')}}</div>
+                    <div v-else-if="aiTest.error" class="text-negative ai-test-error">{{aiTest.error}}</div>
+                    <div v-else-if="aiTest.result" class="text-positive ai-test-result">
+                        {{$t('ai.testOk')}} · {{$t('ai.testAnswer', {answer: aiTest.result.answer})}}<span v-if="aiTest.result.models && aiTest.result.models.length"> · {{$t('ai.testModels', {models: aiTest.result.models.join(', ')})}}</span>
+                    </div>
+                </div>
+            </q-card-section>
+        </q-card>
+<!-- AI assistance END -->
+            </div>
+            <!-- backups -->
+            <div v-show="tab === 'backups'" class="settings-section settings-section--backups">
+<!-- Automatic backups START -->
+<q-card v-if="UserService.isAllowed('settings:read') && settings.backups" class="q-my-md backup-settings">
+    <q-card-section class="q-py-none bg-blue-grey-5 text-white">
+        <q-item style="padding:0px;">
+            <q-item-section class="col-11">
+                <div class="text-h6">{{$t('backupSettings')}}</div>
+            </q-item-section>
+            <q-item-section class="col-md-1 items-center">
+                <q-toggle color="primary" keep-color :disable="!canEdit" v-model="settings.backups.enabled" />
+            </q-item-section>
+        </q-item>
+    </q-card-section>
+    <q-card-section>
+        <div class="text-grey-8 q-mb-md">{{$t('backupSettingsInfo')}}</div>
+        <div class="row q-col-gutter-md items-start">
+            <div class="col-md-3 col-12">
+                <q-input
+                    v-model="settings.backups.private.time"
+                    type="time"
+                    filled
+                    :label="$t('backupTime')"
+                    :hint="$t('backupTimeInfo')"
+                    :disable="!canEdit || !settings.backups.enabled"
+                />
+            </div>
+            <div class="col-md-9 col-12">
+                <div class="text-caption text-grey-8">{{$t('backupDays')}}</div>
+                <q-option-group
+                    v-model="settings.backups.private.days"
+                    type="checkbox"
+                    inline
+                    :options="weekDayOptions"
+                    :disable="!canEdit || !settings.backups.enabled"
+                />
+            </div>
+            <div class="col-md-3 col-12">
+                <q-input
+                    v-model.number="settings.backups.private.keepDaily"
+                    type="number"
+                    min="1"
+                    filled
+                    :label="$t('backupKeepDaily')"
+                    :disable="!canEdit || !settings.backups.enabled"
+                />
+            </div>
+            <div class="col-md-3 col-12">
+                <q-input
+                    v-model.number="settings.backups.private.keepWeekly"
+                    type="number"
+                    min="0"
+                    filled
+                    :label="$t('backupKeepWeekly')"
+                    :disable="!canEdit || !settings.backups.enabled"
+                />
+            </div>
+            <div class="col-md-3 col-12">
+                <q-select
+                    v-model="settings.backups.private.weeklyDay"
+                    :options="weekDayOptions"
+                    emit-value
+                    map-options
+                    filled
+                    :label="$t('backupWeeklyDay')"
+                    :disable="!canEdit || !settings.backups.enabled"
+                />
+            </div>
+        </div>
+        <div class="text-caption text-grey-7 q-mt-md">
+            {{$t('backupRotationInfo', [settings.backups.private.keepDaily, settings.backups.private.keepWeekly, weekDayName(settings.backups.private.weeklyDay), (settings.backups.private.keepDaily || 0) + (settings.backups.private.keepWeekly || 0)])}}
+        </div>
+        <div class="text-caption text-grey-7">{{$t('backupEncryptionInfo')}}</div>
+    </q-card-section>
+</q-card>
+<!-- Automatic backups END -->
+            </div>
+            <!-- danger -->
+            <div v-show="tab === 'danger'" class="settings-section settings-section--danger">
+<!-- Danger Settings START  -->
+<q-card v-if="UserService.isAllowed('settings:read')" class="q-my-mg">
+    <q-card-section class="q-py-none bg-red text-white">
+        <q-item style="padding:0px;">
+            <q-item-section class="col-11">
+                <div class="text-h6">{{$t('dangerSettings')}}</div>
+            </q-item-section>
+            <q-item-section class="col-md-1 items-center" >
+                <q-toggle
+                    color="primary"
+                    keep-color
+                    :disable="!canEdit"
+                    v-model="settings.danger.enabled"
+                />
+            </q-item-section>
+        </q-item>
+    </q-card-section>
+    <q-card-section>
+        <div class="text-bold">{{$t('autoDeleteReport')}}</div>
+        <br/>
+        <q-item>
+            <q-item-section class="col-2">
+                <q-input
+                v-model.number="settings.danger.public.nbdaydelete"
+                type="number"
+                filled
+                :disable="!canEdit || !settings.danger.enabled"
+                :hint="$t('numberDayBeforeDelete')"
+                />
+            </q-item-section>
+        </q-item>
+    </q-card-section>
+</q-card>
+<!-- Danger Settings END  -->
+            </div>
+            </div>
+        </div>
     </div>
-</div>        
+</div>
