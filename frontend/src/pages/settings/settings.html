@@ -213,6 +213,27 @@
                     </q-item>
                 </q-card-section>
                 <q-separator />
+                <q-card-section class="highlight-warning-settings">
+                    <div class="text-bold">{{$t('highlightWarning')}}</div>
+                    <br/>
+                    <div class="text-grey-8">{{$t('highlightWarningDescription')}}</div>
+                    <br/>
+                    <q-item>
+                        <q-item-section class="col-md-2">
+                            <q-toggle :label="$t('btn.enable')" v-model="settings.report.public.highlightWarning" />
+                        </q-item-section>
+                        <q-item-section>
+                            <q-option-group
+                            v-model="settings.report.public.highlightWarningColors"
+                            :disable="!settings.report.public.highlightWarning"
+                            :options="highlightColorOptions"
+                            type="checkbox"
+                            inline
+                            />
+                        </q-item-section>
+                    </q-item>
+                </q-card-section>
+                <q-separator />
                 <q-card-section>
                     <div class="text-bold">{{$t('cvssColors')}}</div>
                     <br/>

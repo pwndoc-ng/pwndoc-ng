@@ -23,6 +23,8 @@ module.exports = function(request, app) {
               "extendCvssTemporalEnvironment": false,
               "findingSidebarTemplate": "{title}",
               "imageDefaultWidth": "large",
+              "highlightWarning": false,
+              "highlightWarningColors": ["#ffff00"],
               "remediationColorsComplexity": {
                 "highColor": "#FF2F2F",
                 "lowColor": "#4472c4",
@@ -73,6 +75,8 @@ module.exports = function(request, app) {
               "extendCvssTemporalEnvironment": false,
               "findingSidebarTemplate": "{title}",
               "imageDefaultWidth": "large",
+              "highlightWarning": false,
+              "highlightWarningColors": ["#ffff00"],
               "remediationColorsComplexity": {
                 "highColor": "#FF2F2F",
                 "lowColor": "#4472c4",
@@ -157,6 +161,8 @@ module.exports = function(request, app) {
                 "extendCvssTemporalEnvironment": false,
                 "findingSidebarTemplate": "{identifier} - {title} [{custom.Asset}]",
                 "imageDefaultWidth": "medium",
+                "highlightWarning": true,
+                "highlightWarningColors": ["#00ff00", "#00ffff"],
                 "remediationColorsComplexity": {
                   "highColor": "#FF2F2F",
                   "lowColor": "#4472c4",

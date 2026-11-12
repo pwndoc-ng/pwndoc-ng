@@ -23,7 +23,7 @@ const AUDITS = [
 let wrapper
 let router
 
-async function mountList({ roles = '*', username = 'ann', reviews = true, finding } = {}) {
+async function mountList({ roles = '*', username = 'ann', reviews = true, finding, report } = {}) {
   UserService.user = { username, roles }
   router = { push: vi.fn() }
   vi.spyOn(AuditService, 'getAudits').mockResolvedValue({ data: { datas: AUDITS } })
@@ -32,7 +32,7 @@ async function mountList({ roles = '*', username = 'ann', reviews = true, findin
   vi.spyOn(CompanyService, 'getCompanies').mockResolvedValue({ data: { datas: [{ name: 'ACME' }, { name: 'Globex' }] } })
   wrapper = mount(AuditsList, {
     global: {
-      mocks: { $settings: { reviews: { enabled: reviews, public: { minReviewers: 1 } } }, $route: { params: { finding } }, $router: router },
+      mocks: { $settings: { reviews: { enabled: reviews, public: { minReviewers: 1 } }, ...(report && { report: { public: report } }) }, $route: { params: { finding } }, $router: router },
       stubs: { RouterLink: true }
     }
   })
@@ -266,6 +266,37 @@ describe('audit deletion and report', () => {
     expect(download).toBe('Rapport été.docx')
     const update = notify.mock.results[0].value
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ icon: 'done', color: 'green' }))
+  })
+
+  it('lists the highlighted texts of the audit before generating its report (warning of the settings)', async () => {
+    mockNotify()
+    URL.createObjectURL = vi.fn(() => 'blob:report')
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    vi.spyOn(AuditService, 'generateAuditReport').mockResolvedValue({ data: new Blob(['docx']), headers: { 'content-disposition': 'attachment; filename="r.docx"' } })
+    const items = [{ kind: 'finding', id: 'f1', name: 'SQLi', field: 'description', label: null, texts: [{ text: '[CLIENT]', color: '#ffff00' }] }]
+    vi.spyOn(AuditService, 'getAuditHighlights').mockResolvedValue({ data: { datas: { enabled: true, colors: ['#ffff00'], items } } })
+    await mountList({ report: { highlightWarning: true } })
+    const dialog = wrapper.vm.$refs.highlightWarning
+    wrapper.vm.generateReport('a2')
+    await flushPromises()
+    expect(AuditService.getAuditHighlights).toHaveBeenCalledWith('a2')
+    expect(dialog.show).toBe(true)
+    expect(dialog.items).toEqual(items)
+    dialog.close(false) // Cancelled
+    await flushPromises()
+    expect(AuditService.generateAuditReport).not.toHaveBeenCalled()
+    expect(wrapper.vm.reportsPending).toEqual([])
+    wrapper.vm.generateReport('a2')
+    await flushPromises()
+    dialog.open(items[0]) // Place of the text opened
+    await flushPromises()
+    expect(router.push).toHaveBeenCalledWith('/audits/a2/findings/f1')
+    wrapper.vm.generateReport('a2')
+    await flushPromises()
+    dialog.close(true) // Generated anyway
+    await flushPromises()
+    expect(AuditService.generateAuditReport).toHaveBeenCalledTimes(1)
+    expect(AuditService.generateAuditReport).toHaveBeenCalledWith('a2')
   })
 
   it('shows the error of the report generation (JSON in a Blob)', async () => {

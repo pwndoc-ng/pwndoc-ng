@@ -203,6 +203,9 @@
                         <q-item-section side v-if="openCommentsCount('finding', finding._id)">
                   <q-badge color="orange-8" rounded>{{ openCommentsCount('finding', finding._id) }}</q-badge>
                 </q-item-section>
+                        <q-item-section side v-if="highlightedIds.has(finding._id)" class="highlight-marker">
+                          <q-icon name="mdi-marker" color="orange-9"><q-tooltip :delay="500">{{ $t('highlightWarningTooltip') }}</q-tooltip></q-icon>
+                        </q-item-section>
                         <q-item-section side v-if="finding.status === 0">
                           <q-icon name="check" color="green" />
                         </q-item-section>
@@ -234,6 +237,9 @@
                 </q-item-section>
                 <q-item-section side v-if="openCommentsCount('section', section._id)">
                   <q-badge color="orange-8" rounded>{{ openCommentsCount('section', section._id) }}</q-badge>
+                </q-item-section>
+                <q-item-section side v-if="highlightedIds.has(section._id)" class="highlight-marker">
+                  <q-icon name="mdi-marker" color="orange-9"><q-tooltip :delay="500">{{ $t('highlightWarningTooltip') }}</q-tooltip></q-icon>
                 </q-item-section>
               </q-item>
               <div class="row">
@@ -278,6 +284,8 @@
       <comments-panel />
     </q-drawer>
     <router-view :key="$route.fullPath" :frontEndAuditState="frontEndAuditState" :parentState="audit.state" :parentApprovals="audit.approvals"  :audit="audit" />
+    <!-- Texts highlighted in the warning color, listed before the generation of the report -->
+    <highlight-warning-dialog ref="highlightWarning" />
     </div>
   </template>
   
@@ -287,7 +295,8 @@ import { defineComponent } from 'vue';
 import { Loading, Notify, QSpinnerGears } from 'quasar';
 import draggable from 'vuedraggable'
 
-import AuditService, { errorMessage } from '@/services/audit';
+import AuditService, { errorMessage, highlightWarningEnabled } from '@/services/audit';
+import HighlightWarningDialog from '@/components/highlight-warning-dialog';
 import UserService from '@/services/user';
 import DataService from '@/services/data';
 import Utils from '@/services/utils';
@@ -320,6 +329,8 @@ export default defineComponent({
         reviewPending: false,
         approvalPending: false,
         reportPending: false,
+        // Places of the audit with texts highlighted in the warning color of the settings (generic texts to replace)
+        highlights: [],
         // Number of the last load of the audit: only its answer is shown (reloads answered in any order)
         lastAuditLoad: 0,
         // Page left: the late answers do not join the room of the audit nor register socket listeners
@@ -342,7 +353,8 @@ export default defineComponent({
 
   components: {
     draggable,
-    CommentsPanel
+    CommentsPanel,
+    HighlightWarningDialog
   },
 
   created: function() {
@@ -401,6 +413,8 @@ export default defineComponent({
   },
 
   computed: {
+    // Findings and sections with texts highlighted in the warning color (marker in the menu)
+    highlightedIds: function() {return new Set(this.highlights.filter(item => item.id).map(item => item.id))},
     generalUsers: function() {return this.users.filter(user => user.menu === 'general')},
     networkUsers: function() {return this.users.filter(user => user.menu === 'network')},
     findingUsers: function() {return this.users.filter(user => user.menu === 'editFinding')},
@@ -621,6 +635,7 @@ export default defineComponent({
         this.audit = data.data.datas;
         this.getUIState();
         this.getSections()
+        this.getHighlights()
         if (this.loading)
           this.handleSocket()
         this.loading = false
@@ -698,11 +713,35 @@ export default defineComponent({
       })
     },
 
+    // Findings and sections with texts highlighted in the warning color (menu), none when the warning is disabled or when
+    // they cannot be loaded (warning only)
+    getHighlights: function() {
+      if (!highlightWarningEnabled(this.$settings)) {
+        this.highlights = []
+        return
+      }
+      AuditService.getAuditHighlights(this.auditId)
+      .then((data) => {
+        if (!this.left) this.highlights = data.data.datas.items
+      })
+      .catch(() => {})
+    },
+
     generateReport: function(event) {
       // One generation at a time, and the second click of a double click ignored (the generation may already be
       // answered): a double click downloads the report once
       if (this.reportPending || this.isRepeatedClick(event)) return
       this.reportPending = true
+      // Texts highlighted in the warning color (generic texts to replace), when enabled: listed, the report generated if
+      // confirmed. Generated at once otherwise
+      var generation = !highlightWarningEnabled(this.$settings) ? this.downloadReport() : this.$refs.highlightWarning.confirm(this.auditId)
+        .then((generate) => generate ? this.downloadReport() : null)
+      generation.finally(() => {
+        this.reportPending = false
+      })
+    },
+
+    downloadReport: function() {
       const downloadNotif = Notify.create({
         spinner: QSpinnerGears,
         message: 'Generating the Report',
@@ -710,7 +749,7 @@ export default defineComponent({
         timeout: 0,
         group: false
       })
-      AuditService.generateAuditReport(this.auditId)
+      return AuditService.generateAuditReport(this.auditId)
       .then(response => {
         var blob = new Blob([response.data], {type: "application/octet-stream"});
         var link = document.createElement('a');
@@ -745,9 +784,6 @@ export default defineComponent({
           timeout: 0,
           classes: "text-pre-wrap"
         })
-      })
-      .finally(() => {
-        this.reportPending = false
       })
     },
 

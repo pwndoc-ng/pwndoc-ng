@@ -27,6 +27,13 @@ export default {
 
     computed: {
         // Variables of the findings sidebar template, including findings custom fields
+        // Highlight colors of the editors for the warning of the highlighted texts, several can be chosen (same colors as
+        // the editor menu)
+        highlightColorOptions: function() {
+            return [['#ffff00', 'yellow'], ['#fe0000', 'red'], ['#00ff00', 'green'], ['#00ffff', 'cyan']]
+                .map(([value, name]) => ({value: value, label: $t(`highlightColor.${name}`)}))
+        },
+
         // Days of the automatic backups, Monday first: {value: 0 (Sunday) to 6, label: name in the language of the interface}
         weekDayOptions: function() {
             return [1, 2, 3, 4, 5, 6, 0].map(day => ({value: day, label: this.weekDayName(day)}))

@@ -3,7 +3,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import _ from 'lodash'
-import { QBtn, QToggle, QInput, QChip, QBtnToggle } from 'quasar'
+import { QBtn, QToggle, QInput, QChip, QBtnToggle, QCheckbox } from 'quasar'
 
 vi.mock('boot/axios', () => import('../../helpers/api-mock'))
 vi.mock('@/router', () => ({ default: { push: vi.fn() } }))
@@ -497,6 +497,35 @@ describe('findings sidebar template', () => {
     await flushPromises()
     expect(wrapper.find('img[src="x"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('<img src=x onerror=alert(1)> SQL Injection')
+  })
+})
+
+describe('highlighted texts warning', () => {
+  it('enables the warning and chooses several colors among the highlight colors of the editors', async () => {
+    const settings = SETTINGS()
+    settings.report.public.highlightWarning = false
+    settings.report.public.highlightWarningColors = ['#ffff00']
+    await mountPage({ settings })
+    expect(wrapper.vm.highlightColorOptions).toEqual([
+      { value: '#ffff00', label: 'Yellow' }, { value: '#fe0000', label: 'Red' }, { value: '#00ff00', label: 'Green' }, { value: '#00ffff', label: 'Cyan' }
+    ])
+    const section = wrapper.find('.highlight-warning-settings')
+    expect(section.text()).toContain('Highlighted texts to replace')
+    const boxes = () => section.findAllComponents(QCheckbox)
+    expect(boxes()).toHaveLength(4)
+    expect(boxes().every((box) => box.props('disable'))).toBe(true) // Disabled with the warning
+    expect(boxes().map((box) => box.props('modelValue').includes(box.props('val')))).toEqual([true, false, false, false])
+    wrapper.vm.settings.report.public.highlightWarning = true
+    await flushPromises()
+    expect(boxes().some((box) => box.props('disable'))).toBe(false)
+    await boxes()[2].trigger('click') // Green added
+    await boxes()[1].trigger('click') // Red added
+    await boxes()[0].trigger('click') // Yellow removed
+    expect(wrapper.vm.settings.report.public.highlightWarningColors).toEqual(['#00ff00', '#fe0000'])
+    const update = vi.spyOn(SettingsService, 'updateSettings').mockResolvedValue({})
+    wrapper.vm.updateSettings()
+    await flushPromises()
+    expect(update.mock.calls[0][0].report.public).toMatchObject({ highlightWarning: true, highlightWarningColors: ['#00ff00', '#fe0000'] })
   })
 })
 

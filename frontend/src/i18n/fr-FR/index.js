@@ -15,6 +15,13 @@ export default {
     changeDisplayLanguageInfo: 'Choisissez votre langue par défaut préférée',
     autoCorrection: 'Désactiver la correction automatique',
     autoCorrectionInfo: 'Cochez cette case pour désactiver la correction automatique du texte lors de la saisie',
+    highlightWarning: 'Textes surlignés à remplacer',
+    highlightWarningDescription: 'Les textes surlignés des couleurs choisies dans les éditeurs (textes génériques à remplacer) sont listés avant la génération du rapport et signalés dans le menu de l\'audit. Simple avertissement : le rapport peut quand même être généré.',
+    highlightColor: { yellow: 'Jaune', red: 'Rouge', green: 'Vert', cyan: 'Cyan' },
+    highlightWarningDialogTitle: 'Textes surlignés à remplacer',
+    highlightWarningDialogMessage: 'Ces textes sont encore surlignés d\'une couleur d\'avertissement : ce sont peut-être des textes génériques à remplacer. Cliquez sur un texte pour l\'ouvrir, ou générez quand même le rapport.',
+    highlightWarningGenerate: 'Générer quand même',
+    highlightWarningTooltip: 'Texte surligné à remplacer',
     spellcheck: {
         title: 'Mots ignorés par le correcteur',
         description: 'Mots non signalés par le correcteur des éditeurs, pour tous les utilisateurs. Les utilisateurs les proposent depuis les suggestions d\'une faute d\'orthographe ; ils sont ignorés une fois validés ici.',

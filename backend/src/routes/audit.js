@@ -8,6 +8,7 @@ module.exports = function(app, io) {
     var utils = require('../lib/utils');
     var Settings = require('mongoose').model('Settings');
     var Image = require('mongoose').model('Image');
+    var highlights = require('../lib/highlights');
 
     // Images of the content written to the audit (copied from another audit the user can read) readable by its users
     var grantImages = (req) => Image.grantReferenced(req.body, req.params.auditId, req.decodedToken.id, acl.isAllowed(req.decodedToken.role, 'audits:read-all'));
@@ -134,6 +135,24 @@ module.exports = function(app, io) {
         Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id)
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err))
+    });
+
+    // Texts highlighted with the warning colors of the settings (generic texts to replace, setting of the reports): places
+    // of the audit, none when the warning is disabled. {enabled, colors, items}
+    app.get("/api/audits/:auditId/highlights", acl.hasPermission('audits:read'), async function(req, res) {
+        // #swagger.tags = ['Audit']
+
+        try {
+            var audit = await Audit.getAudit(acl.isAllowed(req.decodedToken.role, 'audits:read-all'), req.params.auditId, req.decodedToken.id);
+            var settings = await Settings.getAll();
+            var report = settings && settings.report;
+            var enabled = Boolean(report && report.enabled !== false && report.public.highlightWarning);
+            var colors = (report && report.public.highlightWarningColors) || [];
+            Response.Ok(res, {enabled: enabled, colors: colors, items: enabled ? highlights.auditHighlights(audit, colors) : []});
+        }
+        catch (err) {
+            Response.Internal(res, err);
+        }
     });
 
     // Get audit general information

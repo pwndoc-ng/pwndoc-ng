@@ -15,6 +15,13 @@ export default {
     changeDisplayLanguageInfo: 'Escolha o seu idioma padrão de preferência',
     autoCorrection: 'Desativar autocorreção',
     autoCorrectionInfo: 'Marque esta caixa para desativar a correção automática de texto enquanto digita',
+    highlightWarning: 'Textos destacados a substituir',
+    highlightWarningDescription: 'Os textos destacados com as cores escolhidas nos editores (textos genéricos a substituir) são listados antes da geração do relatório e sinalizados no menu da auditoria. Apenas um aviso: o relatório pode ser gerado mesmo assim.',
+    highlightColor: { yellow: 'Amarelo', red: 'Vermelho', green: 'Verde', cyan: 'Ciano' },
+    highlightWarningDialogTitle: 'Textos destacados a substituir',
+    highlightWarningDialogMessage: 'Estes textos ainda estão destacados com uma cor de aviso: podem ser textos genéricos a substituir. Clique em um texto para abri-lo, ou gere o relatório mesmo assim.',
+    highlightWarningGenerate: 'Gerar mesmo assim',
+    highlightWarningTooltip: 'Texto destacado a substituir',
     spellcheck: {
         title: 'Palavras ignoradas pelo corretor',
         description: 'Palavras não sinalizadas pelo corretor dos editores, para todos os usuários. Os usuários as propõem a partir das sugestões de um erro de ortografia; elas são ignoradas depois de aprovadas aqui.',

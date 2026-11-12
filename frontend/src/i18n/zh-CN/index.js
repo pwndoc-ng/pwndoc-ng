@@ -11,6 +11,13 @@ export default {
     backupWeeklyDay: '每周的最后一天',
     backupRotationInfo: '保留：最近的 {0} 个自动备份，以及之前 {1} 周中每周最近的一个（每周以{2}结束），最多 {3} 个备份。用户创建的备份永不删除。',
     backupEncryptionInfo: '在服务器上设置 BACKUP_PASSWORD 变量后加密（见安装文档）。',
+    highlightWarning: '待替换的高亮文本',
+    highlightWarningDescription: '编辑器中以所选颜色高亮的文本（待替换的通用文本）会在生成报告前列出，并在审计菜单中标记。仅为提醒：报告仍可生成。',
+    highlightColor: { yellow: '黄色', red: '红色', green: '绿色', cyan: '青色' },
+    highlightWarningDialogTitle: '待替换的高亮文本',
+    highlightWarningDialogMessage: '这些文本仍以某种提醒颜色高亮：可能是待替换的通用文本。点击文本将其打开，或仍然生成报告。',
+    highlightWarningGenerate: '仍然生成',
+    highlightWarningTooltip: '待替换的高亮文本',
     spellcheck: {
         title: '拼写检查忽略的词',
         description: '编辑器的拼写检查不再为所有用户标记的词。用户在拼写错误的建议中提出；在此批准后即被忽略。',

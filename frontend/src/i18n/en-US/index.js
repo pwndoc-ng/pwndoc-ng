@@ -15,6 +15,13 @@ export default {
     changeDisplayLanguageInfo: 'Choose your preferred default language',
     autoCorrection: 'Disable auto-correction',
     autoCorrectionInfo: 'Check this box to disable automatic text correction while typing',
+    highlightWarning: 'Highlighted texts to replace',
+    highlightWarningDescription: 'Texts highlighted with the chosen colors in the editors (generic texts to replace) are listed before the report is generated and marked in the menu of the audit. Warning only: the report can be generated anyway.',
+    highlightColor: { yellow: 'Yellow', red: 'Red', green: 'Green', cyan: 'Cyan' },
+    highlightWarningDialogTitle: 'Highlighted texts to replace',
+    highlightWarningDialogMessage: 'These texts are still highlighted with a warning color: they may be generic texts to replace. Click a text to open it, or generate the report anyway.',
+    highlightWarningGenerate: 'Generate anyway',
+    highlightWarningTooltip: 'Highlighted text to replace',
     spellcheck: {
         title: 'Words ignored by the spell checker',
         description: 'Words not reported by the spell checker of the editors, for all the users. The users propose them from the suggestions of a spelling mistake; they are ignored once approved here.',

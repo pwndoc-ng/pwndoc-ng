@@ -3,7 +3,8 @@ import { Dialog, Notify, QSpinnerGears } from 'quasar';
 import AuditStateIcon from 'components/audit-state-icon'
 import Breadcrumb from 'components/breadcrumb'
 
-import AuditService, { errorMessage } from '@/services/audit'
+import AuditService, { errorMessage, highlightWarningEnabled } from '@/services/audit'
+import HighlightWarningDialog from 'components/highlight-warning-dialog'
 import DataService from '@/services/data'
 import CompanyService from '@/services/company'
 import UserService from '@/services/user'
@@ -81,7 +82,8 @@ export default {
 
     components: {
         AuditStateIcon,
-        Breadcrumb
+        Breadcrumb,
+        HighlightWarningDialog
     },
 
     mounted: function() {
@@ -314,6 +316,16 @@ export default {
             if (this.reportsPending.includes(auditId) || (event && event.detail > 1))
                 return
             this.reportsPending.push(auditId)
+            // Texts highlighted in the warning color (generic texts to replace), when enabled: listed, the report generated
+            // if confirmed. Generated at once otherwise
+            var generation = !highlightWarningEnabled(this.$settings) ? this.downloadReport(auditId) : this.$refs.highlightWarning.confirm(auditId)
+                .then((generate) => generate ? this.downloadReport(auditId) : null)
+            generation.finally(() => {
+                this.reportsPending = this.reportsPending.filter(id => id !== auditId)
+            })
+        },
+
+        downloadReport: function(auditId) {
             var downloadNotif = Notify.create({
                 spinner: QSpinnerGears,
                 message: 'Generating the Report',
@@ -321,7 +333,7 @@ export default {
                 timeout: 0,
                 group: false
             })
-            AuditService.generateAuditReport(auditId)
+            return AuditService.generateAuditReport(auditId)
             .then(response => {
                 var blob = new Blob([response.data], {type: "application/octet-stream"});
                 var link = document.createElement('a');
@@ -356,9 +368,6 @@ export default {
                     timeout: 0,
                     classes: "text-pre-wrap"
                 })
-            })
-            .finally(() => {
-                this.reportsPending = this.reportsPending.filter(id => id !== auditId)
             })
         },
 

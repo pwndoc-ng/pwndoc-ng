@@ -5,6 +5,12 @@ export function errorMessage(err) {
   return (err.response && err.response.data && err.response.data.datas) || err.message
 }
 
+// Warning of the texts highlighted in the warning colors (generic texts to replace) enabled in the settings of the reports
+export function highlightWarningEnabled(settings) {
+  var report = settings && settings.report
+  return Boolean(report && report.enabled !== false && report.public && report.public.highlightWarning)
+}
+
 export default {
   getAudits: function(filters) {
     var queryParams = "?";
@@ -28,6 +34,11 @@ export default {
 
   deleteAudit: function(auditId) {
     return  api.delete(`audits/${auditId}`)
+  },
+
+  // Texts highlighted with the warning colors of the settings (generic texts to replace): {enabled, colors, items}
+  getAuditHighlights: function(auditId) {
+    return  api.get(`audits/${auditId}/highlights`)
   },
 
   getAuditGeneral: function(auditId) {

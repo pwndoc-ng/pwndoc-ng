@@ -64,6 +64,15 @@ The ![Propose Creation / Update in Vulnerability Database](/_images/finding_upd
 
 Saving can be done with the upper right button or by the most acclaimed feature: <kbd>Ctrl</kbd>+<kbd>S</kbd> or <kbd>&#8984;</kbd>+<kbd>S</kbd>
 
+### Highlighted texts to replace
+
+Generic texts of the templates can be highlighted in the editors (toolbar highlight button) to remember to replace them. When the warning is enabled in *Settings > Reports > Highlighted texts to replace*, with one or several highlight colors of the editors (yellow by default):
+
+- the findings and sections containing texts highlighted in these colors are marked with an icon in the menu of the audit;
+- before the report is generated (audit page or audits list), these texts are listed with their finding or section and field: a click opens the place of the text, *Generate anyway* generates the report.
+
+It is a warning only: the report can always be generated.
+
 ## Custom Sections
 
 Add any Custom Section previously defined in [Custom Data](/data?id=custom-sections).

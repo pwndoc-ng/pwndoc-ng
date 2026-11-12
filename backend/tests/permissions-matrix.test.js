@@ -274,6 +274,7 @@ module.exports = function(request, app) {
         ['post', `/api/audits/${FAKE_ID}/comments/${FAKE_ID}/replies`, 'audits:read', 404, {body: {text: 'Reply'}}],
         ['put', `/api/audits/${FAKE_ID}/comments/${FAKE_ID}`, 'audits:read', 404, {body: {resolved: true}}],
         ['delete', `/api/audits/${FAKE_ID}/comments/${FAKE_ID}`, 'audits:read', 404],
+        ['get', `/api/audits/${FAKE_ID}/highlights`, 'audits:read', 404],
 
         // Backups (src/routes/backup.js)
         ['get', '/api/backups', 'backups:read', 200],

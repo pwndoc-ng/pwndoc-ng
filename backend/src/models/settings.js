@@ -3,6 +3,7 @@ var Schema = mongoose.Schema;
 var fs = require('fs');
 var _ = require('lodash');
 var Utils = require('../lib/utils.js');
+var { HIGHLIGHT_COLORS } = require('../lib/highlights.js');
 
 // https://stackoverflow.com/questions/25822289/what-is-the-best-way-to-store-color-hex-values-in-mongodb-mongoose
 const colorValidator = (v) => (/^#([0-9a-f]{3}){1,2}$/i).test(v);
@@ -40,7 +41,15 @@ const SettingSchema = new Schema({
             // Text template of findings in the audit sidebar, e.g. "{identifier} - {title} [{custom.Asset}]"
             findingSidebarTemplate: { type: String, default: '{title}', maxlength: 500 },
             // Width of editor images without explicit width (large: between page margins)
-            imageDefaultWidth: { type: String, enum: ['small', 'medium', 'large'], default: 'large' }
+            imageDefaultWidth: { type: String, enum: ['small', 'medium', 'large'], default: 'large' },
+            // Warning of the texts highlighted with these colors of the editors (generic texts to replace): listed before the
+            // report generation and marked in the menu of the audit (lib/highlights.js). Warning only
+            highlightWarning: { type: Boolean, default: false },
+            highlightWarningColors: {
+                type: [{ type: String, enum: HIGHLIGHT_COLORS }],
+                default: [HIGHLIGHT_COLORS[0]],
+                validate: [colors => new Set(colors).size === colors.length, 'Invalid colors']
+            }
         },
         private: {
             imageBorder: { type: Boolean, default: false },

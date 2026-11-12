@@ -11,6 +11,13 @@ export default {
     backupWeeklyDay: 'Letzter Tag der Woche',
     backupRotationInfo: 'Aufbewahrt: die {0} neuesten automatischen Sicherungen und die neueste jeder der {1} vorherigen Wochen (Wochen, die am {2} enden), höchstens {3} Sicherungen. Von Benutzern erstellte Sicherungen werden nie gelöscht.',
     backupEncryptionInfo: 'Verschlüsselt, wenn die Variable BACKUP_PASSWORD auf dem Server gesetzt ist (Installationsdokumentation).',
+    highlightWarning: 'Zu ersetzende markierte Texte',
+    highlightWarningDescription: 'In den gewählten Farben markierte Texte in den Editoren (zu ersetzende Standardtexte) werden vor der Erstellung des Berichts aufgelistet und im Menü des Audits gekennzeichnet. Nur ein Hinweis: Der Bericht kann trotzdem erstellt werden.',
+    highlightColor: { yellow: 'Gelb', red: 'Rot', green: 'Grün', cyan: 'Cyan' },
+    highlightWarningDialogTitle: 'Zu ersetzende markierte Texte',
+    highlightWarningDialogMessage: 'Diese Texte sind noch in einer Warnfarbe markiert: Es könnten zu ersetzende Standardtexte sein. Klicken Sie auf einen Text, um ihn zu öffnen, oder erstellen Sie den Bericht trotzdem.',
+    highlightWarningGenerate: 'Trotzdem erstellen',
+    highlightWarningTooltip: 'Zu ersetzender markierter Text',
     spellcheck: {
         title: 'Von der Rechtschreibprüfung ignorierte Wörter',
         description: 'Wörter, die die Rechtschreibprüfung der Editoren für alle Benutzer nicht meldet. Die Benutzer schlagen sie in den Vorschlägen zu einem Rechtschreibfehler vor; sie werden ignoriert, sobald sie hier genehmigt sind.',

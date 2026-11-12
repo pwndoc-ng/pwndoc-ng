@@ -782,6 +782,111 @@ describe('review comments in the menu', () => {
   })
 })
 
+describe('highlighted texts to replace (warning of the settings)', () => {
+  const WARNING = () => settings({ report: { cvssColors: {}, highlightWarning: true, highlightWarningColors: ['#ffff00'] } })
+  const ITEMS = [
+    { kind: 'finding', id: 'f2', name: 'XSS réfléchie', field: 'description', label: null, texts: [{ text: '[CLIENT NAME]', color: '#ffff00' }, { text: '<b>not html</b>', color: '#ffff00' }] },
+    { kind: 'finding', id: 'f2', name: 'XSS réfléchie', field: 'customFields.c1', label: 'Impact métier', texts: [{ text: 'to complete', color: '#ffff00' }] },
+    { kind: 'section', id: 's1', name: 'Introduction', field: 'customFields.c2', label: 'Body', texts: [{ text: 'TODO', color: '#ffff00' }] },
+    { kind: 'general', id: null, name: 'Pentest Été', field: 'summary', label: null, texts: [{ text: 'summary', color: '#ffff00' }] }
+  ]
+  const highlights = (items = ITEMS) => vi.spyOn(AuditService, 'getAuditHighlights').mockImplementation(() => ok({ enabled: true, colors: ['#ffff00'], items }))
+  const report = () => vi.spyOn(AuditService, 'generateAuditReport').mockResolvedValue({ data: new Blob(['docx']), headers: { 'content-disposition': 'attachment; filename="r.docx"' } })
+  const dialog = () => vm().$refs.highlightWarning // components/highlight-warning-dialog.vue
+  const markedItems = () => page().findAll('.highlight-marker').map((marker) => marker.element.closest('.q-item').textContent)
+
+  beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => 'blob:report')
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    mockNotify()
+  })
+
+  it('marks the findings and sections with highlighted texts in the menu', async () => {
+    highlights()
+    await mountEdit({ $settings: WARNING() })
+    expect(AuditService.getAuditHighlights).toHaveBeenCalledWith('a1')
+    expect(markedItems()).toHaveLength(2)
+    expect(markedItems()[0]).toContain('XSS réfléchie')
+    expect(markedItems()[1]).toContain('Introduction')
+  })
+
+  it('neither requests nor marks anything when the warning is disabled, and generates at once', async () => {
+    const getHighlights = vi.spyOn(AuditService, 'getAuditHighlights')
+    report()
+    await mountEdit({ $settings: settings({ report: { cvssColors: {}, highlightWarning: false } }) })
+    expect(page().findAll('.highlight-marker')).toHaveLength(0)
+    vm().generateReport()
+    expect(AuditService.generateAuditReport).toHaveBeenCalledTimes(1) // Not delayed
+    expect(getHighlights).not.toHaveBeenCalled()
+  })
+
+  it('lists the highlighted texts before the generation: cancelled, then generated anyway', async () => {
+    highlights()
+    report()
+    await mountEdit({ $settings: WARNING() })
+    vm().generateReport()
+    await flushPromises()
+    expect(dialog().show).toBe(true)
+    expect(dialog().items).toEqual(ITEMS)
+    expect(ITEMS.map((item) => dialog().place(item))).toEqual(['XSS réfléchie · Description', 'XSS réfléchie · Impact métier', 'Introduction · Body', 'General Information'])
+    expect(AuditService.generateAuditReport).not.toHaveBeenCalled()
+    dialog().close(false)
+    await flushPromises()
+    expect(AuditService.generateAuditReport).not.toHaveBeenCalled()
+    expect(vm().reportPending).toBe(false)
+    vm().generateReport()
+    await flushPromises()
+    dialog().close(true)
+    await flushPromises()
+    expect(AuditService.generateAuditReport).toHaveBeenCalledTimes(1)
+    expect(vm().reportPending).toBe(false)
+  })
+
+  it('shows the texts of the dialog as text (no HTML)', async () => {
+    highlights()
+    await mountEdit({ $settings: WARNING() })
+    vm().generateReport()
+    await flushPromises()
+    const card = document.querySelector('.highlight-dialog')
+    expect(card.textContent).toContain('[CLIENT NAME]')
+    expect(card.textContent).toContain('<b>not html</b>')
+    expect(card.querySelector('b')).toBeNull()
+    dialog().close(false)
+    await flushPromises()
+  })
+
+  it('opens the place of a highlighted text from the dialog, without generating', async () => {
+    highlights()
+    report()
+    await mountEdit({ $settings: WARNING() })
+    vm().generateReport()
+    await flushPromises()
+    dialog().open(ITEMS[0])
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/audits/a1/findings/f2')
+    vm().generateReport()
+    await flushPromises()
+    dialog().open(ITEMS[2])
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/audits/a1/sections/s1')
+    expect(AuditService.generateAuditReport).not.toHaveBeenCalled()
+  })
+
+  it('generates at once without highlighted texts, and when they cannot be loaded (warning only)', async () => {
+    highlights([])
+    report()
+    await mountEdit({ $settings: WARNING() })
+    vm().generateReport()
+    await flushPromises()
+    expect(dialog().show).toBe(false)
+    expect(AuditService.generateAuditReport).toHaveBeenCalledTimes(1)
+    AuditService.getAuditHighlights.mockRejectedValue(new Error('Network Error'))
+    vm().generateReport()
+    await flushPromises()
+    expect(AuditService.generateAuditReport).toHaveBeenCalledTimes(2)
+  })
+})
+
 describe('report and small screens', () => {
   it('downloads the report with the name given by the server', async () => {
     const notify = mockNotify()
