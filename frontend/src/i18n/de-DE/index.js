@@ -653,7 +653,7 @@ export default {
     reports: 'Berichte',
     reportsImagesBorder: 'Bilderrahmen im Bericht',
     extendCvssTemporalEnvironment: 'Standardrubriken Temporal und Environmental von CVSS erweitern',
-    addBorderToImages: 'Erweitern Sie die standardmäßigen cvss-Themen für Zeit und Umgebung',
+    addBorderToImages: 'Den Bildern der Felder im generierten Bericht einen Rahmen hinzufügen (nicht dem Logo des Unternehmens).',
     currentColor: 'Aktuelle Farbe',
     cvssColors: 'CVSS-Farben',
     changeCvssColorsDescription: 'Ändert die Farben, welche den unterschiedlichen CVSS-Schweregraden im Bericht zugeordnet sind.',

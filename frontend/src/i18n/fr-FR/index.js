@@ -852,7 +852,7 @@ export default {
     imageWidthLarge: 'Grande',
     imageDefaultWidth: 'Largeur par défaut des images',
     imageDefaultWidthDescription: 'Largeur des images dans le rapport, en pourcentage de la largeur du texte (Grande : de marge à marge). S\'applique aux images dont la largeur n\'a pas été choisie dans l\'éditeur (un clic sur une image pour la choisir).',
-    addBorderToImages: 'Ajouter une bordure aux images dans le rapport généré.',
+    addBorderToImages: 'Ajouter une bordure aux images des champs dans le rapport généré (pas au logo de la société).',
     currentColor: 'Couleur actuelle',
     cvssColors: 'Couleurs du CVSS',
     changeCvssColorsDescription: 'Modifier les couleurs utilisées dans le rapport pour représenter les différentes sévérités CVSS.',

@@ -845,7 +845,7 @@ export default {
     imageWidthLarge: 'Large',
     imageDefaultWidth: 'Default image width',
     imageDefaultWidthDescription: 'Width of images in the report, as a percentage of the text width (Large: from margin to margin). Applies to images whose width was not chosen in the editor (single click on an image to choose it).',
-    addBorderToImages: 'Add border to images in the generated report.',
+    addBorderToImages: 'Add a border to the images of the fields in the generated report (not to the logo of the company).',
     currentColor: 'Current color',
     cvssColors: 'CVSS colors',
     changeCvssColorsDescription: 'Changes the colors used in the report to represent the different CVSS severities.',
