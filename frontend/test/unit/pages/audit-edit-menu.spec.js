@@ -837,6 +837,15 @@ describe('quality checks and highlighted texts to replace', () => {
     expect(markedItems()[1]).toContain('Introduction')
   })
 
+  it('shows the buttons of the quality checks and of the comments side by side', async () => {
+    highlights([])
+    qa()
+    await mountEdit({ $settings: WARNING() })
+    const actions = page().find('.audit-menu-actions')
+    expect(actions.classes()).toEqual(expect.arrayContaining(['row', 'no-wrap']))
+    expect(actions.findAllComponents(QBtn).map((button) => button.classes().filter((name) => ['qa-button', 'comments-button'].includes(name))[0])).toEqual(['qa-button', 'comments-button'])
+  })
+
   it('counts the errors and warnings of the quality checks on its button, which opens the checks', async () => {
     highlights([])
     qa()
