@@ -61,6 +61,22 @@ export function openIssue(router, auditId, issue) {
 }
 
 // Number of issues of each severity: {error, warning, info}
+// Sources of the issues: checks of pwndoc (standard rules) or quality check by the AI
+export const ISSUE_SOURCES = ['rules', 'ai']
+export const issueSource = (issue) => (issue && issue.check === 'ai') ? 'ai' : 'rules'
+
+// Issues of a source ('all': all the issues)
+export function issuesOfSource(issues, source) {
+  return (issues || []).filter((issue) => source === 'all' || issueSource(issue) === source)
+}
+
+// Number of issues of each source: {all, rules, ai}
+export function sourceCounts(issues) {
+  var counts = { all: 0, rules: 0, ai: 0 }
+  ;(issues || []).forEach((issue) => { counts.all++; counts[issueSource(issue)]++ })
+  return counts
+}
+
 export function issueCounts(issues) {
   var counts = { error: 0, warning: 0, info: 0 }
   ;(issues || []).forEach((issue) => { counts[issue.severity] = (counts[issue.severity] || 0) + 1 })

@@ -113,7 +113,7 @@ module.exports = function(request, app) {
           "enabled": false,
           "private": {
             "url": "", "model": "", "tokenParameter": "max_tokens", "maxTokens": 2000, "timeout": 120, "systemRole": true, "extraParameters": "",
-            "guidelines": "", "pseudonymize": false,
+            "guidelines": [], "pseudonymize": false,
           },
         },
         "qa": {
@@ -212,7 +212,7 @@ module.exports = function(request, app) {
             "private": {
               "url": "https://ai.example.test:8501/v1", "model": "writer", "tokenParameter": "max_completion_tokens", "maxTokens": 800, "timeout": 300, "systemRole": false,
               "extraParameters": "{\"reasoning_effort\": \"low\"}",
-              "guidelines": "Formal tone", "pseudonymize": true,
+              "guidelines": ["Formal tone", "Write \"the auditor\", never \"we\""], "pseudonymize": true,
             },
           },
           "qa": {
@@ -278,6 +278,20 @@ module.exports = function(request, app) {
         expect(response.body.datas.reviews.public.mandatoryReview).toEqual(false);
         expect(response.body.datas.reviews.public.minReviewers).toEqual(5);
         expect(response.body.datas.report.private.imageBorderColor).toEqual("#123456");
+    })
+
+    it('Writing guidelines of the AI: one per line, text given (settings exported before) split into lines, limited', async () => {
+      var put = (guidelines) => request(app).put('/api/settings').set('Cookie', [`token=JWT ${userToken}`]).send({ai: {private: {guidelines}}})
+      var response = await put('Formal tone\r\n\n  Short sentences ')
+      expect(response.status).toBe(200)
+      var response = await request(app).get('/api/settings').set('Cookie', [`token=JWT ${userToken}`])
+      expect(response.body.datas.ai.private.guidelines).toEqual(['Formal tone', 'Short sentences'])
+      expect(response.body.datas.ai.private.url).toBe('https://ai.example.test:8501/v1') // Other settings kept
+
+      expect((await put(Array.from({length: 101}, (_, i) => `Guideline ${i}`))).status).toBe(422)
+      expect((await put(['x'.repeat(1001)])).status).toBe(422)
+      var response = await request(app).get('/api/settings').set('Cookie', [`token=JWT ${userToken}`])
+      expect(response.body.datas.ai.private.guidelines).toEqual(['Formal tone', 'Short sentences'])
     })
 
     it('Revert settings', async () => {

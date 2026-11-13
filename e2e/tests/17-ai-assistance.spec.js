@@ -17,6 +17,7 @@ const STUB = 'http://ai-stub:8000'
 let auditId
 const ids = {}
 const REASONING = '{"chat_template_kwargs": {"enable_thinking": false}}' // Reasoning of the model set in the settings
+const GUIDELINES = 'Formal tone\nWrite "the auditor"' // Writing guidelines given as a text: one per line
 
 async function setAi (values) {
   const api = await apiAs(D.USERS.admin)
@@ -35,7 +36,7 @@ async function stubRequests () {
 
 test.beforeAll(async () => {
   await ensureBaseData()
-  await setAi({ enabled: true, private: { url: `${STUB}/v1`, model: 'e2e-model', pseudonymize: true, extraParameters: REASONING } })
+  await setAi({ enabled: true, private: { url: `${STUB}/v1`, model: 'e2e-model', pseudonymize: true, extraParameters: REASONING, guidelines: GUIDELINES } })
   const api = await apiAs(pentester)
   auditId = await ensureAudit(api, AUDIT_NAME)
   expect((await api.put(`/api/audits/${auditId}/general`, { data: { company: { name: COMPANY } } })).ok()).toBeTruthy()
@@ -51,7 +52,7 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
-  await setAi({ enabled: false, private: { url: '', model: '', pseudonymize: false, extraParameters: '' } })
+  await setAi({ enabled: false, private: { url: '', model: '', pseudonymize: false, extraParameters: '', guidelines: [] } })
   const api = await apiAs(pentester)
   await api.delete(`/api/audits/${auditId}`)
   await api.dispose()
@@ -63,6 +64,7 @@ test('settings: test of the connection to the AI server', async ({ page }) => {
   const card = page.locator('.ai-settings')
   await expect(card.locator('.ai-url input')).toHaveValue(`${STUB}/v1`)
   await expect(card.locator('.ai-extra-parameters textarea')).toHaveValue(REASONING)
+  await expect(card.locator('.ai-guidelines textarea')).toHaveValue(GUIDELINES) // One per line
   await card.locator('.ai-test').click()
   // Answer, tokens of the reasoning of the model, time taken, models of the server
   await expect(card.locator('.ai-test-result')).toHaveText(/^Connection working · Answer: OK · Reasoning: 7 tokens · \d+(\.\d)? s · Models: e2e-model$/)
@@ -89,6 +91,7 @@ test('assisted writing: proposal shown, applied by the user, no image nor client
   const sent = JSON.stringify((await stubRequests()).slice(before))
   expect(sent).toContain('[[TERM_1]]')
   expect(sent).toContain('"chat_template_kwargs":{"enable_thinking":false}') // Parameters of the settings added
+  expect(sent).toContain('Writing guidelines of the company (mandatory):\\n1. Formal tone\\n2. Write \\"the auditor\\"') // Numbered
   expect(sent).not.toContain(COMPANY)
   expect(sent).not.toContain('iVBORw0KGgo')
   expect(sent).not.toContain('<img')
@@ -103,4 +106,13 @@ test('quality check of the findings by the AI, listed with the other checks', as
   await panel.locator('.qa-ai-run').click()
   await expect(panel.locator('.qa-issue').filter({ hasText: 'E2E AI: description of E2E AI Empty missing' })).toContainText('E2E AI Empty · Description')
   await expect(panel.locator('.qa-ai-date')).toContainText('Last check by the AI')
+  // Issues of the AI distinguished, filtered by source with the number of each
+  const sources = panel.locator('.qa-source-filter button')
+  await expect(sources.nth(2)).toHaveText(/AI \(1\)/)
+  await sources.nth(2).click()
+  await expect(panel.locator('.qa-issue')).toHaveCount(1)
+  await expect(panel.locator('.qa-issue .qa-ai-badge')).toHaveText('AI')
+  await sources.nth(1).click()
+  await expect(panel.locator('.qa-issue--rules').first()).toBeVisible()
+  await expect(panel.locator('.qa-issue--ai')).toHaveCount(0)
 })

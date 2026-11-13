@@ -73,7 +73,8 @@ The assisted writing in the editors and the quality check of the findings by an 
   - `{"reasoning_effort": "none"}` (no reasoning) or `"low"`: OpenAI, tensorfold;
   - `{"chat_template_kwargs": {"enable_thinking": false}}` (no reasoning, through the chat template): Qwen3 or GLM on vLLM, SGLang, tensorfold;
   - `{"thinking_budget": 1024}` (reasoning limited to 1024 tokens): tensorfold;
-- **maximum length**: it includes the reasoning, which a reasoning model can use entirely without answering (explained by the error). The reasoning returned apart by the server (`reasoning_content`) is never used as the answer.
+- **maximum length**: it includes the reasoning, which a reasoning model can use entirely without answering (explained by the error). The reasoning returned apart by the server (`reasoning_content`) is never used as the answer;
+- **writing guidelines of the company**: one per line (tone, terms to use or to avoid...). They are given numbered to the model as mandatory: applied by the assisted writing, even by the actions keeping the wording (correct), and checked one by one by the quality check of the AI, whose issues give the number of the guideline not respected.
 
 The refusals of the server (invalid parameter, context of the model too short...) are shown with its message. The waits announced by the server (`503` or `429` with `Retry-After`: model loading, restart) are retried within the timeout.
 
@@ -82,7 +83,7 @@ The refusals of the server (invalid parameter, context of the model too short...
 - `AI_API_KEY`: API key of the server, sent as `Authorization: Bearer <key>` (or in the header named by `AI_AUTH_HEADER`). It is never stored in the database nor sent to the browsers;
 - `NODE_EXTRA_CA_CERTS`: certificate authority of your network, for a server with a certificate of an internal authority (file mounted in the container).
 
-Only the text of the field or of the selection is sent, without the images. The names of the client, of the company and of the scope of the audit can be replaced by tokens before sending (option of the settings). The proposals of the AI are always shown before being applied, and sanitized.
+Only the text of the field or of the selection is sent, without the images. The quality check by the AI sends the text of the findings as shown by the editor: one line per paragraph or list item, empty lines, place and caption of the images (never the images), so that the guidelines on the layout can be checked; fields longer than 20000 characters are shortened. The names of the client, of the company and of the scope of the audit can be replaced by tokens before sending (option of the settings). The proposals of the AI are always shown before being applied, and sanitized.
 
 ### Spell checker
 

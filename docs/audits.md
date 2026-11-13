@@ -70,7 +70,7 @@ When the AI assistance is enabled (*Settings > AI assistance*, see the installat
 
 The proposal is shown next to the current text: it replaces it only when *Replace* is clicked, and the change can be undone (Ctrl+Z). The images are never sent.
 
-The quality check panel also offers *Check with the AI*: the findings are reviewed by the AI (severity not matching the description, remediation not addressing the vulnerability, unclear wording, writing guidelines). Its issues are listed with the other checks and can be ignored; the last check is kept with its date.
+The quality check panel also offers *Check with the AI*: the findings are reviewed by the AI (severity not matching the description, remediation not addressing the vulnerability, unclear wording, each writing guideline of the settings, layout included, given with its number). Opening an issue of the AI highlights the passage quoted, or frames the image concerned. Its issues are listed with the other checks and can be ignored; the last check is kept with its date.
 
 ### Quality check
 

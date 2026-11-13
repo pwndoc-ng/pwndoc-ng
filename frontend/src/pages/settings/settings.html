@@ -576,7 +576,8 @@
                     </div>
                     <q-input class="col-6 col-md-3" outlined dense type="number" v-model.number="settings.ai.private.maxTokens" :label="$t('ai.maxTokens')" :hint="$t('ai.maxTokensHint')" :readonly="!canEdit" />
                     <q-input class="col-6 col-md-3" outlined dense type="number" v-model.number="settings.ai.private.timeout" :label="$t('ai.timeout')" :readonly="!canEdit" />
-                    <q-input class="col-12 ai-guidelines" outlined dense type="textarea" autogrow v-model="settings.ai.private.guidelines" :label="$t('ai.guidelines')" :hint="$t('ai.guidelinesHint')" :readonly="!canEdit" />
+                    <!-- One guideline per line (like the scope of an audit): numbered for the model -->
+                    <textarea-array class="col-12 ai-guidelines" v-model="settings.ai.private.guidelines" no-empty-line :label="$t('ai.guidelines')" :hint="$t('ai.guidelinesHint')" :readonly="!canEdit" />
                     <q-toggle class="col-12 ai-pseudonymize" v-model="settings.ai.private.pseudonymize" :label="$t('ai.pseudonymize')" :disable="!canEdit" />
                 </div>
                 <div class="row items-center q-mt-md q-gutter-sm">

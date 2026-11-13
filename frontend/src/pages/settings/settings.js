@@ -9,6 +9,7 @@ import Utils from '@/services/utils'
 
 import { $t } from 'boot/i18n'
 import LanguageSelector from '@/components/language-selector';
+import TextareaArray from '@/components/textarea-array';
 
 export default {
     data: () => {
@@ -109,7 +110,8 @@ export default {
         }
     },
     components: {
-        LanguageSelector
+        LanguageSelector,
+        TextareaArray
     },
 
     beforeRouteLeave (to, from , next) {

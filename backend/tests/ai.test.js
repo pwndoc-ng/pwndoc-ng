@@ -23,7 +23,7 @@ module.exports = function(request, app) {
   }
   var chat = (content) => ({json: {choices: [{message: {role: 'assistant', content}}]}})
   var CONFIG = {url: 'http://ai.local:8000/v1/', model: 'llama', tokenParameter: 'max_tokens', maxTokens: 500, timeout: 30, systemRole: true,
-    extraParameters: '', guidelines: '', pseudonymize: false}
+    extraParameters: '', guidelines: [], pseudonymize: false}
 
   describe('AI assistance (lib/ai.js)', () => {
     afterEach(() => {
@@ -53,11 +53,23 @@ module.exports = function(request, app) {
         .toEqual(['ACME', 'AC', 'Carl Client', 'Client', 'c@acme.example', '10.0.0.0/24', 'srv.acme.example', '10.0.0.5'])
     })
 
-    it('Prompt of an action, with the writing guidelines of the company', () => {
-      var prompt = ai.buildPrompt({action: 'correct', html: '<p>x</p>', guidelines: 'Use the formal tone.'})
-      expect(prompt.system).toContain('Writing guidelines of the company:\nUse the formal tone.')
-      expect(prompt.user).toBe(`Instruction: ${ai.ACTIONS.correct}\n\nHTML fragment:\n<p>x</p>`)
+    it('Prompt of an action: writing guidelines of the company numbered before the text, mandatory', () => {
+      var prompt = ai.buildPrompt({action: 'correct', html: '<p>x</p>', guidelines: ['Use the formal tone.', ' ', ' Write "password" in full. ']})
+      expect(prompt.system).toContain('The writing guidelines of the company given with the instruction are mandatory: apply each of them, even when the instruction asks to keep the wording.')
+      expect(prompt.user).toBe(`Instruction: ${ai.ACTIONS.correct}\n\nWriting guidelines of the company (mandatory):\n1. Use the formal tone.\n2. Write "password" in full.\n\nHTML fragment:\n<p>x</p>`)
+      // Without guidelines: not mentioned
+      var plain = ai.buildPrompt({action: 'correct', html: '<p>x</p>', guidelines: []})
+      expect(`${plain.system}\n${plain.user}`).not.toMatch(/guideline/i)
+      expect(plain.user).toBe(`Instruction: ${ai.ACTIONS.correct}\n\nHTML fragment:\n<p>x</p>`)
       expect(ai.buildPrompt({action: 'custom', instruction: ' Say it in pirate ', html: '<p>x</p>'}).user).toContain('Instruction: Say it in pirate\n')
+    })
+
+    it('Writing guidelines: one per line, text of the settings saved before them split into lines', () => {
+      expect(ai.guidelineLines('Formal tone\r\n\n  Short sentences ')).toEqual(['Formal tone', 'Short sentences'])
+      expect(ai.guidelineLines(['a', 'b\nc', '', null])).toEqual(['a', 'b', 'c'])
+      expect(ai.guidelineLines(undefined)).toEqual([])
+      expect(ai.buildPrompt({action: 'shorten', html: '<p>x</p>', guidelines: ['Formal tone\nShort sentences']}).user)
+        .toContain('Writing guidelines of the company (mandatory):\n1. Formal tone\n2. Short sentences\n\nHTML fragment:')
     })
 
     it('OpenAI compatible server: chat completions, model, token parameter, API key of the environment', async () => {
@@ -194,7 +206,8 @@ module.exports = function(request, app) {
       expect(issues[0].fingerprint).toMatch(/^[a-f0-9]{20}$/)
       expect(calls).toHaveLength(1)
       var sent = calls[0].body.messages[1].content
-      expect(sent).toContain('Findings (JSON):')
+      expect(sent).toContain('Findings:\n<finding id="f1">\n<title>SQLi on [[TERM_1]]</title>\n<cvss>CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H</cvss>\n' +
+        '<description>\nLow impact\n[image 1]\n</description>\n<observation>\n\n</observation>\n<remediation>\nFix\n</remediation>\n</finding>\n\n<finding id="f2">')
       expect(sent).not.toContain('ACME')
       expect(sent).not.toContain('<img')
       await expect(ai.qaIssues(CONFIG, audit, {}, fakeFetch(chat('Nothing to say')).fetchImpl)).rejects.toEqual({status: 502, message: 'Invalid answer of the AI for the quality check'})
@@ -215,16 +228,49 @@ module.exports = function(request, app) {
       // Asked to the model
       var {fetchImpl, calls} = fakeFetch(chat('[]'))
       await ai.qaIssues(CONFIG, audit, {}, fetchImpl)
-      expect(calls[0].body.messages[1].content).toContain('"quote": "<passage of the field concerned, copied word for word from it')
+      expect(calls[0].body.messages[1].content).toContain('"quote": "<passage of the field concerned, copied word for word from one line of it, 3 to 15 words, without the markers in brackets; for a problem of an image or of the lines around it, the marker of the image, like [image 2]')
     })
 
-    it('Quality check by the AI: large audits sent in several requests (fields shortened)', async () => {
-      var findings = Array.from({length: 30}, (_, i) => ({_id: `f${i}`, title: `F${i}`, description: `<p>${'x'.repeat(20000)}</p>`}))
+    it('Quality check by the AI: text of the fields as in the editor (lines, empty lines, images), passages found like in the editor', async () => {
+      var description = '<p>The <strong>XSS</strong>. Payload<mark>s</mark> of l&#39;<em>attacker</em>&nbsp;:</p><img class="custom-image" src="data:image/png;base64,AAAA" alt="Proof 1">' +
+        '<p></p><p></p><p>Next<br>line</p><ul><li><p>one</p><ol><li><p>a</p></li></ol></li></ul><pre><code>cat /etc/passwd\nid</code></pre>'
+      expect(ai.fieldText(description).text).toBe("The XSS. Payloads of l'attacker\u00a0:\n[image 1: Proof 1]\n[empty line]\n[empty line]\nNext\nline\n- one\n  1. a\ncat /etc/passwd\nid")
+      expect(ai.fieldText(description, {markers: false}).text).toBe("The XSS. Payloads of l'attacker\u00a0:\nNext\nline\none\na\ncat /etc/passwd\nid")
+      expect(ai.fieldText('<p>Inline <img src="x"></p><p></p>').text).toBe('Inline\n[image 1]\n[empty line]') // Image in a paragraph: not empty
+      expect(ai.fieldText(`<p>${'x'.repeat(30)}</p>`, {max: 10}).text).toBe(`${'x'.repeat(10)}\n[truncated]`)
+      var audit = {findings: [{_id: 'f1', title: 'XSS', description}]}
+      var issues = await ai.qaIssues(CONFIG, audit, {}, fakeFetch(chat(JSON.stringify([
+        {finding: 'f1', field: 'description', message: 'Two empty lines after the image (guideline 1)', quote: '[image 1: Proof 1]'},
+        {finding: 'f1', field: 'description', message: 'Image 2', quote: '[image 2]'}, // No such image
+        {finding: 'f1', field: 'description', message: 'Words', quote: 'XSS. Payloads of'}, // Text of the editor, without the tags
+        {finding: 'f1', field: 'description', message: 'Marker', quote: 'Proof 1] [empty line]'} // Not in the editor
+      ]))).fetchImpl)
+      expect(issues.map(issue => issue.location.passage)).toEqual([{image: {src: require('../src/lib/qa').imageAnchorKey('data:image/png;base64,AAAA'), alt: 'Proof 1'}}, null, {text: 'XSS. Payloads of'}, null])
+    })
+
+    it('Quality check by the AI: each writing guideline of the company checked, numbered', async () => {
+      var audit = {findings: [{_id: 'f1', title: 'SQLi', description: '<p>We hacked it.</p>'}]}
+      var {fetchImpl, calls} = fakeFetch(chat('[]'))
+      await ai.qaIssues({...CONFIG, guidelines: ['Write "the auditor", never "we".', 'No slang.']}, audit, {}, fetchImpl)
+      var [system, user] = calls[0].body.messages.map(message => message.content)
+      expect(system).toBe('You are an assistant reviewing the findings of a penetration testing report. The writing guidelines of the company are mandatory.')
+      expect(user).toContain('every passage not respecting one of the writing guidelines of the company below (check each guideline on each field; one issue per guideline not respected, giving its number in the message)')
+      expect(user).toContain('Writing guidelines of the company (mandatory):\n1. Write "the auditor", never "we".\n2. No slang.\n\nFindings:\n<finding id="f1">')
+      // Without guidelines: not mentioned
+      await ai.qaIssues(CONFIG, audit, {}, fetchImpl)
+      expect(calls[1].body.messages.map(message => message.content).join('\n')).not.toMatch(/guideline/i)
+    })
+
+    it('Quality check by the AI: large audits sent in several requests (long fields shortened, marked)', async () => {
+      var findings = Array.from({length: 30}, (_, i) => ({_id: `f${i}`, title: `F${i}`, description: `<p>${'x'.repeat(25000)}</p>`, remediation: `<p>${'y'.repeat(4000)}</p>`}))
       var {fetchImpl, calls} = fakeFetch(chat('[]'))
       await ai.qaIssues(CONFIG, {findings}, {}, fetchImpl)
       expect(calls.length).toBeGreaterThan(1)
       expect(calls.every(call => call.body.messages[1].content.length < ai.MAX_TEXT + 2000)).toBe(true)
-      expect(calls[0].body.messages[1].content).not.toContain('x'.repeat(3001))
+      var sent = calls[0].body.messages[1].content
+      expect(sent).toContain(`${'x'.repeat(20000)}\n[truncated]\n</description>`)
+      expect(sent).not.toContain('x'.repeat(20001))
+      expect(sent).toContain(`<remediation>\n${'y'.repeat(4000)}\n</remediation>`) // Not shortened
     })
 
     it('Test of the connection: models of the server, short answer, tokens of the reasoning and time taken', async () => {

@@ -1,6 +1,6 @@
 // services/qa.js: quality checks enabled, messages, places and pages of the issues, counts
 import { describe, it, expect, vi } from 'vitest'
-import { qaEnabled, issueMessage, issuePlace, issuePath, issueCounts, issueTarget, openIssue, qaFocus } from '@/services/qa'
+import { qaEnabled, issueMessage, issuePlace, issuePath, issueCounts, issueTarget, openIssue, qaFocus, issueSource, issuesOfSource, sourceCounts } from '@/services/qa'
 
 const location = (extra) => ({ kind: 'finding', id: 'f1', name: 'SQLi', field: null, label: null, ...extra })
 
@@ -61,5 +61,15 @@ describe('quality checks service', () => {
   it('counts the issues by severity', () => {
     expect(issueCounts([{ severity: 'error' }, { severity: 'warning' }, { severity: 'warning' }, { severity: 'info' }])).toEqual({ error: 1, warning: 2, info: 1 })
     expect(issueCounts(undefined)).toEqual({ error: 0, warning: 0, info: 0 })
+  })
+
+  it('separates the issues of the standard rules and of the AI, and counts them', () => {
+    const issues = [{ check: 'completeness' }, { check: 'ai' }, { check: 'images' }, { check: 'ai' }, {}]
+    expect(issues.map(issueSource)).toEqual(['rules', 'ai', 'rules', 'ai', 'rules'])
+    expect(issuesOfSource(issues, 'ai')).toEqual([issues[1], issues[3]])
+    expect(issuesOfSource(issues, 'rules')).toEqual([issues[0], issues[2], issues[4]])
+    expect(issuesOfSource(issues, 'all')).toEqual(issues)
+    expect(sourceCounts(issues)).toEqual({ all: 5, rules: 3, ai: 2 })
+    expect(sourceCounts(undefined)).toEqual({ all: 0, rules: 0, ai: 0 })
   })
 })
