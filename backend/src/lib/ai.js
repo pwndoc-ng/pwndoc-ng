@@ -73,13 +73,32 @@ function auditTerms(audit) {
         client.lastname, client.email, ...scope];
 }
 
+// Writing guidelines of the company (settings): one per line. Text of the settings saved before (one string, lines
+// separated by line breaks) accepted
+function guidelineLines(value) {
+    var list = Array.isArray(value) ? value : [value];
+    return list.flatMap(item => String(item === undefined || item === null ? '' : item).split(/\r?\n/))
+        .map(line => line.trim()).filter(Boolean);
+}
+
+// Writing guidelines given to the model: numbered, in the user message before the text (followed better than at the end
+// of the system message: tested with a local model, the guidelines changing the wording were ignored when the action
+// asked to keep it). Empty without guidelines
+function guidelinesText(guidelines) {
+    var lines = guidelineLines(guidelines);
+    return lines.length ? `Writing guidelines of the company (mandatory):\n${lines.map((line, index) => `${index + 1}. ${line}`).join('\n')}\n\n` : '';
+}
+
+var GUIDELINES_RULE = ' The writing guidelines of the company given with the instruction are mandatory: apply each of them, even ' +
+    'when the instruction asks to keep the wording.';
+
 // Prompt of an action: {system, user}
 function buildPrompt({action, html, instruction, guidelines}) {
     var task = action === 'custom' ? String(instruction || '').trim() : ACTIONS[action];
-    var rules = String(guidelines || '').trim();
+    var rules = guidelinesText(guidelines);
     return {
-        system: rules ? `${SYSTEM}\nWriting guidelines of the company:\n${rules}` : SYSTEM,
-        user: `Instruction: ${task}\n\nHTML fragment:\n${html}`
+        system: rules ? SYSTEM + GUIDELINES_RULE : SYSTEM,
+        user: `Instruction: ${task}\n\n${rules}HTML fragment:\n${html}`
     };
 }
 
@@ -233,22 +252,144 @@ async function assist(config, {action, html, instruction}, {terms = []} = {}, fe
     return {html: hider.restore(answerHtml(answer))};
 }
 
-// Text of an HTML value for the quality check by the AI (images and tags removed), limited
-var plainText = (html, max = 3000) => String(html || '').replace(/<img\b[^>]*>/gi, ' ').replace(/<[^>]*>/g, ' ')
-    .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&')
-    .replace(/\s+/g, ' ').trim().substring(0, max);
+var FIELD_MAX = 20000; // Characters of a field sent for the quality check by the AI
 
-var QA_INSTRUCTION = 'Review these findings of a penetration testing report. Report only real problems: severity (CVSS ' +
-    'vector) not matching the description, remediation not addressing the vulnerability, contradictions, unclear or ' +
-    'unprofessional wording, writing guidelines not respected. Answer only with a JSON array, without code fence, of ' +
-    'objects {"finding": "<id of the finding>", "field": "title" | "description" | "observation" | "remediation" | "cvss", ' +
-    '"severity": "warning" | "info", "message": "<short explanation in the language of the findings>", "quote": "<passage ' +
-    'of the field concerned, copied word for word from it, 3 to 15 words; empty for the title and the CVSS>"}. Answer [] when ' +
-    'there is nothing to report. Keep the tokens written like [[TERM_1]] unchanged.';
+var ENTITIES = {nbsp: '\u00a0', lt: '<', gt: '>', quot: '"', amp: '&', apos: "'"};
+var decodeEntities = (text) => text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, code) => {
+    if (code[0] !== '#') return ENTITIES[code.toLowerCase()] !== undefined ? ENTITIES[code.toLowerCase()] : match;
+    var number = /^#x/i.test(code) ? parseInt(code.substring(2), 16) : parseInt(code.substring(1), 10);
+    return number > 0 && number <= 0x10ffff ? String.fromCodePoint(number) : match;
+});
+
+var BLOCKS = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'blockquote', 'div', 'tr', 'table', 'legend', 'figure'];
+
+// Text of an HTML field for the quality check by the AI, as shown by the editor: one line per paragraph, heading, list item
+// (with its marker) or table cell, "[empty line]" for an empty paragraph, "[image N: caption]" for an image (never sent),
+// inline tags (bold, highlight, links...) removed without adding spaces (the model reads the text of the editor, not
+// words cut by the tags). Long fields shortened, ending with "[truncated]". markers false: text only, as searched in the
+// editor (passages of the issues)
+function fieldText(html, {max = FIELD_MAX, markers = true} = {}) {
+    var lines = [], current = null, prefix = '', lists = [], images = [], pre = false;
+    var withImage = false; // Image in the paragraph (older contents): not an empty paragraph
+    var start = () => {
+        if (current === null) {
+            current = prefix;
+            prefix = '';
+        }
+    };
+    var end = (paragraph) => {
+        if (current !== null && current.trim())
+            lines.push(pre ? current : current.replace(/[ \t]+$/, ''));
+        else if (paragraph && markers)
+            lines.push('[empty line]');
+        current = null;
+    };
+    (String(html || '').match(/<[^>]*>|[^<]+/g) || []).forEach(token => {
+        var tag = token.match(/^<(\/?)([a-z][a-z0-9]*)\b([^>]*)>$/i);
+        if (!tag) { // Text (whitespace between blocks ignored)
+            if (current === null && !token.trim()) return;
+            start();
+            current += decodeEntities(pre ? token : token.replace(/[\r\n\t]+/g, ' '));
+            return;
+        }
+        var closing = tag[1] === '/', name = tag[2].toLowerCase();
+        if (name === 'img') {
+            end(false);
+            var alt = decodeEntities((tag[3].match(/\salt\s*=\s*"([^"]*)"/i) || [])[1] || '').trim();
+            var src = (tag[3].match(/\ssrc\s*=\s*"([^"]*)"/i) || [])[1] || '';
+            images.push({src, alt});
+            withImage = true;
+            if (markers) lines.push(`[image ${images.length}${alt ? `: ${alt}` : ''}]`);
+        }
+        else if (name === 'br') {
+            start();
+            current += '\n';
+        }
+        else if (name === 'ul' || name === 'ol') {
+            end(false);
+            if (closing) lists.pop();
+            else lists.push({ordered: name === 'ol', count: 0});
+        }
+        else if (name === 'li') {
+            end(false);
+            prefix = '';
+            if (!closing && markers) {
+                var list = lists[lists.length - 1] || {ordered: false, count: 0};
+                list.count++;
+                prefix = '  '.repeat(Math.max(lists.length - 1, 0)) + (list.ordered ? `${list.count}. ` : '- ');
+            }
+        }
+        else if (name === 'td' || name === 'th') {
+            if (!closing) {
+                end(false);
+                start();
+            }
+        }
+        else if (BLOCKS.includes(name)) {
+            if (name === 'pre') pre = !closing;
+            if (closing) end(name === 'p' && !withImage);
+            else {
+                end(false);
+                start();
+                withImage = false;
+            }
+        }
+        // Inline tags (strong, em, u, s, mark, a, code, span...): removed
+    });
+    end(false);
+    var text = lines.join('\n');
+    return {text: text.length > max ? `${text.substring(0, max)}\n[truncated]` : text, images};
+}
+
+// Instruction of the quality check by the AI, with the check of each writing guideline of the company when there are some
+function qaInstruction(withGuidelines) {
+    return 'Review these findings of a penetration testing report, each given as <finding id="..."> with its fields. The ' +
+        'text of the fields is shown as in the editor: one line per paragraph or list item, [empty line] for an empty ' +
+        'paragraph, [image N: caption] for an image, [truncated] at the end of a field shortened (its end is not ' +
+        'incomplete). Report only real problems: severity (CVSS vector) not ' +
+        'matching the description, remediation not addressing the vulnerability, contradictions, unclear or unprofessional ' +
+        'wording' + (withGuidelines ? ', and every passage not respecting one of the writing guidelines of the company below ' +
+        '(check each guideline on each field; one issue per guideline not respected, giving its number in the message)' : '') +
+        '. Answer only with a JSON array, without code fence, of objects {"finding": "<id of the finding>", "field": "title" | ' +
+        '"description" | "observation" | "remediation" | "cvss", "severity": "warning" | "info", "message": "<short ' +
+        'explanation in the language of the findings>", "quote": "<passage of the field concerned, copied word for word from ' +
+        'one line of it, 3 to 15 words, without the markers in brackets; for a problem of an image or of the lines around ' +
+        'it, the marker of the image, like [image 2]; empty for the title and the CVSS>"}. Answer [] when there is nothing to ' +
+        'report. Keep the tokens written like [[TERM_1]] unchanged.';
+}
+
+// Finding sent for the quality check by the AI: its fields as in the editor
+function qaFindingText(finding) {
+    var field = (name) => `<${name}>\n${fieldText(finding[name]).text}\n</${name}>`;
+    return `<finding id="${String(finding._id)}">\n<title>${String(finding.title || '').trim()}</title>\n<cvss>${String(finding.cvssv3 || '')}</cvss>\n` +
+        `${['description', 'observation', 'remediation'].map(field).join('\n')}\n</finding>`;
+}
+
+// Prompt of the quality check of findings (text of the findings): {system, user}
+function qaPrompt(findingsText, guidelines) {
+    var rules = guidelinesText(guidelines);
+    return {
+        system: 'You are an assistant reviewing the findings of a penetration testing report.' + (rules ? ' The writing guidelines of the company are mandatory.' : ''),
+        user: `Instruction: ${qaInstruction(!!rules)}\n\n${rules}Findings:\n${findingsText}`
+    };
+}
 var QA_FIELDS = ['title', 'description', 'observation', 'remediation', 'cvss'];
 
 // Text compared to find a passage: whitespace and case ignored
 var sameText = (text) => String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+// Passage of a field shown when an issue of the AI is opened: an image quoted by its marker ([image 2]), or a text really in
+// the field (copied word for word, searched like in the editor). null otherwise
+function issuePassage(finding, field, quote) {
+    if (!['description', 'observation', 'remediation'].includes(field)) return null;
+    var text = String(quote || '').replace(/\s+/g, ' ').trim().substring(0, 300);
+    var image = text.match(/^\[image (\d+)\b/i);
+    if (image) {
+        var found = fieldText(finding[field], {max: Infinity}).images[Number(image[1]) - 1];
+        return found ? {image: {src: require('./qa').imageAnchorKey(found.src), alt: found.alt}} : null;
+    }
+    return text && sameText(fieldText(finding[field], {max: Infinity, markers: false}).text).includes(sameText(text)) ? {text} : null;
+}
 
 // Issues of the JSON answer of the model (array found in the text), for the findings of the audit
 function qaAnswerIssues(text, findings, hider) {
@@ -268,9 +409,7 @@ function qaAnswerIssues(text, findings, hider) {
             var finding = byId.get(String(item.finding));
             var message = hider.restore(item.message.trim()).substring(0, 1000);
             var field = QA_FIELDS.includes(item.field) ? item.field : null;
-            // Passage shown when the issue is opened: only when it is really in the field (copied word for word)
-            var quote = typeof item.quote === 'string' ? hider.restore(item.quote).replace(/\s+/g, ' ').trim().substring(0, 300) : '';
-            var passage = quote && ['description', 'observation', 'remediation'].includes(field) && sameText(plainText(finding[field], Infinity)).includes(sameText(quote)) ? {text: quote} : null;
+            var passage = issuePassage(finding, field, typeof item.quote === 'string' ? hider.restore(item.quote) : '');
             var fingerprint = require('crypto').createHash('sha1').update(['ai', String(finding._id), field || '', message].join('\u0000')).digest('hex').substring(0, 20);
             return {fingerprint, check: 'ai', severity: item.severity === 'info' ? 'info' : 'warning', code: 'ai', params: {message},
                 location: {kind: 'finding', id: String(finding._id), name: finding.title || '', field: field, label: null, passage: passage}};
@@ -284,8 +423,7 @@ async function qaIssues(config, audit, {terms = []} = {}, fetchImpl = fetch) {
     var findings = audit.findings || [];
     var batches = [], batch = [], size = 0;
     findings.forEach(finding => {
-        var text = JSON.stringify({id: String(finding._id), title: finding.title || '', cvss: finding.cvssv3 || '',
-            description: plainText(finding.description), observation: plainText(finding.observation), remediation: plainText(finding.remediation)});
+        var text = qaFindingText(finding);
         if (batch.length && size + text.length > MAX_TEXT) {
             batches.push(batch);
             batch = [];
@@ -297,9 +435,7 @@ async function qaIssues(config, audit, {terms = []} = {}, fetchImpl = fetch) {
     if (batch.length) batches.push(batch);
     var issues = [];
     for (var items of batches) {
-        var prompt = buildPrompt({action: 'custom', instruction: QA_INSTRUCTION, html: hider.hide(`[${items.join(',\n')}]`), guidelines: config.guidelines});
-        prompt.user = prompt.user.replace('HTML fragment:', 'Findings (JSON):');
-        prompt.system = prompt.system.replace(/Answer only with the resulting HTML fragment[^.]*\.|Use only these tags[^.]*\.|Never add scripts[^.]*\./g, '').replace(/\s+/g, ' ').trim();
+        var prompt = qaPrompt(hider.hide(items.join('\n\n')), config.guidelines);
         issues.push(...qaAnswerIssues(await generate(config, prompt, fetchImpl), findings, hider));
     }
     return issues;
@@ -329,4 +465,4 @@ async function testConnection(config, fetchImpl = fetch) {
     return result;
 }
 
-module.exports = {ACTIONS, MAX_TEXT, parseExtraParameters, htmlForModel, answerHtml, pseudonymizer, auditTerms, buildPrompt, valueAt, generate, complete, assist, qaIssues, qaAnswerIssues, testConnection};
+module.exports = {ACTIONS, MAX_TEXT, parseExtraParameters, guidelineLines, htmlForModel, answerHtml, pseudonymizer, auditTerms, buildPrompt, qaPrompt, fieldText, valueAt, generate, complete, assist, qaIssues, qaAnswerIssues, testConnection};

@@ -107,6 +107,45 @@ describe('quality checks panel', () => {
     expect(wrapper.find('.qa-ai-date').text()).toBe('Never checked by the AI')
   })
 
+  it('distinguishes the issues of the AI and filters them by source, with the number of each', async () => {
+    UserService.user = { username: 'ann', roles: '*' }
+    const aiIssue = (fingerprint, severity, message) => ({ fingerprint: fingerprint.repeat(20), check: 'ai', severity, code: 'ai', params: { message }, location: { kind: 'finding', id: 'f1', name: 'SQLi', field: 'description', label: null } })
+    const issues = [...ISSUES, aiIssue('g', 'warning', 'Guideline 2 not respected'), aiIssue('h', 'info', 'Unclear wording')]
+    await mountPanel({ issues, ignored: [...IGNORED, aiIssue('i', 'warning', 'Ignored')], $settings: { ai: { enabled: true } } })
+    const buttons = () => wrapper.findAll('.qa-source-filter button')
+    expect(buttons().map((button) => button.text().trim())).toEqual(['All (5)', 'Standard rules (3)', 'AI (2)'])
+    expect(wrapper.findAll('.qa-issue')).toHaveLength(5)
+    expect(wrapper.findAll('.qa-issue--ai').map((item) => item.find('.qa-ai-badge').text())).toEqual(['AI', 'AI'])
+    expect(wrapper.findAll('.qa-issue--rules')).toHaveLength(3)
+    expect(wrapper.find('.qa-issue--rules .qa-ai-badge').exists()).toBe(false)
+    expect(wrapper.find('.qa-ignored').text()).toContain('Ignored (2)')
+    // AI only: issues, severities and ignored issues of the AI
+    await buttons()[2].trigger('click')
+    expect(wrapper.findAll('.qa-issue .qa-message').map((message) => message.text())).toEqual(['Guideline 2 not respected', 'Unclear wording'])
+    expect(wrapper.find('.qa-summary').text()).toBe('0 errors, 1 warnings')
+    expect(wrapper.find('.qa-ignored').text()).toContain('Ignored (1)')
+    // Standard rules only
+    await buttons()[1].trigger('click')
+    expect(wrapper.findAll('.qa-issue')).toHaveLength(3)
+    expect(wrapper.find('.qa-issue--ai').exists()).toBe(false)
+    expect(wrapper.find('.qa-summary').text()).toBe('1 errors, 2 warnings')
+    expect(wrapper.find('.qa-ignored').text()).toContain('Ignored (1)')
+    // Number of the audit menu: all the issues
+    expect(wrapper.emitted('update')[0][0]).toEqual({ error: 1, warning: 3, info: 1 })
+  })
+
+  it('shows that there is no issue of the source chosen, and no filter without AI', async () => {
+    UserService.user = { username: 'ann', roles: '*' }
+    await mountPanel({ $settings: { ai: { enabled: true } } })
+    await wrapper.findAll('.qa-source-filter button')[2].trigger('click')
+    expect(wrapper.find('.qa-empty-source').text()).toBe('No issue of this kind')
+    expect(wrapper.findAll('.qa-issue')).toHaveLength(0)
+    wrapper.unmount()
+    await mountPanel() // AI disabled and no issue of the AI: all the issues are of the standard rules
+    expect(wrapper.find('.qa-sources').exists()).toBe(false)
+    expect(wrapper.findAll('.qa-issue')).toHaveLength(3)
+  })
+
   it('shows the error of the quality check by the AI', async () => {
     UserService.user = { username: 'ann', roles: '*' }
     await mountPanel({ $settings: { ai: { enabled: true } } })

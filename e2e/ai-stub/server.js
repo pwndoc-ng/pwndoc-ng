@@ -18,9 +18,9 @@ function readBody (req) {
 function answer (messages) {
   const text = messages.map(message => message.content).join('\n')
   if (text.includes('Answer with the single word OK')) return 'OK'
-  if (text.includes('Findings (JSON):')) {
-    const findings = JSON.parse(text.substring(text.indexOf('[', text.indexOf('Findings (JSON):')), text.lastIndexOf(']') + 1))
-    return JSON.stringify(findings.filter(f => !f.description).map(f => ({ finding: f.id, field: 'description', severity: 'warning', message: `E2E AI: description of ${f.title} missing` })))
+  if (text.includes('Findings:\n<finding id="')) {
+    const findings = [...text.matchAll(/<finding id="([^"]+)">\n<title>([^\n]*)<\/title>[\s\S]*?<description>\n([\s\S]*?)\n<\/description>/g)]
+    return JSON.stringify(findings.filter(f => !f[3].trim()).map(f => ({ finding: f[1], field: 'description', severity: 'warning', message: `E2E AI: description of ${f[2]} missing` })))
   }
   const fragment = text.split('HTML fragment:\n')[1] || ''
   return fragment.replace('<p>', '<p>[AI] ')

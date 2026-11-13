@@ -1,6 +1,7 @@
 <template>
     <q-input
     :label="label"
+    :hint="hint"
     stack-label
     v-model="dataString"
     type="textarea"
@@ -19,6 +20,7 @@ export default defineComponent({
 
   props: {
       label: String,
+      hint: String,
       modelValue: Array,
       noEmptyLine: {
           type: Boolean,

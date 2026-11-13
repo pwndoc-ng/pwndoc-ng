@@ -604,7 +604,7 @@ describe('highlighted texts warning', () => {
 
 describe('AI assistance', () => {
   const AI = () => ({ enabled: false, private: { url: '', model: '', tokenParameter: 'max_tokens', maxTokens: 2000, timeout: 120, systemRole: true, extraParameters: '',
-    guidelines: '', pseudonymize: false } })
+    guidelines: [], pseudonymize: false } })
   const withAi = () => { const settings = SETTINGS(); settings.ai = AI(); return settings }
 
   it('shows the settings of the server (chat completions API of OpenAI), without type of server', async () => {
@@ -640,6 +640,21 @@ describe('AI assistance', () => {
     const update = vi.spyOn(SettingsService, 'updateSettings').mockResolvedValue({})
     await wrapper.vm.updateSettings()
     expect(update.mock.calls[0][0].ai.private.extraParameters).toBe('{"reasoning_effort": "low"}')
+  })
+
+  it('writes the writing guidelines one per line, like the scope of an audit', async () => {
+    const settings = withAi()
+    settings.ai.private.guidelines = ['Formal tone', 'Write "the auditor"']
+    await mountPage({ settings })
+    const field = wrapper.find('.ai-guidelines textarea')
+    expect(field.element.value).toBe('Formal tone\nWrite "the auditor"')
+    expect(wrapper.find('.ai-settings').text()).toContain('One guideline per line')
+    await field.setValue('Formal tone\n\nShort sentences\n')
+    expect(wrapper.vm.settings.ai.private.guidelines).toEqual(['Formal tone', 'Short sentences'])
+    expect(field.element.value).toBe('Formal tone\n\nShort sentences\n') // Text being typed kept
+    const update = vi.spyOn(SettingsService, 'updateSettings').mockResolvedValue({})
+    await wrapper.vm.updateSettings()
+    expect(update.mock.calls[0][0].ai.private.guidelines).toEqual(['Formal tone', 'Short sentences'])
   })
 
   it('tests the connection with the saved settings only', async () => {

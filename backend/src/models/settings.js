@@ -4,7 +4,7 @@ var fs = require('fs');
 var _ = require('lodash');
 var Utils = require('../lib/utils.js');
 var { HIGHLIGHT_COLORS } = require('../lib/highlights.js');
-var { parseExtraParameters } = require('../lib/ai.js');
+var { parseExtraParameters, guidelineLines } = require('../lib/ai.js');
 
 // https://stackoverflow.com/questions/25822289/what-is-the-best-way-to-store-color-hex-values-in-mongodb-mongoose
 const colorValidator = (v) => (/^#([0-9a-f]{3}){1,2}$/i).test(v);
@@ -95,7 +95,12 @@ const SettingSchema = new Schema({
             systemRole: { type: Boolean, default: true }, // Models refusing the system role: instructions in the user message
             // Parameters added to the requests (OpenAI compatible servers), JSON object: reasoning of the model...
             extraParameters: { type: String, default: '', maxlength: 5000, validate: [value => parseExtraParameters(value) !== null, 'Invalid JSON object'] },
-            guidelines: { type: String, default: '', maxlength: 20000 }, // Writing guidelines of the company
+            // Writing guidelines of the company, one per line (text given: one per line of the text, settings saved or exported
+            // before them)
+            guidelines: {
+                type: [String], default: [], set: guidelineLines,
+                validate: [lines => lines.length <= 100 && lines.every(line => line.length <= 1000), 'At most 100 guidelines of 1000 characters']
+            },
             pseudonymize: { type: Boolean, default: false } // Client, company and scope names replaced by tokens before sending
         }
     },
