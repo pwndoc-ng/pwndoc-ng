@@ -29,14 +29,17 @@
               </q-item-section>
               </template>
               <q-item-section side class="topButtonSection">
-                <q-btn flat dense color="blue-grey-7" icon="mdi-clipboard-check-outline" class="qa-button" @click="qaOpen = true">
-                  <q-badge v-if="qaCounts.error + qaCounts.warning" :color="qaCounts.error ? 'negative' : 'orange-8'" floating rounded>{{ qaCounts.error + qaCounts.warning }}</q-badge>
-                  <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{ $t('qa.title') }}</q-tooltip>
-                </q-btn>
-                <q-btn flat dense color="orange-8" icon="mdi-comment-text-multiple-outline" @click="toggleCommentsPanel">
-                  <q-badge v-if="commentsStore.openCount()" color="orange-8" floating rounded>{{ commentsStore.openCount() }}</q-badge>
-                  <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{ $t('comments.title') }}</q-tooltip>
-                </q-btn>
+                <!-- Side by side (the side section lays out its content in a column) -->
+                <div class="row no-wrap items-center audit-menu-actions">
+                  <q-btn flat dense color="blue-grey-7" icon="mdi-clipboard-check-outline" class="qa-button" @click="qaOpen = true">
+                    <q-badge v-if="qaCounts.error + qaCounts.warning" :color="qaCounts.error ? 'negative' : 'orange-8'" floating rounded>{{ qaCounts.error + qaCounts.warning }}</q-badge>
+                    <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{ $t('qa.title') }}</q-tooltip>
+                  </q-btn>
+                  <q-btn flat dense color="orange-8" icon="mdi-comment-text-multiple-outline" class="comments-button" @click="toggleCommentsPanel">
+                    <q-badge v-if="commentsStore.openCount()" color="orange-8" floating rounded>{{ commentsStore.openCount() }}</q-badge>
+                    <q-tooltip anchor="bottom middle" self="center left" :delay="500" content-class="text-bold">{{ $t('comments.title') }}</q-tooltip>
+                  </q-btn>
+                </div>
               </q-item-section>
               <q-item-section side class="topButtonSection">
                 <q-btn flat color="info" @click="generateReport">

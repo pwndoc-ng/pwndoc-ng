@@ -78,6 +78,29 @@ exports.getTemplateTextArea = getTemplateTextArea
 // concurrent requests never interleave (prepAuditData is async).
 var generationQueue = Promise.resolve()
 
+
+// Images of the template whose name is a logo ({%company.logo}, {%company.logo_small}, {%logo} in a loop of the company)
+var LOGO_TAG = /(^|\.)logo(_small)?$/;
+
+// The border of the images (settings of the reports) is for the images of the fields (proofs, descriptions...): the logo
+// of the company is rendered without it. The option of the image module applies to all its images
+function withoutLogoBorder(imageModule) {
+    var renderedPart = imageModule.getRenderedPart;
+    imageModule.getRenderedPart = function(part, rId, sizePixel) {
+        if (!this.options.border || !LOGO_TAG.test(String(part && part.value || '')))
+            return renderedPart.call(this, part, rId, sizePixel);
+        var border = this.options.border;
+        this.options.border = null;
+        try {
+            return renderedPart.call(this, part, rId, sizePixel);
+        }
+        finally {
+            this.options.border = border;
+        }
+    };
+    return imageModule;
+}
+
 function generateDoc(audit) {
     var generation = generationQueue.then(() => _generateDoc(audit))
     generationQueue = generation.catch(() => {}) // A failed generation must not block the next ones
@@ -170,7 +193,7 @@ async function _generateDoc(audit) {
         opts.border = settings.report.private.imageBorderColor.replace('#', '')
 
     try {
-        var imageModule = new ImageModule(opts);
+        var imageModule = withoutLogoBorder(new ImageModule(opts));
     }
     catch(err) {
         console.log(err)

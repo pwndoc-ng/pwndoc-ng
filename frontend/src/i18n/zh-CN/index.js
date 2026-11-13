@@ -613,7 +613,7 @@ export default {
     reports: '报告',
     reportsImagesBorder: '报告图片边框',
     extendCvssTemporalEnvironment:'扩展默认时间和环境 cvss 主题',
-    addBorderToImages: '在生成的报告中，给图片添加边框。',
+    addBorderToImages: '在生成的报告中，给字段中的图片添加边框（公司徽标除外）。',
     currentColor: '当前颜色：',
     cvssColors: 'CVSS 颜色',
     changeCvssColorsDescription: '在生成的报告中，给不同CVSS严重性设置不同的颜色。',
