@@ -220,6 +220,12 @@ module.exports = function(request, app) {
           expect(drawings(xml).filter(isLogo)[0]).not.toContain('srgbClr') // Logo without border
           expect(bordered(xml).length).toBeGreaterThan(0) // Image of the finding
           expect(bordered(xml)).toHaveLength(drawings(xml).length - 1) // All the generated images except the logo
+          // Space reserved around the bordered images for the border (else Word cuts its top), not around the logo
+          bordered(xml).forEach(drawing => {
+            expect(drawing).toContain('<wp:effectExtent l="9525" t="9525" r="9525" b="9525"/>')
+            expect(drawing).toContain('<a:ln w="9525"><a:solidFill><a:srgbClr val="123456"/>')
+          })
+          expect(drawings(xml).filter(isLogo)[0]).toContain('<wp:effectExtent l="0" t="0" r="0" b="0"/>')
         }
         finally {
           await request(app).put('/api/settings/revert').set('Cookie', adminCookie)
