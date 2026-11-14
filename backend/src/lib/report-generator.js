@@ -82,13 +82,29 @@ var generationQueue = Promise.resolve()
 // Images of the template whose name is a logo ({%company.logo}, {%company.logo_small}, {%logo} in a loop of the company)
 var LOGO_TAG = /(^|\.)logo(_small)?$/;
 
+// Width of the border of the images (EMU, 0.75 pt)
+var IMAGE_BORDER_WIDTH = 9525;
+
+// Bordered image of the image module: the border is drawn on the edge of the image, its outer half beyond the image. The
+// module reserves no space around the image for it (effectExtent 0): Word cut the top of the border, drawn over the line
+// above the image. The space is reserved on each side, as Word does for a border
+function withBorderSpace(rendered) {
+    var width = IMAGE_BORDER_WIDTH;
+    rendered.value = rendered.value
+        .replace('<wp:effectExtent l="0" t="0" r="0" b="0"/>', `<wp:effectExtent l="${width}" t="${width}" r="${width}" b="${width}"/>`)
+        .replace('<a:ln><a:solidFill>', `<a:ln w="${width}"><a:solidFill>`);
+    return rendered;
+}
+
 // The border of the images (settings of the reports) is for the images of the fields (proofs, descriptions...): the logo
 // of the company is rendered without it. The option of the image module applies to all its images
 function withoutLogoBorder(imageModule) {
     var renderedPart = imageModule.getRenderedPart;
     imageModule.getRenderedPart = function(part, rId, sizePixel) {
-        if (!this.options.border || !LOGO_TAG.test(String(part && part.value || '')))
+        if (!this.options.border)
             return renderedPart.call(this, part, rId, sizePixel);
+        if (!LOGO_TAG.test(String(part && part.value || '')))
+            return withBorderSpace(renderedPart.call(this, part, rId, sizePixel));
         var border = this.options.border;
         this.options.border = null;
         try {
