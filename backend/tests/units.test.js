@@ -320,6 +320,18 @@ module.exports = function() {
         expect(evaluate("s | fromTo: e:'en-US'", {s: 'unknown', e: '2026-03-04'})).toBe('unknown')
       })
 
+      it('Severity chart: labels in the language of the audit, Critical included', () => {
+        var chartGenerator = require('../src/lib/chart-generator')
+        var translate = require('../src/translate')
+        var labels = {en: ['Critical', 'High', 'Medium', 'Low'], fr: ['Critique', 'Elevé', 'Moyen', 'Faible'], es: ['Crítica', 'Alta', 'Media', 'Baja'],
+          pt: ['Crítico', 'Alto', 'Médio', 'Baixo'], ru: ['Критический', 'Высокий', 'Средний', 'Низкий'], nl: ['Kritiek', 'Hoog', 'Midden', 'Laag']}
+        for (var [locale, expected] of Object.entries(labels)) {
+          var xml = chartGenerator.generatePieChart('', '000000', 'FF0000', 'FFA500', 'FFFF00', 1, 2, 3, 4, (message) => translate.translate(message, locale))
+          var shown = [...new Set((xml.match(/<c:v>([^<]*)<\/c:v>/g) || []).map(v => v.replace(/<\/?c:v>/g, '')).filter(v => !/^\d+$/.test(v)))]
+          expect([locale, shown]).toEqual([locale, expected])
+        }
+      })
+
       it('Dates of the same month on the same weekday', () => {
         require('../src/translate').setLocale('en')
         expect(evaluate("s | fromTo: e:'en-US'", {s: '2026-03-04', e: '2026-03-11'})).toBe('from 04 to 03/11/2026')
