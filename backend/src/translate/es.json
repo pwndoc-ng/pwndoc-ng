@@ -13,6 +13,7 @@
     "Low": "Baja",
     "High": "Alta",
     "Medium":"Media",
+    "Critical": "Crítica",
     "None": "Ninguna",
     "Required": "Requerido",
     "Unchanged": "Sin cambiar",
