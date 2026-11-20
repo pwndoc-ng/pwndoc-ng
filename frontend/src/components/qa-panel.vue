@@ -1,6 +1,6 @@
 <template>
   <!-- Quality checks of an audit (without AI, no link requested): issues by severity, place opened, issues ignored for all
-       the users of the audit and restored -->
+       the users of the audit and restored, issues of the AI marked as addressed (until its next check) -->
   <q-card class="qa-panel column no-wrap">
     <q-card-section class="row items-center no-wrap q-py-sm bg-blue-grey-5 text-white">
       <q-icon name="mdi-clipboard-check-outline" size="sm" class="q-mr-sm" />
@@ -38,6 +38,9 @@
           </q-item-section>
           <q-item-section side>
             <div class="row no-wrap">
+              <q-btn v-if="editable && sourceOf(issue) === 'ai'" flat round dense size="sm" icon="mdi-checkbox-blank-outline" class="qa-address" @click="setAddressed(issue, true)">
+                <q-tooltip :delay="500">{{ $t('qa.address') }}</q-tooltip>
+              </q-btn>
               <q-btn flat round dense size="sm" icon="mdi-arrow-right" class="qa-open" @click="open(issue)">
                 <q-tooltip :delay="500">{{ $t('qa.open') }}</q-tooltip>
               </q-btn>
@@ -48,6 +51,29 @@
           </q-item-section>
         </q-item>
       </q-list>
+      <!-- Issues of the AI addressed by the users -->
+      <q-expansion-item v-if="shownAddressed.length" dense class="qa-addressed" :label="$t('qa.addressedCount', { count: shownAddressed.length })">
+        <q-list separator>
+          <q-item v-for="issue in shownAddressed" :key="issue.fingerprint" class="qa-addressed-issue text-grey-7">
+            <q-item-section avatar>
+              <q-btn v-if="editable" flat round dense size="sm" color="positive" icon="mdi-checkbox-marked" class="qa-unaddress" @click="setAddressed(issue, false)">
+                <q-tooltip :delay="500">{{ $t('qa.unaddress') }}</q-tooltip>
+              </q-btn>
+              <q-icon v-else name="mdi-checkbox-marked" color="positive" />
+            </q-item-section>
+            <q-item-section>
+              <q-item-label class="text-strike">{{ message(issue) }}</q-item-label>
+              <q-item-label caption><span class="qa-ai-badge"><q-icon name="mdi-creation" size="12px" />{{ $t('qa.sourceAi') }}</span>{{ place(issue) }}</q-item-label>
+              <q-item-label caption class="qa-addressed-by">{{ addressedBy(issue) }}</q-item-label>
+            </q-item-section>
+            <q-item-section side>
+              <q-btn flat round dense size="sm" icon="mdi-arrow-right" class="qa-open" @click="open(issue)">
+                <q-tooltip :delay="500">{{ $t('qa.open') }}</q-tooltip>
+              </q-btn>
+            </q-item-section>
+          </q-item>
+        </q-list>
+      </q-expansion-item>
       <q-expansion-item v-if="shownIgnored.length" dense class="qa-ignored" :label="$t('qa.ignoredCount', { count: shownIgnored.length })">
         <q-list separator>
           <q-item v-for="issue in shownIgnored" :key="issue.fingerprint" class="qa-ignored-issue text-grey-7">
@@ -84,6 +110,7 @@ export default {
   data: () => ({
     issues: [],
     ignored: [],
+    addressed: [], // Issues of the AI addressed by the users: {..., addressed: {at, by}}
     loading: false,
     loaded: false,
     error: '',
@@ -110,6 +137,10 @@ export default {
 
     shownIgnored: function() {
       return issuesOfSource(this.ignored, this.source)
+    },
+
+    shownAddressed: function() {
+      return issuesOfSource(this.addressed, this.source)
     },
 
     // Filter by source shown when the AI can be used or has issues (otherwise all the issues are of the standard rules)
@@ -140,6 +171,7 @@ export default {
         if (request !== this.request) return
         this.issues = data.data.datas.issues
         this.ignored = data.data.datas.ignored
+        this.addressed = data.data.datas.addressed || []
         this.aiAt = data.data.datas.ai ? data.data.datas.ai.at : null
         this.error = ''
         this.loaded = true
@@ -166,6 +198,19 @@ export default {
       return AuditService.setAuditQaIgnored(this.auditId, issue.fingerprint, ignored)
       .then(() => this.load())
       .catch((err) => { this.error = errorMessage(err) })
+    },
+
+    // Issue of the AI addressed (or no longer): for all the users of the audit, until the next check by the AI
+    setAddressed: function(issue, addressed) {
+      return AuditService.setAuditQaAddressed(this.auditId, issue.fingerprint, addressed)
+      .then(() => this.load())
+      .catch((err) => { this.error = errorMessage(err) })
+    },
+
+    addressedBy: function(issue) {
+      var mark = issue.addressed || {}
+      var date = mark.at ? new Date(mark.at).toLocaleString() : ''
+      return mark.by ? $t('qa.addressedBy', { name: mark.by, date }) : $t('qa.addressedOn', { date })
     },
 
     // Page of the issue, its field and passage shown (audit page)

@@ -396,6 +396,19 @@ describe('Utils helpers', () => {
     expect(Utils.normalizeImageUrl(url)).toBe(expected)
   })
 
+  it('adds the caption of the images (alt) under them as text, when asked', () => {
+    const id = '6aef2c3a3b1d4e5f60718293'
+    expect(Utils.withImageUrls(Utils.htmlEncode(`<img src="${id}" alt="Requête &amp; <b>réponse</b> &quot;OK&quot;"><img src="${id}" alt=""><img src="${id}">`), true))
+      .toBe(`<img src="api/images/download/${id}" alt="Requête &amp; &lt;b&gt;réponse&lt;/b&gt; &quot;OK&quot;"><span class="ai-image-caption">Requête &amp; &lt;b&gt;réponse&lt;/b&gt; "OK"</span>` +
+        `<img src="api/images/download/${id}" alt=""><img src="api/images/download/${id}">`)
+  })
+
+  it('gives the download URL to the images of sanitized HTML, not to the text', () => {
+    const id = '6aef2c3a3b1d4e5f60718293'
+    expect(Utils.withImageUrls(Utils.htmlEncode(`<p>src="${id}"</p><img class="custom-image" src="${id}" alt="a"><img src="http://example.com/a.png"><img src="${PNG}">`)))
+      .toBe(`<p>src="${id}"</p><img class="custom-image" src="api/images/download/${id}" alt="a"><img src="http://example.com/a.png"><img src="${PNG}">`)
+  })
+
   it('syncs the basic editors of the refs, including the ones of child components', () => {
     const editor = { updateHTML: vi.fn() }
     const listEditor = { updateHTML: vi.fn() }

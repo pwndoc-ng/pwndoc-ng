@@ -1,4 +1,5 @@
-// components/qa-panel.vue: quality checks of an audit (issues by severity, place opened, issues ignored and restored)
+// components/qa-panel.vue: quality checks of an audit (issues by severity, place opened, issues ignored and restored,
+// issues of the AI marked as addressed)
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 
@@ -21,9 +22,9 @@ const IGNORED = [issue('e', 'warning', 'findingNoCvss', { kind: 'finding', id: '
 let wrapper
 let router
 
-async function mountPanel({ editable = true, issues = ISSUES, ignored = IGNORED, ai = null, $settings = {} } = {}) {
+async function mountPanel({ editable = true, issues = ISSUES, ignored = IGNORED, addressed = undefined, ai = null, $settings = {} } = {}) {
   router = { push: vi.fn() }
-  vi.spyOn(AuditService, 'getAuditQa').mockResolvedValue({ data: { datas: { issues, ignored, ai } } })
+  vi.spyOn(AuditService, 'getAuditQa').mockResolvedValue({ data: { datas: { issues, ignored, ai, ...(addressed ? { addressed } : {}) } } })
   wrapper = mount(QaPanel, { props: { auditId: 'a1', editable }, global: { mocks: { $router: router, $settings } } })
   await flushPromises()
   return wrapper
@@ -132,6 +133,47 @@ describe('quality checks panel', () => {
     expect(wrapper.find('.qa-ignored').text()).toContain('Ignored (1)')
     // Number of the audit menu: all the issues
     expect(wrapper.emitted('update')[0][0]).toEqual({ error: 1, warning: 3, info: 1 })
+  })
+
+  it('marks the issues of the AI as addressed (listed apart, not counted), and no longer addressed', async () => {
+    UserService.user = { username: 'ann', roles: '*' }
+    const aiIssue = (fingerprint, message, addressed) => ({ fingerprint: fingerprint.repeat(20), check: 'ai', severity: 'warning', code: 'ai', params: { message },
+      location: { kind: 'finding', id: 'f1', name: 'SQLi', field: 'description', label: null }, ...(addressed ? { addressed } : {}) })
+    const at = '2026-11-20T10:00:00.000Z'
+    const done = [aiIssue('j', 'Wording unclear', { at, by: 'Ann Smith' }), aiIssue('k', 'Old', { at, by: null })]
+    const address = vi.spyOn(AuditService, 'setAuditQaAddressed').mockResolvedValue({})
+    await mountPanel({ issues: [...ISSUES, aiIssue('g', 'Guideline 2 not respected')], addressed: done, $settings: { ai: { enabled: true } } })
+    // Only the issues of the AI can be marked
+    expect(wrapper.findAll('.qa-issue--ai .qa-address')).toHaveLength(1)
+    expect(wrapper.findAll('.qa-issue--rules .qa-address')).toHaveLength(0)
+    expect(wrapper.find('.qa-addressed').text()).toContain('Addressed (2)')
+    expect(wrapper.find('.qa-summary').text()).toBe('1 errors, 3 warnings') // Addressed issues not counted
+    expect(wrapper.vm.addressedBy(done[0])).toBe(`Addressed by Ann Smith on ${new Date(at).toLocaleString()}`)
+    expect(wrapper.vm.addressedBy(done[1])).toBe(`Addressed on ${new Date(at).toLocaleString()}`)
+    await wrapper.find('.qa-issue--ai .qa-address').trigger('click')
+    await flushPromises()
+    expect(address).toHaveBeenCalledWith('a1', 'g'.repeat(20), true)
+    expect(AuditService.getAuditQa).toHaveBeenCalledTimes(2)
+    wrapper.vm.setAddressed(done[0], false)
+    await flushPromises()
+    expect(address).toHaveBeenLastCalledWith('a1', 'j'.repeat(20), false)
+    // Rules only: no addressed issue
+    await wrapper.findAll('.qa-source-filter button')[1].trigger('click')
+    expect(wrapper.find('.qa-addressed').exists()).toBe(false)
+  })
+
+  it('cannot mark the issues of the AI when the audit cannot be edited, nor when the server refuses', async () => {
+    UserService.user = { username: 'ann', roles: '*' }
+    const aiIssue = { fingerprint: 'g'.repeat(20), check: 'ai', severity: 'warning', code: 'ai', params: { message: 'x' }, location: { kind: 'finding', id: 'f1', name: 'SQLi', field: 'description', label: null } }
+    await mountPanel({ editable: false, issues: [aiIssue], addressed: [], $settings: { ai: { enabled: true } } })
+    expect(wrapper.find('.qa-address').exists()).toBe(false)
+    expect(wrapper.find('.qa-addressed').exists()).toBe(false)
+    wrapper.unmount()
+    vi.spyOn(AuditService, 'setAuditQaAddressed').mockRejectedValue({ response: { data: { datas: 'Audit or quality issue not found, or Insufficient Privileges' } } })
+    await mountPanel({ issues: [aiIssue], $settings: { ai: { enabled: true } } })
+    await wrapper.find('.qa-address').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.qa-error').text()).toBe('Audit or quality issue not found, or Insufficient Privileges')
   })
 
   it('shows that there is no issue of the source chosen, and no filter without AI', async () => {

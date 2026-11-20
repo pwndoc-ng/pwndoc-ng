@@ -8,6 +8,7 @@ module.exports = function(app, io) {
     var utils = require('../lib/utils');
     var Settings = require('mongoose').model('Settings');
     var Image = require('mongoose').model('Image');
+    var User = require('mongoose').model('User');
     var highlights = require('../lib/highlights');
     var qa = require('../lib/qa');
 
@@ -156,7 +157,8 @@ module.exports = function(app, io) {
         }
     });
 
-    // Quality checks of the audit (lib/qa.js, without network request): {issues, ignored (issues ignored by the users)}
+    // Quality checks of the audit (lib/qa.js, without network request): {issues, ignored (issues ignored by the users),
+    // addressed (issues of the last check by the AI addressed by the users: {..., addressed: {at, by}}), ai}
     app.get("/api/audits/:auditId/qa", acl.hasPermission('audits:read'), async function(req, res) {
         // #swagger.tags = ['Audit']
 
@@ -173,9 +175,17 @@ module.exports = function(app, io) {
             var findingIds = new Set(data.findings.map(finding => String(finding._id)));
             var aiIssues = ((audit.qaAi && audit.qaAi.issues) || []).filter(item => item && item.location && findingIds.has(String(item.location.id)));
             issues.push(...aiIssues);
+            var marks = new Map(((audit.qaAi && audit.qaAi.addressed) || []).map(item => [item.fingerprint, item]));
+            var users = new Map((marks.size ? await User.find({_id: {$in: [...marks.values()].map(item => item.by)}}).select('username firstname lastname').lean() : [])
+                .map(user => [String(user._id), user.firstname || user.lastname ? `${user.firstname || ''} ${user.lastname || ''}`.trim() : user.username]));
+            var isAddressed = (item) => item.check === 'ai' && marks.has(item.fingerprint);
             Response.Ok(res, {
-                issues: issues.filter(item => !ignored.has(item.fingerprint)),
+                issues: issues.filter(item => !ignored.has(item.fingerprint) && !isAddressed(item)),
                 ignored: issues.filter(item => ignored.has(item.fingerprint)),
+                addressed: issues.filter(item => !ignored.has(item.fingerprint) && isAddressed(item)).map(item => {
+                    var mark = marks.get(item.fingerprint);
+                    return {...item, addressed: {at: mark.at, by: users.get(String(mark.by)) || null}};
+                }),
                 ai: audit.qaAi && audit.qaAi.at ? {at: audit.qaAi.at} : null
             });
         }
@@ -193,6 +203,19 @@ module.exports = function(app, io) {
             return;
         }
         Audit.setQaIgnored(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, req.body.fingerprint, req.body.ignored)
+        .then(msg => Response.Ok(res, msg))
+        .catch(err => Response.Internal(res, err));
+    });
+
+    // Issue of the last quality check by the AI addressed or no longer addressed: {fingerprint, addressed}
+    app.put("/api/audits/:auditId/qa/ai/addressed", acl.hasPermission('audits:update'), function(req, res) {
+        // #swagger.tags = ['Audit']
+
+        if (typeof req.body.fingerprint !== 'string' || !/^[a-f0-9]{20}$/.test(req.body.fingerprint) || typeof req.body.addressed !== 'boolean') {
+            Response.BadParameters(res, 'Required parameters: fingerprint, addressed (boolean)');
+            return;
+        }
+        Audit.setQaAddressed(acl.isAllowed(req.decodedToken.role, 'audits:update-all'), req.params.auditId, req.decodedToken.id, req.body.fingerprint, req.body.addressed)
         .then(msg => Response.Ok(res, msg))
         .catch(err => Response.Internal(res, err));
     });

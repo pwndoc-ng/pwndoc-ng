@@ -54,7 +54,9 @@
           Réessayer
         </q-btn>
       </div>
-      <div>
+      <!-- Caption (alt of the image): edited in a popup. A click selects the image in the editor, so that the AI assistance
+           applies to its caption -->
+      <div class="editor-image__caption" @click="selectImage">
         <q-input
           input-class="text-center cursor-pointer"
           readonly
@@ -166,6 +168,11 @@ export default defineComponent({
   },
 
   methods: {
+    // Caption clicked: image selected in the editor (target of the AI assistance), its caption edited in the popup
+    selectImage() {
+      const pos = this.editable && typeof this.getPos === "function" ? this.getPos() : null;
+      if (typeof pos === "number") this.editor.commands.setNodeSelection(pos);
+    },
     // Comments target and store of the field, set by the editor component (null outside an audit)
     commentContext() {
       const storage = this.editor && this.editor.storage.commentHighlight;
@@ -186,14 +193,6 @@ export default defineComponent({
       this.updateAttributes({ width });
     },
 
-    selectImage() {
-      const pos = this.getPos();
-      if (pos === undefined) return;
-      const { state } = this.editor.view;
-      let { tr } = state;
-      const selection = tr.setNodeMarkup(pos, undefined, state.doc);
-      this.editor.view.dispatch(selection);
-    },
 
     handleImageError() {
       this.imageError = true;

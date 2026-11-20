@@ -46,6 +46,11 @@ export default {
     return  api.put(`audits/${auditId}/qa/ignored`, {fingerprint: fingerprint, ignored: ignored})
   },
 
+  // Issue of the last quality check by the AI addressed or no longer addressed (for all the users of the audit)
+  setAuditQaAddressed: function(auditId, fingerprint, addressed) {
+    return  api.put(`audits/${auditId}/qa/ai/addressed`, {fingerprint: fingerprint, addressed: addressed})
+  },
+
   // Texts highlighted with the warning colors of the settings (generic texts to replace): {enabled, colors, items}
   getAuditHighlights: function(auditId) {
     return  api.get(`audits/${auditId}/highlights`)

@@ -76,14 +76,14 @@ The assisted writing in the editors and the quality check of the findings by an 
 - **maximum length**: it includes the reasoning, which a reasoning model can use entirely without answering (explained by the error). The reasoning returned apart by the server (`reasoning_content`) is never used as the answer;
 - **writing guidelines of the company**: one per line (tone, terms to use or to avoid...). They are given numbered to the model as mandatory: applied by the assisted writing, even by the actions keeping the wording (correct), and checked one by one by the quality check of the AI, whose issues give the number of the guideline not respected.
 
-The refusals of the server (invalid parameter, context of the model too short...) are shown with its message. The waits announced by the server (`503` or `429` with `Retry-After`: model loading, restart) are retried within the timeout.
+The requests to the AI run in the background: the browser asks for their result every few seconds, so that no request stays open while the AI answers (a reverse proxy with a short timeout in front of pwndoc does not cut them). The refusals of the server (invalid parameter, context of the model too short...) are shown with its message. The waits announced by the server (`503` or `429` with `Retry-After`: model loading, restart) are retried within the timeout.
 
 *Test the connection* checks the saved settings, and shows the tokens of the reasoning of the model and the time taken (to set the reasoning, the maximum length and the timeout). Environment variables of the backend container (see `docker-compose.yml`):
 
 - `AI_API_KEY`: API key of the server, sent as `Authorization: Bearer <key>` (or in the header named by `AI_AUTH_HEADER`). It is never stored in the database nor sent to the browsers;
 - `NODE_EXTRA_CA_CERTS`: certificate authority of your network, for a server with a certificate of an internal authority (file mounted in the container).
 
-Only the text of the field or of the selection is sent, without the images. The quality check by the AI sends the text of the findings as shown by the editor: one line per paragraph or list item, empty lines, place and caption of the images (never the images), so that the guidelines on the layout can be checked; fields longer than 20000 characters are shortened. The names of the client, of the company and of the scope of the audit can be replaced by tokens before sending (option of the settings). The proposals of the AI are always shown before being applied, and sanitized.
+Only the text of the field or of the selection is sent (captions included, except the file names given as captions of the images), without the images (replaced by markers, put back in the proposal). The quality check by the AI sends the text of the findings as shown by the editor: one line per paragraph or list item, empty lines, place and caption of the images (never the images), so that the guidelines on the layout can be checked; fields longer than 20000 characters are shortened. The names of the client, of the company and of the scope of the audit can be replaced by tokens before sending (option of the settings). The proposals of the AI are always shown before being applied, and sanitized.
 
 ### Spell checker
 

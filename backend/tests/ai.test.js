@@ -1,6 +1,6 @@
 /*
   AI assistance (lib/ai.js, routes/ai.js), disabled by default: inference server exposing the chat completions API of
-  OpenAI (fake server started here), assisted writing (images never sent, pseudonymization), quality check of the
+  OpenAI (fake server started here), assisted writing (images never sent but put back, pseudonymization), quality check of the
   findings by the AI, test of the connection. Data prefixed with "ai" deleted at the end, settings reverted.
 */
 
@@ -31,15 +31,86 @@ module.exports = function(request, app) {
       delete process.env.AI_AUTH_HEADER
     })
 
-    it('Sends no image nor attribute (only the links), keeps the text', () => {
-      expect(ai.htmlForModel('<p class="x" style="color:red">Text <img class="custom-image" src="6af5" alt="IMG.png"><a href="https://e.com" target="_blank">link</a></p><legend label="Figure" alt="c">c</legend>'))
-        .toBe('<p>Text <a href="https://e.com">link</a></p>')
+    it('Sends no image (tokens), the text of the captions, only the attributes of the links and of the formatting', () => {
+      var sent = ai.htmlForModel('<p class="x" style="color:red">Text <img class="custom-image" src="6af5" alt="IMG.png"><a href="https://e.com" target="_blank">link</a></p><legend label="Figure" alt="c">c</legend>')
+      expect(sent).toEqual({html: '<p>Text [[IMAGE_1]]<a href="https://e.com">link</a></p><legend data-caption="1">c</legend>', kept: [
+        {token: '[[IMAGE_1]]', block: '<img class="custom-image" src="6af5" alt="IMG.png">'},
+        {token: '[[CAPTION_1]]', block: '<legend label="Figure" alt="c">c</legend>', caption: true, image: null}]})
+      // Image with its caption, figure, captions of a table (empty: token); formatting of the editor kept (highlight color,
+      // language of the code, start of the list, merged cells and widths), its styles and classes removed. Values of the
+      // attributes with ">" (not escaped by all the browsers), entities of the captions
+      var html = '<img class="custom-image" src="6aef2c3a3b1d4e5f60718293" alt="Proof > 1" data-width="large"><legend label="Figure" alt="Proof &amp; &quot;login&quot; <b>"></legend>' +
+        '<p>See <mark data-color="#ffc078" style="background-color: #ffc078; color: inherit">this</mark></p>' +
+        '<pre><code class="language-bash">id</code></pre><pre><code class="hljs evil">x</code></pre><ol start="3"><li><p>three</p></li></ol>' +
+        '<table style="min-width: 120px"><colgroup><col style="width: 120px"></colgroup><tbody><tr><td colspan="2" rowspan="1" colwidth="120" onclick="x"><p>cell</p></td></tr></tbody></table>' +
+        '<legend label="Table" alt="  Open\n ports "></legend><legend label="Table" alt=""></legend><figure><img src="https://e.com/a.png" alt="A"><figcaption>Fig</figcaption></figure><p title="a>b">end</p>'
+      sent = ai.htmlForModel(html)
+      expect(sent.html).toBe('[[IMAGE_1]]<legend data-caption="1">Proof &gt; 1</legend><legend data-caption="2">Proof &amp; "login" &lt;b&gt;</legend><p>See <mark data-color="#ffc078">this</mark></p><pre><code class="language-bash">id</code></pre><pre><code>x</code></pre>' +
+        '<ol start="3"><li><p>three</p></li></ol><table><tbody><tr><td colspan="2" rowspan="1" colwidth="120"><p>cell</p></td></tr></tbody></table>' +
+        '<legend data-caption="3">Open ports</legend>[[CAPTION_4]][[IMAGE_2]]<p>end</p>')
+      expect(sent.kept).toEqual([
+        {token: '[[IMAGE_1]]', block: '<img class="custom-image" src="6aef2c3a3b1d4e5f60718293" alt="Proof > 1" data-width="large">'},
+        {token: '[[CAPTION_1]]', block: null, caption: true, imageAlt: '[[IMAGE_1]]'}, // Caption of the image (its alt)
+        {token: '[[CAPTION_2]]', block: '<legend label="Figure" alt="Proof &amp; &quot;login&quot; <b>"></legend>', caption: true, image: '[[IMAGE_1]]'},
+        {token: '[[CAPTION_3]]', block: '<legend label="Table" alt="  Open\n ports "></legend>', caption: true, image: null},
+        {token: '[[CAPTION_4]]', block: '<legend label="Table" alt=""></legend>', caption: false, image: null},
+        {token: '[[IMAGE_2]]', block: '<figure><img src="https://e.com/a.png" alt="A"><figcaption>Fig</figcaption></figure>'}])
+    })
+
+    it('Puts the images back, the captions with the text of the model, once each; those lost by the model unchanged', () => {
+      var {kept} = ai.htmlForModel('<p>a</p><img src="i1"><p>b</p><img src="i2"><legend label="Figure" alt="2"></legend><legend label="Table" alt="t"></legend><legend label="Table" alt=""></legend>')
+      expect(ai.restoreKept('<p>A</p><p>[[IMAGE_1]]</p><p>B</p>[[image_2]]<p><legend data-caption="1">Two &amp; "<em>bis</em>"</legend></p><legend data-caption="2">T</legend>[[CAPTION_3]]', kept))
+        .toEqual({html: '<p>A</p><img src="i1"><p>B</p><img src="i2"><legend label="Figure" alt="Two &amp; &quot;bis&quot;"></legend><legend label="Table" alt="T"></legend><legend label="Table" alt=""></legend>', missing: 0})
+      // Number of a caption removed by the model: first caption not put back. Token or caption repeated, unknown, written
+      // with a zero
+      expect(ai.restoreKept('<p>A [[IMAGE_1]] [[IMAGE_1]] [[IMAGE_9]]</p><p>[[IMAGE_02]]</p><legend>Second</legend><legend data-caption="2">T</legend><legend data-caption="2">T</legend><legend data-caption="7">x</legend>', kept))
+        .toEqual({html: '<p>A <img src="i1">  </p><img src="i2"><legend label="Figure" alt="Second"></legend><legend label="Table" alt="T"></legend><legend label="Table" alt=""></legend>', missing: 1})
+      // Lost: caption of an image put back after it (unchanged), the others at the end
+      expect(ai.restoreKept('<p>A</p>[[IMAGE_2]]<p>B</p>', kept))
+        .toEqual({html: '<p>A</p><img src="i2"><legend label="Figure" alt="2"></legend><p>B</p><img src="i1"><legend label="Table" alt="t"></legend><legend label="Table" alt=""></legend>', missing: 3})
+      expect(ai.restoreKept('<p>A</p>', kept)).toEqual({html: '<p>A</p><img src="i1"><img src="i2"><legend label="Figure" alt="2"></legend><legend label="Table" alt="t"></legend><legend label="Table" alt=""></legend>', missing: 5})
+    })
+
+    it('Corrects the caption of the images (alt), never their file name; caption lost by the model: unchanged', () => {
+      var html = '<img src="i1" alt="Requete envoyer"><img src="i2" alt="Capture d&#39;écran 2024-01-01 à 10.00.00.PNG"><img src="https://e.com/a.png" alt="External Image"><img src="i4" alt=""><img src="i5" alt="Reponse">'
+      var {html: sent, kept} = ai.htmlForModel(html)
+      expect(sent).toBe('[[IMAGE_1]]<legend data-caption="1">Requete envoyer</legend>[[IMAGE_2]][[IMAGE_3]][[IMAGE_4]][[IMAGE_5]]<legend data-caption="2">Reponse</legend>')
+      expect(ai.restoreKept('[[IMAGE_1]]<p><legend data-caption="1">Requête &amp; "envoyée" <em>ici</em></legend></p>[[IMAGE_2]][[IMAGE_3]][[IMAGE_4]][[IMAGE_5]]', kept))
+        .toEqual({html: '<img src="i1" alt="Requête &amp; &quot;envoyée&quot; ici"><img src="i2" alt="Capture d&#39;écran 2024-01-01 à 10.00.00.PNG"><img src="https://e.com/a.png" alt="External Image"><img src="i4" alt=""><img src="i5" alt="Reponse">', missing: 0})
+      // Image lost: put back at the end with its caption corrected
+      expect(ai.restoreKept('<legend data-caption="1">Requête</legend>[[IMAGE_2]][[IMAGE_3]][[IMAGE_4]][[IMAGE_5]][[CAPTION_2]]', kept))
+        .toEqual({html: '<img src="i2" alt="Capture d&#39;écran 2024-01-01 à 10.00.00.PNG"><img src="https://e.com/a.png" alt="External Image"><img src="i4" alt=""><img src="i5" alt="Reponse"><img src="i1" alt="Requête">', missing: 1})
+    })
+
+    it('Background jobs (lib/ai-jobs.js): result or error kept for their user, number running limited, removed after a while', async () => {
+      var aiJobs = require('../src/lib/ai-jobs')
+      var release = []
+      var ids = []
+      for (var i = 0; i < aiJobs.MAX_RUNNING; i++) ids.push(aiJobs.start('u1', () => new Promise(resolve => release.push(resolve))))
+      var refused = null
+      try { aiJobs.start('u1', () => 1) } catch (err) { refused = err }
+      expect(refused).toEqual({status: 429, message: 'Too many requests to the AI at once: wait for the end of the previous ones'})
+      var failed = aiJobs.start('u2', async () => { throw {status: 502, message: 'The AI server is not available'} }) // Other user: not limited
+      await new Promise(resolve => setImmediate(resolve))
+      expect(aiJobs.get('u1', ids[0])).toMatchObject({state: 'running', result: null})
+      expect(aiJobs.get('u2', ids[0])).toBeNull()
+      expect(aiJobs.get('u2', failed)).toMatchObject({state: 'error', error: {status: 502, message: 'The AI server is not available'}})
+      release.forEach((resolve, index) => resolve({index}))
+      await new Promise(resolve => setImmediate(resolve))
+      expect(aiJobs.get('u1', ids[1])).toMatchObject({state: 'done', result: {index: 1}})
+      expect(aiJobs.start('u1', () => 1)).toMatch(/^[a-f0-9]{32}$/) // No longer running
+      // Removed some time after their end
+      aiJobs.cleanup(Date.now() + aiJobs.KEEP + 1000)
+      expect(aiJobs.get('u1', ids[1])).toBeNull()
+      expect(aiJobs.get('u2', failed)).toBeNull()
     })
 
     it('Reads the HTML of the answer: code fence removed, plain text as paragraphs (escaped)', () => {
       expect(ai.answerHtml('```html\n<p>Fixed</p>\n```')).toBe('<p>Fixed</p>')
       expect(ai.answerHtml('First <b> & co\n\nSecond\nline')).toBe('<p>First &lt;b> &amp; co</p><p>Second<br>line</p>')
       expect(ai.answerHtml('  <p>a</p> ')).toBe('<p>a</p>')
+      expect(ai.answerHtml('[[IMAGE_1]]\n<p>a</p>')).toBe('[[IMAGE_1]]\n<p>a</p>') // HTML starting with an image
+      expect(ai.answerHtml('[[IMAGE_1]]\n\nText')).toBe('<p>[[IMAGE_1]]</p><p>Text</p>')
     })
 
     it('Pseudonymization: terms hidden whatever their case (longest first), restored in the answer', () => {
@@ -48,6 +119,8 @@ module.exports = function(request, app) {
       expect(hidden).toBe('[[TERM_2]] and [[TERM_3]] on [[TERM_1]]')
       expect(hider.restore(hidden)).toBe('ACME Corp and ACME on intranet.acme.example')
       expect(hider.restore('[[TERM_9]]')).toBe('[[TERM_9]]')
+      // Never searched in the tokens of the images, nor in those of the terms already hidden
+      expect(ai.pseudonymizer(['Image Corp', 'age', 'TERM']).hide('Image Corp: age [[IMAGE_1]] term')).toBe('[[TERM_1]]: [[TERM_3]] [[IMAGE_1]] [[TERM_2]]')
       expect(ai.auditTerms({company: {name: 'ACME', shortName: 'AC'}, client: {firstname: 'Carl', lastname: 'Client', email: 'c@acme.example'},
         scope: [{name: '10.0.0.0/24', hosts: [{hostname: 'srv.acme.example', ip: '10.0.0.5'}]}]}))
         .toEqual(['ACME', 'AC', 'Carl Client', 'Client', 'c@acme.example', '10.0.0.0/24', 'srv.acme.example', '10.0.0.5'])
@@ -177,18 +250,29 @@ module.exports = function(request, app) {
       await expect(ai.generate({...CONFIG, url: ''}, prompt, fakeFetch(chat('x')).fetchImpl)).rejects.toEqual({status: 422, message: 'The address of the AI server is not configured'})
     })
 
-    it('Assisted writing: images never sent, client names hidden then restored when enabled, size limits', async () => {
-      var {fetchImpl, calls} = fakeFetch((url, options) => chat(JSON.parse(options.body).messages[1].content.split('HTML fragment:\n')[1].replace('Contact', 'Contacter')))
-      var html = '<p>Contact ACME Corp <img src="6af573f15a4b2128f82dfede" alt="IMG_1.png"></p>'
-      expect(await ai.assist({...CONFIG, pseudonymize: true}, {action: 'correct', html}, {terms: ['ACME Corp']}, fetchImpl)).toEqual({html: '<p>Contacter ACME Corp </p>'})
+    it('Assisted writing: images never sent but put back, captions corrected, client names hidden then restored when enabled, size limits', async () => {
+      var {fetchImpl, calls} = fakeFetch((url, options) => chat(JSON.parse(options.body).messages[1].content.split('HTML fragment:\n')[1].replace(/Contact/g, 'Contacter')))
+      var html = '<p>Contact ACME Corp</p><img src="6af573f15a4b2128f82dfede" alt="IMG_1.png"><legend label="Figure" alt="Contact ACME Corp"></legend>'
+      expect(await ai.assist({...CONFIG, pseudonymize: true}, {action: 'correct', html}, {terms: ['ACME Corp']}, fetchImpl))
+        .toEqual({html: '<p>Contacter ACME Corp</p><img src="6af573f15a4b2128f82dfede" alt="IMG_1.png"><legend label="Figure" alt="Contacter ACME Corp"></legend>', missing: 0})
       expect(JSON.stringify(calls[0].body)).not.toContain('ACME')
       expect(JSON.stringify(calls[0].body)).not.toContain('6af573f15a4b2128f82dfede')
-      expect(calls[0].body.messages[1].content).toContain('<p>Contact [[TERM_1]] </p>')
+      expect(JSON.stringify(calls[0].body)).not.toContain('IMG_1')
+      expect(calls[0].body.messages[1].content).toContain('<p>Contact [[TERM_1]]</p>[[IMAGE_1]]<legend data-caption="1">Contact [[TERM_1]]</legend>')
+      expect(calls[0].body.messages[0].content).toContain('[[IMAGE_1]] or [[CAPTION_1]] stand for the images and captions: keep each of them once, unchanged, at its place')
+      expect(calls[0].body.messages[0].content).toContain('The legend elements are the captions of the images, tables and code blocks: apply the instruction to their text too')
       await ai.assist(CONFIG, {action: 'correct', html}, {terms: ['ACME Corp']}, fetchImpl)
       expect(calls[1].body.messages[1].content).toContain('ACME Corp') // Pseudonymization disabled
       await expect(ai.assist(CONFIG, {action: 'correct', html: '<p><img src="x"></p>'}, {}, fetchImpl)).rejects.toEqual({status: 422, message: 'Nothing to send to the AI'})
       await expect(ai.assist(CONFIG, {action: 'correct', html: `<p>${'x'.repeat(ai.MAX_TEXT)}</p>`}, {}, fetchImpl)).rejects.toMatchObject({status: 413})
       expect(calls).toHaveLength(2)
+      // Image and caption lost by the model: put back at the end (caption unchanged), counted
+      var lost = fakeFetch(chat('<p>Contacter ACME Corp</p>')).fetchImpl
+      expect(await ai.assist(CONFIG, {action: 'correct', html}, {}, lost))
+        .toEqual({html: '<p>Contacter ACME Corp</p><img src="6af573f15a4b2128f82dfede" alt="IMG_1.png"><legend label="Figure" alt="Contact ACME Corp"></legend>', missing: 2})
+      // Caption alone: sent
+      expect(await ai.assist(CONFIG, {action: 'correct', html: '<img src="6af573f15a4b2128f82dfede"><legend label="Figure" alt="Contact"></legend>'}, {}, fetchImpl))
+        .toEqual({html: '<img src="6af573f15a4b2128f82dfede"><legend label="Figure" alt="Contacter"></legend>', missing: 0})
     })
 
     it('Quality check by the AI: findings sent by batches, issues of the JSON answer for the findings of the audit', async () => {
@@ -289,7 +373,21 @@ module.exports = function(request, app) {
   describe('AI assistance Suite Tests', () => {
     var adminCookie, userCookie, otherCookie, server, port, answer, requests, auditId, findingId
     var setAi = (values) => request(app).put('/api/settings').set('Cookie', adminCookie).send({ai: values})
-    var assist = (body, cookie = userCookie) => request(app).post('/api/ai/assist').set('Cookie', cookie).send(body)
+    // Request to the AI run in the background: answer of its job once ended ({status, body}, result in body.datas), or the
+    // answer of the request itself (refused before starting)
+    var finish = async (pending, cookie = userCookie) => {
+      var response = await pending
+      if (response.status !== 202) return response
+      expect(response.body.datas.job).toMatch(/^[a-f0-9]{32}$/)
+      for (;;) {
+        var poll = await request(app).get(`/api/ai/jobs/${response.body.datas.job}`).set('Cookie', cookie)
+        if (poll.status !== 200) return poll
+        if (poll.body.datas.state === 'done') return {status: 200, body: {...poll.body, datas: poll.body.datas.result}}
+        expect(poll.body.datas).toEqual({state: 'running'})
+        await new Promise(resolve => setTimeout(resolve, 20))
+      }
+    }
+    var assist = (body, cookie = userCookie) => finish(request(app).post('/api/ai/assist').set('Cookie', cookie).send(body), cookie)
 
     beforeAll(async () => {
       adminCookie = await helpers.login('admin', 'Admin123')
@@ -303,7 +401,7 @@ module.exports = function(request, app) {
           requests.push({method: req.method, url: req.url, body: body ? JSON.parse(body) : null})
           res.setHeader('Content-Type', 'application/json')
           if (req.url === '/v1/models') return res.end(JSON.stringify({data: [{id: 'fake-model'}]}))
-          res.end(JSON.stringify({choices: [{message: {role: 'assistant', content: answer(JSON.parse(body))}}]}))
+          Promise.resolve(answer(JSON.parse(body))).then(content => res.end(JSON.stringify({choices: [{message: {role: 'assistant', content}}]})))
         })
       })
       await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
@@ -341,7 +439,7 @@ module.exports = function(request, app) {
         expect((await setAi(values)).status).toBe(422)
       expect((await setAi({private: {url: `http://127.0.0.1:${port}/v1`, model: 'fake-model'}})).status).toBe(200)
       answer = () => 'OK'
-      var response = await request(app).post('/api/ai/test').set('Cookie', adminCookie)
+      var response = await finish(request(app).post('/api/ai/test').set('Cookie', adminCookie), adminCookie)
       expect(response.status).toBe(200)
       expect(response.body.datas).toEqual({models: ['fake-model'], answer: 'OK', reasoningTokens: null, seconds: expect.any(Number)})
       expect((await request(app).post('/api/ai/test').set('Cookie', userCookie)).status).toBe(403)
@@ -349,12 +447,12 @@ module.exports = function(request, app) {
       expect(JSON.stringify((await request(app).get('/api/settings').set('Cookie', adminCookie)).body.datas.ai)).not.toMatch(/key/i)
     })
 
-    it('Assisted writing once enabled: proposal of the server, images not sent', async () => {
+    it('Assisted writing once enabled: proposal of the server, images not sent but put back', async () => {
       expect((await setAi({enabled: true})).status).toBe(200)
       expect((await request(app).get('/api/settings/public').set('Cookie', userCookie)).body.datas.ai).toEqual({enabled: true})
       var response = await assist({action: 'correct', html: '<p>text <img src="6af573f15a4b2128f82dfede" alt="x"></p>'})
       expect(response.status).toBe(200)
-      expect(response.body.datas).toEqual({html: '<P>TEXT </P>'})
+      expect(response.body.datas).toEqual({html: '<P>TEXT <img src="6af573f15a4b2128f82dfede" alt="X"></P>', missing: 0}) // Caption of the image corrected
       expect(requests[0].body.model).toBe('fake-model')
       expect(JSON.stringify(requests[0].body)).not.toContain('6af573f15a4b2128f82dfede')
     })
@@ -364,7 +462,7 @@ module.exports = function(request, app) {
       expect((await setAi({private: {pseudonymize: true}})).status).toBe(200)
       answer = (body) => body.messages[1].content.split('HTML fragment:\n')[1]
       var response = await assist({action: 'rephrase', html: '<p>ai Secret Corp hosts ai-intranet.example</p>', auditId})
-      expect(response.body.datas).toEqual({html: '<p>ai Secret Corp hosts ai-intranet.example</p>'})
+      expect(response.body.datas).toEqual({html: '<p>ai Secret Corp hosts ai-intranet.example</p>', missing: 0})
       expect(JSON.stringify(requests[0].body)).not.toMatch(/Secret Corp|ai-intranet/)
     })
 
@@ -378,7 +476,7 @@ module.exports = function(request, app) {
 
     it('Quality check of the audit by the AI: issues stored, listed with the other checks', async () => {
       answer = () => JSON.stringify([{finding: findingId, field: 'description', severity: 'warning', message: 'Description too short'}])
-      var response = await request(app).post(`/api/audits/${auditId}/qa/ai`).set('Cookie', userCookie)
+      var response = await finish(request(app).post(`/api/audits/${auditId}/qa/ai`).set('Cookie', userCookie))
       expect(response.status).toBe(200)
       expect(response.body.datas.issues).toEqual([expect.objectContaining({check: 'ai', code: 'ai', params: {message: 'Description too short'}})])
       var qa = (await request(app).get(`/api/audits/${auditId}/qa`).set('Cookie', userCookie)).body.datas
@@ -391,11 +489,66 @@ module.exports = function(request, app) {
       expect((await request(app).post(`/api/audits/${auditId}/qa/ai`).set('Cookie', otherCookie)).status).toBe(404)
     })
 
+    it('Quality check of the audit by the AI: issues marked as addressed, until the next check', async () => {
+      answer = () => JSON.stringify([{finding: findingId, field: 'description', severity: 'warning', message: 'Wording unclear'}, {finding: findingId, field: 'remediation', severity: 'info', message: 'Add a reference'}])
+      expect((await finish(request(app).post(`/api/audits/${auditId}/qa/ai`).set('Cookie', userCookie))).status).toBe(200)
+      var getQa = async () => (await request(app).get(`/api/audits/${auditId}/qa`).set('Cookie', userCookie)).body.datas
+      var address = (fingerprint, addressed, cookie = userCookie) => request(app).put(`/api/audits/${auditId}/qa/ai/addressed`).set('Cookie', cookie).send({fingerprint, addressed})
+      var qa = await getQa()
+      var issue = qa.issues.find(item => item.params && item.params.message === 'Wording unclear')
+      expect(qa.addressed).toEqual([])
+      var response = await address(issue.fingerprint, true)
+      expect(response.status).toBe(200)
+      expect((await address(issue.fingerprint, true)).status).toBe(200) // Once
+      qa = await getQa()
+      expect(qa.issues.map(item => item.fingerprint)).not.toContain(issue.fingerprint) // Not counted any more
+      expect(qa.addressed).toEqual([{...issue, addressed: {at: expect.any(String), by: expect.any(String)}}])
+      expect(qa.addressed[0].addressed.by.length).toBeGreaterThan(0)
+      // No longer addressed
+      expect((await address(issue.fingerprint, false)).status).toBe(200)
+      qa = await getQa()
+      expect(qa.addressed).toEqual([])
+      expect(qa.issues.map(item => item.fingerprint)).toContain(issue.fingerprint)
+      // Refused: invalid parameters, issue not in the last check by the AI, user without write access
+      for (var body of [{}, {fingerprint: issue.fingerprint}, {fingerprint: issue.fingerprint, addressed: 'yes'}, {fingerprint: {$ne: ''}, addressed: true}])
+        expect((await request(app).put(`/api/audits/${auditId}/qa/ai/addressed`).set('Cookie', userCookie).send(body)).status).toBe(422)
+      expect((await address('a'.repeat(20), true)).status).toBe(404)
+      expect((await address(issue.fingerprint, true, otherCookie)).status).toBe(404)
+      // A new check by the AI starts again without the issues addressed
+      expect((await address(issue.fingerprint, true)).status).toBe(200)
+      expect((await finish(request(app).post(`/api/audits/${auditId}/qa/ai`).set('Cookie', userCookie))).status).toBe(200)
+      qa = await getQa()
+      expect(qa.addressed).toEqual([])
+      expect(qa.issues.map(item => item.fingerprint)).toContain(issue.fingerprint)
+    })
+
     it('Answers the errors of the AI server', async () => {
       expect((await setAi({private: {url: 'http://127.0.0.1:1/v1'}})).status).toBe(200)
       var response = await assist({action: 'correct', html: '<p>x</p>'})
       expect(response.status).toBe(502)
       expect(response.body.datas).toBe('The AI server is not available')
+      // Errors known before sending: answered at once (no job)
+      response = await request(app).post('/api/ai/assist').set('Cookie', userCookie).send({action: 'correct', html: '<p>x</p>', auditId: 'deadbeefdeadbeefdeadbeef'})
+      expect(response.status).toBe(404)
+    })
+
+    it('Runs the requests to the AI in the background: job of the user only, answered at once', async () => {
+      expect((await setAi({private: {url: `http://127.0.0.1:${port}/v1`}})).status).toBe(200)
+      var slow = null
+      answer = () => new Promise(resolve => { slow = resolve }) // Answer of the AI given by the test
+      var started = await request(app).post('/api/ai/assist').set('Cookie', userCookie).send({action: 'correct', html: '<p>wait</p>'})
+      expect(started.status).toBe(202)
+      var job = started.body.datas.job
+      var poll = (cookie = userCookie, id = job) => request(app).get(`/api/ai/jobs/${id}`).set('Cookie', cookie)
+      expect((await poll()).body.datas).toEqual({state: 'running'})
+      expect((await poll(otherCookie)).status).toBe(404) // Job of another user
+      expect((await poll(userCookie, 'f'.repeat(32))).status).toBe(404)
+      expect((await request(app).get(`/api/ai/jobs/${job}`)).status).toBe(401)
+      while (!slow) await new Promise(resolve => setTimeout(resolve, 10))
+      slow('<p>WAITED</p>')
+      var response = await finish(Promise.resolve(started))
+      expect(response.body.datas).toEqual({html: '<p>WAITED</p>', missing: 0})
+      expect((await poll()).body.datas).toEqual({state: 'done', result: {html: '<p>WAITED</p>', missing: 0}}) // Kept for a while
     })
   })
 }

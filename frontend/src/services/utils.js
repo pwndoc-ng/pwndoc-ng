@@ -386,6 +386,21 @@ export default {
     return apiPatterns.some(pattern => pattern.test(url));
   },
 
+  // Images are stored by id: sanitized HTML shown with v-html needs their download URL. captions: caption of the images
+  // (their alt, shown under them in the editors) added under them, as text
+  withImageUrls: function (html, captions = false) {
+    const result = html.replace(/(<img\b[^>]*?\ssrc=")([^"]+)(")/g, (match, before, src, after) => before + this.normalizeImageUrl(src) + after);
+    if (!captions) return result;
+    return result.replace(/<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/g, (tag) => {
+      const alt = tag.match(/\salt="([^"]*)"/);
+      if (!alt) return tag;
+      const decoder = document.createElement("textarea"); // Entities of the attribute decoded (no markup parsed)
+      decoder.innerHTML = alt[1];
+      const text = decoder.value.trim().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      return text ? `${tag}<span class="ai-image-caption">${text}</span>` : tag;
+    });
+  },
+
   // Normalize an image URL for display
   normalizeImageUrl: function (url) {
     if (!url) return '';

@@ -63,13 +63,14 @@ describe('Quasar registration (quasar.config.cjs)', () => {
 })
 
 describe('v-html usages', () => {
-  // Only static translations (i18n messages written by the developers) or sanitized HTML may be rendered as HTML
+  // Only static translations (i18n messages written by the developers) or sanitized HTML may be rendered as HTML (its
+  // images with their download URL: withImageUrls, after the sanitizer)
   it('only renders translations or sanitized HTML with v-html', () => {
     const unsafe = []
     for (const file of templates) {
       for (const match of readSource(file).matchAll(/v-html="([^"]*)"/g)) {
         const expression = match[1].trim()
-        if (!/^\$t\('[\w.]+'\)$/.test(expression) && !/^htmlEncode(Diff)?\(/.test(expression))
+        if (!/^\$t\('[\w.]+'\)$/.test(expression) && !/^(withImageUrls\()?htmlEncode(Diff)?\(/.test(expression))
           unsafe.push(`${expression} (${file})`)
       }
     }
@@ -77,9 +78,11 @@ describe('v-html usages', () => {
   })
 
   it('defines htmlEncode as the sanitizer of services/utils in the pages using it', () => {
-    for (const file of templates.filter((file) => /v-html="htmlEncode/.test(readSource(file)))) {
+    for (const file of templates.filter((file) => /v-html="(withImageUrls\()?htmlEncode/.test(readSource(file)))) {
       const script = file.endsWith('.html') ? readSource(file.replace(/\.html$/, '.js')) : readSource(file)
       expect(script, file).toMatch(/htmlEncode(Diff)?\s*:\s*Utils\.htmlEncode(Diff)?\b|htmlEncode(Diff)?\s*(:\s*function\s*)?\([^)]*\)\s*\{\s*return\s+Utils\.htmlEncode(Diff)?\(/)
+      if (/v-html="withImageUrls\(/.test(readSource(file)))
+        expect(script, file).toMatch(/withImageUrls\s*(:\s*function\s*)?\(([^)]*)\)\s*\{\s*return\s+Utils\.withImageUrls\(\2(,\s*(true|false))?\)\s*\}/)
     }
   })
 })
