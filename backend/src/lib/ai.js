@@ -6,8 +6,9 @@
 // maximum length. Extensions of tensorfold handled: error beside the answer (reasoning_loop), codes of the waits (503).
 // The API key is the environment variable AI_API_KEY (header Authorization: Bearer <key>, or AI_AUTH_HEADER: <key>): never
 // stored, never sent to the browser. Certificate authority of the local network: NODE_EXTRA_CA_CERTS (Node.js).
-// Images are never sent; the client, company and scope names can be replaced by tokens before sending (pseudonymization).
-// The answers are proposals, sanitized by the browser before insertion: never applied automatically.
+// Images are never sent: replaced by tokens, put back in the answer. The client, company and scope names can be replaced
+// by tokens before sending (pseudonymization). The answers are proposals, sanitized by the browser before insertion: never
+// applied automatically.
 
 var MAX_TEXT = 60000; // Characters of HTML sent at once
 var MAX_ANSWER = 200000; // Characters of an answer kept
@@ -25,20 +26,127 @@ var ACTIONS = {
 
 var SYSTEM = 'You are an assistant helping a penetration tester write a security audit report. ' +
     'You receive an HTML fragment of an editor and an instruction. Answer only with the resulting HTML fragment, without ' +
-    'explanation and without code fence. Use only these tags: p, br, strong, em, u, s, code, pre, ul, ol, li, h1 to h6, a, ' +
-    'table, thead, tbody, tr, th, td. Never add scripts, styles or attributes other than href. Keep the tokens written ' +
-    'like [[TERM_1]] unchanged.';
+    'explanation and without code fence. Use only these tags: p, br, strong, em, u, s, mark, code, pre, ul, ol, li, ' +
+    'blockquote, hr, h1 to h6, a, table, thead, tbody, tr, th, td, legend. Keep the attributes of the fragment unchanged, ' +
+    'and never add scripts, styles or other attributes. Keep the tokens written like [[TERM_1]] unchanged. The tokens ' +
+    'written like [[IMAGE_1]] or [[CAPTION_1]] stand for the images and captions: keep each of them once, unchanged, at its ' +
+    'place. The legend elements are the captions of the images, tables and code blocks: apply the instruction to their ' +
+    'text too, and keep each of them once, at its place, with its data-caption attribute, as plain text on one line.';
 
-// HTML sent to the model: images removed (never sent), attributes removed except href
+// Attributes sent with their tag, kept by the model: links and formatting of the editor (highlight color, language of
+// the code blocks, start of the numbered lists, merged cells and widths of the tables), number of the captions. The
+// others are removed
+var CELL_ATTRIBUTES = ['colspan', 'rowspan', 'colwidth'];
+var SENT_ATTRIBUTES = {a: ['href'], mark: ['data-color'], code: ['class'], ol: ['start'], th: CELL_ATTRIBUTES, td: CELL_ATTRIBUTES, legend: ['data-caption']};
+
+// Attributes of a tag: their values can contain ">" (not escaped by all the browsers)
+var TAG_BODY = '(?:[^>"\']|"[^"]*"|\'[^\']*\')*';
+// Blocks never sent as they are: images and figures ([[IMAGE_1]], never sent), captions of the editor (<legend label alt>,
+// text in an attribute): sent as <legend data-caption="1">text</legend> to be corrected with the rest, or [[CAPTION_1]]
+// when empty. Caption of an image (its alt, shown under it): sent the same way after the token of the image, except a
+// file name (alt given when uploading) or the alt of the external images
+var KEPT_BLOCK = new RegExp(`<figure\\b${TAG_BODY}>[\\s\\S]*?<\\/figure>|<img\\b${TAG_BODY}>|<legend\\b${TAG_BODY}>[\\s\\S]*?<\\/legend>`, 'gi');
+var OPENING_TAG = new RegExp(`<(\\w+)\\b(${TAG_BODY})>`, 'g');
+var KEPT_TOKEN = /\[\[(IMAGE|CAPTION)_(\d+)\]\]/gi;
+var SENT_CAPTION = new RegExp(`<legend\\b(${TAG_BODY})>([\\s\\S]*?)<\\/legend>`, 'gi');
+
+var IMAGE_FILE = /\.(?:png|jpe?g|gif|webp|bmp|svg|tiff?|heic|avif)$/i;
+
+var escapeText = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+var attributeValue = (tag, name) => {
+    var match = tag.match(new RegExp(`\\s${name}\\s*=\\s*"([^"]*)"`, 'i'));
+    return match ? decodeEntities(match[1]) : '';
+};
+
+// HTML sent to the model: {html, kept}. Images replaced by tokens, captions by their text (kept: [{token, block, caption,
+// image, imageAlt}], put back in the answer by restoreKept), attributes removed except those of SENT_ATTRIBUTES
 function htmlForModel(html) {
-    return String(html || '')
-        .replace(/<img\b[^>]*>/gi, '')
-        .replace(/<legend\b[^>]*>[\s\S]*?<\/legend>/gi, '')
-        .replace(/<(\w+)\b([^>]*)>/g, (match, tag, attributes) => {
-            var href = attributes.match(/\shref\s*=\s*"([^"]*)"/i);
-            return href && tag.toLowerCase() === 'a' ? `<a href="${href[1]}">` : `<${tag}>`;
+    var kept = [];
+    var count = {IMAGE: 0, CAPTION: 0};
+    var image = null; // Last image: {token, end}, to put back a caption lost by the model after its image
+    var sent = String(html || '')
+        .replace(KEPT_BLOCK, (block, offset, source) => {
+            var isCaption = /^<legend\b/i.test(block);
+            var token = `[[${isCaption ? 'CAPTION' : 'IMAGE'}_${++count[isCaption ? 'CAPTION' : 'IMAGE']}]]`;
+            if (!isCaption) {
+                kept.push({token, block});
+                image = {token, end: offset + block.length};
+                var alt = /^<img\b/i.test(block) ? attributeValue(block, 'alt').replace(/\s+/g, ' ').trim() : '';
+                if (!alt || IMAGE_FILE.test(alt) || alt === 'External Image') return token;
+                kept.push({token: `[[CAPTION_${++count.CAPTION}]]`, block: null, caption: true, imageAlt: token}); // Caption of the image
+                return `${token}<legend data-caption="${count.CAPTION}">${escapeText(alt)}</legend>`;
+            }
+            var follows = image && !source.substring(image.end, offset).trim() ? image.token : null;
+            var text = attributeValue(block.match(new RegExp(`^<legend\\b${TAG_BODY}>`, 'i'))[0], 'alt').replace(/\s+/g, ' ').trim();
+            kept.push({token, block, caption: Boolean(text), image: follows});
+            return text ? `<legend data-caption="${count.CAPTION}">${escapeText(text)}</legend>` : token;
+        })
+        .replace(/<colgroup\b[^>]*>[\s\S]*?<\/colgroup>/gi, '') // Widths of the columns: from the cells
+        .replace(OPENING_TAG, (match, tag, attributes) => {
+            var names = SENT_ATTRIBUTES[tag.toLowerCase()] || [];
+            var sentAttributes = [...attributes.matchAll(/\s([\w-]+)\s*=\s*"([^"]*)"/g)]
+                .filter(([, name, value]) => names.includes(name.toLowerCase()) && (name.toLowerCase() !== 'class' || /^language-[\w#+-]+$/.test(value)))
+                .map(([, name, value]) => ` ${name.toLowerCase()}="${value}"`);
+            return `<${tag}${sentAttributes.join('')}>`;
         })
         .trim();
+    return {html: sent, kept};
+}
+
+// Caption of the editor with the text proposed by the model (tags removed, on one line)
+// Text of a caption proposed by the model: tags removed, on one line
+var captionText = (inner) => decodeEntities(inner.replace(/<br\s*\/?>|<\/(?:p|li|h[1-6]|div|td|th)>/gi, ' ').replace(/<[^>]*>/g, '')).replace(/\s+/g, ' ').trim();
+
+// Tag (caption of the editor, image) with its alt attribute set to a text
+function withAlt(block, text) {
+    var alt = ` alt="${text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"`;
+    return /\salt\s*=\s*"[^"]*"/i.test(block) ? block.replace(/\salt\s*=\s*"[^"]*"/i, alt) : block.replace(/^<(\w+)\b/, `<$1${alt}`);
+}
+
+// Answer of the model with the images and captions put back, each once (unknown or repeated ones removed): {html,
+// missing}. Captions with the text of the model, found by their number or else in their order (caption of an image: its
+// alt). Those not kept by the model are put back unchanged: a caption after its image, the others at the end (missing:
+// their number; caption of an image: unchanged)
+function restoreKept(answer, kept) {
+    var blocks = new Map(kept.map(item => [item.token, item.block]));
+    var captions = kept.filter(item => item.caption);
+    var used = new Set();
+    var alts = new Map(); // Image token → caption proposed
+    var restored = new Map(); // Image token → HTML put back
+    var image = (token) => {
+        var block = alts.has(token) ? withAlt(blocks.get(token), alts.get(token)) : blocks.get(token);
+        restored.set(token, block);
+        return block;
+    };
+    var html = String(answer || '')
+        // Tokens and captions alone in a paragraph: blocks of the editor
+        .replace(/<p>\s*((?:(?:\[\[(?:IMAGE|CAPTION)_\d+\]\]|<legend\b[^>]*>[\s\S]*?<\/legend>)\s*)+)<\/p>/gi, '$1')
+        .replace(SENT_CAPTION, (match, attributes, inner) => {
+            var number = attributes.match(/\sdata-caption\s*=\s*"(\d+)"/i);
+            var item = number ? captions.find(caption => caption.token === `[[CAPTION_${Number(number[1])}]]` && !used.has(caption.token)) : null;
+            item = item || (!number && captions.find(caption => !used.has(caption.token))); // Number removed by the model
+            if (!item) return '';
+            used.add(item.token);
+            if (item.imageAlt) {
+                alts.set(item.imageAlt, captionText(inner));
+                return '';
+            }
+            return withAlt(item.block, captionText(inner));
+        })
+        .replace(KEPT_TOKEN, (match, kind, number) => {
+            var token = `[[${kind.toUpperCase()}_${Number(number)}]]`;
+            if (!blocks.has(token) || used.has(token) || blocks.get(token) === null) return '';
+            used.add(token);
+            return kind.toUpperCase() === 'IMAGE' ? image(token) : blocks.get(token);
+        });
+    var missing = [];
+    kept.filter(item => !used.has(item.token) && !item.imageAlt).forEach(item => {
+        var after = item.image && restored.has(item.image) ? html.indexOf(restored.get(item.image)) : -1;
+        if (after === -1) return missing.push(item);
+        var end = after + restored.get(item.image).length;
+        html = html.substring(0, end) + item.block + html.substring(end);
+    });
+    return {html: html + missing.map(item => item.imageAlt === undefined && /^\[\[IMAGE_/.test(item.token) ? image(item.token) : item.block).join(''), missing: missing.length};
 }
 
 // Answer of the model: code fence and text around the HTML removed, length limited
@@ -47,18 +155,22 @@ function answerHtml(text) {
     var fence = answer.match(/^```[a-z]*\s*\n?([\s\S]*?)\n?```$/i);
     if (fence)
         answer = fence[1].trim();
-    if (answer && !/^</.test(answer)) // Plain text: paragraphs
+    if (answer && !/^(?:\[\[(?:IMAGE|CAPTION)_\d+\]\]\s*)*</i.test(answer)) // Plain text (HTML can start with an image): paragraphs
         answer = answer.split(/\n{2,}/).map(paragraph => `<p>${paragraph.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</p>`).join('');
     return answer.substring(0, MAX_ANSWER);
 }
 
-// Pseudonymization: terms (names of the client, company, scope) replaced by tokens before sending, restored in the answer
+// Pseudonymization: terms (names of the client, company, scope) replaced by tokens before sending, restored in the answer.
+// One pass, longest terms first, outside the tokens already in the text (images): a term is never searched in a token
 function pseudonymizer(terms) {
     var list = [...new Set((terms || []).map(term => String(term || '').trim()).filter(term => term.length >= 3))]
         .sort((a, b) => b.length - a.length);
     var escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var search = list.length ? new RegExp(list.map(escape).join('|'), 'gi') : null;
+    var exact = list.map(term => new RegExp(`^${escape(term)}$`, 'i'));
+    var token = (match) => `[[TERM_${exact.findIndex(term => term.test(match)) + 1}]]`;
     return {
-        hide: (text) => list.reduce((result, term, index) => result.replace(new RegExp(escape(term), 'gi'), `[[TERM_${index + 1}]]`), text),
+        hide: (text) => search ? text.split(/(\[\[[A-Z]+_\d+\]\])/).map((part, index) => index % 2 ? part : part.replace(search, token)).join('') : text,
         restore: (text) => text.replace(/\[\[TERM_(\d+)\]\]/g, (match, index) => list[Number(index) - 1] !== undefined ? list[Number(index) - 1] : match)
     };
 }
@@ -206,6 +318,14 @@ async function generate(config, prompt, fetchImpl = fetch) {
 }
 
 // Answer of the model for a prompt: {text, reasoningTokens (tokens of the reasoning of the model, null when not given)}
+// Settings of the AI server usable (address, additional parameters): checked before a request run in the background
+function checkConfig(config) {
+    if (!/^https?:\/\//i.test(baseUrl(config.url)))
+        throw aiError('The address of the AI server is not configured', 422);
+    if (!parseExtraParameters(config.extraParameters))
+        throw aiError('Invalid additional parameters of the requests (JSON object expected)', 422);
+}
+
 async function complete(config, prompt, fetchImpl = fetch) {
     var url = baseUrl(config.url);
     if (!/^https?:\/\//i.test(url))
@@ -239,17 +359,18 @@ async function complete(config, prompt, fetchImpl = fetch) {
     return {text: content, reasoningTokens: typeof reasoningTokens === 'number' ? reasoningTokens : null};
 }
 
-// Assisted writing: HTML proposed for an action on an HTML fragment. context: {terms (pseudonymization)}
+// Assisted writing: HTML proposed for an action on an HTML fragment, {html, missing}: images and captions of the fragment
+// put back (missing: number of those not kept by the model, put back at the end). context: {terms (pseudonymization)}
 async function assist(config, {action, html, instruction}, {terms = []} = {}, fetchImpl = fetch) {
-    var sent = htmlForModel(html);
-    if (!sent.replace(/<[^>]*>/g, '').trim()) // No text (images only)
+    var {html: sent, kept} = htmlForModel(html);
+    if (!sent.replace(/<[^>]*>/g, '').replace(KEPT_TOKEN, '').trim()) // No text (images only)
         throw aiError('Nothing to send to the AI', 422);
     if (sent.length > MAX_TEXT)
         throw aiError(`Text too long for the AI: ${MAX_TEXT} characters at most`, 413);
     var hider = pseudonymizer(config.pseudonymize ? terms : []);
     var prompt = buildPrompt({action, html: hider.hide(sent), instruction, guidelines: config.guidelines});
     var answer = await generate(config, prompt, fetchImpl);
-    return {html: hider.restore(answerHtml(answer))};
+    return restoreKept(hider.restore(answerHtml(answer)), kept);
 }
 
 var FIELD_MAX = 20000; // Characters of a field sent for the quality check by the AI
@@ -465,4 +586,4 @@ async function testConnection(config, fetchImpl = fetch) {
     return result;
 }
 
-module.exports = {ACTIONS, MAX_TEXT, parseExtraParameters, guidelineLines, htmlForModel, answerHtml, pseudonymizer, auditTerms, buildPrompt, qaPrompt, fieldText, valueAt, generate, complete, assist, qaIssues, qaAnswerIssues, testConnection};
+module.exports = {ACTIONS, MAX_TEXT, checkConfig, parseExtraParameters, guidelineLines, htmlForModel, restoreKept, answerHtml, pseudonymizer, auditTerms, buildPrompt, qaPrompt, fieldText, valueAt, generate, complete, assist, qaIssues, qaAnswerIssues, testConnection};

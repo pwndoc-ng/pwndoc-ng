@@ -17,6 +17,12 @@ function Created(res, data){
 };
 exports.Created = Created;
 
+// Request accepted, run in the background (requests to the AI: lib/ai-jobs.js)
+function Accepted(res, data){
+    res.status(202).json({"status": "success", "datas": data});
+};
+exports.Accepted = Accepted;
+
 function NoContent(res, data){
     res.status(204).json({"status": "success", "datas": data});
 };

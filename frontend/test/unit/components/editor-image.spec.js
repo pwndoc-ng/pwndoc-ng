@@ -87,6 +87,24 @@ describe('image commands', () => {
   })
 })
 
+describe('caption of the images', () => {
+  it('selects the image when its caption is clicked, without changing it (target of the AI assistance)', async () => {
+    const editor = await editorWith(`<p>Texte</p><img src="${ID}" alt="Requête du serveur" data-width="large"><p>Fin</p>`)
+    editor.commands.setTextSelection(2)
+    editor.view.dom.querySelector('.editor-image__caption').click()
+    await flushPromises()
+    expect(editor.state.selection.node && editor.state.selection.node.type.name).toBe('custom_image')
+    expect(imagesOf(editor)).toEqual([{ src: ID, alt: 'Requête du serveur', width: 'large' }])
+  })
+
+  it('does not select the image of a read-only editor', async () => {
+    current = await mountEditor({ extensions: contentExtensions(), content: `<p>Texte</p><img src="${ID}" alt="x">`, editable: false, mocks: { $settings: {} } })
+    current.editor.commands.setTextSelection(2)
+    current.editor.view.dom.querySelector('.editor-image__caption').click()
+    expect(current.editor.state.selection.node).toBeUndefined()
+  })
+})
+
 describe('paste of images', () => {
   it('uploads a pasted image file in the audit of the page and inserts it', async () => {
     window.history.replaceState({}, '', '/audits/a1b2c3/findings/f1')

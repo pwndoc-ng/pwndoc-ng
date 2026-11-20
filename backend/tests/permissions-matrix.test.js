@@ -278,6 +278,7 @@ module.exports = function(request, app) {
         ['get', `/api/audits/${FAKE_ID}/highlights`, 'audits:read', 404],
         ['get', `/api/audits/${FAKE_ID}/qa`, 'audits:read', 404],
         ['put', `/api/audits/${FAKE_ID}/qa/ignored`, 'audits:update', 404, {body: {fingerprint: 'a'.repeat(20), ignored: true}}],
+        ['put', `/api/audits/${FAKE_ID}/qa/ai/addressed`, 'audits:update', 404, {body: {fingerprint: 'a'.repeat(20), addressed: true}}],
 
         // Backups (src/routes/backup.js)
         ['get', '/api/backups', 'backups:read', 200],
@@ -301,6 +302,7 @@ module.exports = function(request, app) {
         ['post', '/api/ai/assist', 'ai:assist', 422, {body: {}}],
         ['post', `/api/audits/${FAKE_ID}/qa/ai`, 'ai:qa', 403],
         ['post', '/api/ai/test', 'settings:update', 422],
+        ['get', `/api/ai/jobs/${'f'.repeat(32)}`, 'validtoken', 404],
 
         // Unknown route (src/app.js)
         ['get', '/api/perm-unknown-route', null, 404]

@@ -116,8 +116,10 @@ var AuditSchema = new Schema({
     comments:           [CommentSchema],
     // Issues of the quality checks ignored by the users (lib/qa.js): fingerprint of the issue and of its content
     qaIgnored:          [{_id: false, fingerprint: String, by: {type: Schema.Types.ObjectId, ref: 'User'}, at: Date}],
-    // Last quality check by the AI (lib/ai.js): date, user and issues
-    qaAi:               {at: Date, by: {type: Schema.Types.ObjectId, ref: 'User'}, issues: Schema.Types.Mixed},
+    // Last quality check by the AI (lib/ai.js): date, user, issues, and issues addressed by the users (marked since this
+    // check: a new check starts again without them)
+    qaAi:               {at: Date, by: {type: Schema.Types.ObjectId, ref: 'User'}, issues: Schema.Types.Mixed,
+                         addressed: [{_id: false, fingerprint: String, by: {type: Schema.Types.ObjectId, ref: 'User'}, at: Date}]},
 }, {timestamps: true});
 
 /*
@@ -760,6 +762,21 @@ AuditSchema.statics.setQaIgnored = async (isAdmin, auditId, userId, fingerprint,
     var row = await Audit.findOneAndUpdate(writeFilter(isAdmin, auditId, userId), update, {timestamps: false})
     if (!row)
         throw({fn: 'NotFound', message: 'Audit not found or Insufficient Privileges'})
+    return 'Quality issue updated'
+}
+
+// Issue of the last quality check by the AI addressed (addressed true) or no longer addressed, by a user allowed to update
+// the audit. Not found: audit unknown or not writable, or issue not in the last check
+AuditSchema.statics.setQaAddressed = async (isAdmin, auditId, userId, fingerprint, addressed) => {
+    var update = addressed ?
+        [{$set: {'qaAi.addressed': {$concatArrays: [
+            {$filter: {input: {$ifNull: ['$qaAi.addressed', []]}, cond: {$ne: ['$$this.fingerprint', fingerprint]}}},
+            [{fingerprint: fingerprint, by: new mongoose.Types.ObjectId(String(userId)), at: '$$NOW'}]
+        ]}}}] :
+        {$pull: {'qaAi.addressed': {fingerprint: fingerprint}}}
+    var row = await Audit.findOneAndUpdate({...writeFilter(isAdmin, auditId, userId), 'qaAi.issues.fingerprint': fingerprint}, update, {timestamps: false})
+    if (!row)
+        throw({fn: 'NotFound', message: 'Audit or quality issue not found, or Insufficient Privileges'})
     return 'Quality issue updated'
 }
 

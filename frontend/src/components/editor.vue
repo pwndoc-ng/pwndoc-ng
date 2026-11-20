@@ -892,7 +892,7 @@ export default defineComponent({
       return !this.initialeDataUpdated && !!this.collabError;
     },
     previewContent() {
-      return this.withImageUrls(Utils.htmlEncode(this.htmlValue(this.modelValue)));
+      return Utils.withImageUrls(Utils.htmlEncode(this.htmlValue(this.modelValue)));
     },
     commentable() {
       return !!(this.commentsStore && this.commentTarget);
@@ -996,7 +996,7 @@ export default defineComponent({
           content += value;
         });
       }
-      return this.withImageUrls(Utils.htmlEncodeDiff(content));
+      return Utils.withImageUrls(Utils.htmlEncodeDiff(content));
     },
   },
 
@@ -1169,10 +1169,6 @@ export default defineComponent({
       const paragraph = document.createElement('p');
       paragraph.textContent = Array.isArray(value) ? value.join(', ') : (typeof value === 'object' ? JSON.stringify(value) : String(value));
       return paragraph.outerHTML;
-    },
-    // Images are stored by id: raw HTML shown with v-html needs their download URL
-    withImageUrls(html) {
-      return html.replace(/(<img\b[^>]*?\ssrc=")([^"]+)(")/g, (match, before, src, after) => before + Utils.normalizeImageUrl(src) + after);
     },
     // Initialization once the value of the page is loaded (loading prop) and, for the collaborative editors, the shared
     // document synchronized: its content is kept, or the last value of the page is written in the empty field.
